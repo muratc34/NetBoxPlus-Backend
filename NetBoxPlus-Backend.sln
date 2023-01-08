@@ -1,0 +1,56 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.3.32922.545
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{FA6E9211-F8B4-4B0E-BEA5-BE5667F1E156}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ApiGateways", "ApiGateways", "{50EF9956-FD13-4422-9FF5-0316F973AB40}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OcelotAPI", "src\ApiGateways\OcelotAPI\OcelotAPI.csproj", "{5D5542B9-AE97-4FE6-9AD2-6CC280F62FDC}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "BuildingBlocks", "BuildingBlocks", "{7CE3923B-EDCE-409A-9F65-C189A109CE6B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shared", "src\BuildingBlocks\Shared\Shared.csproj", "{F95734D3-F3E8-47C7-AA0B-8C67B008B390}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Services", "Services", "{15CC12CF-0A5F-4130-AEC6-9BE3AF2C9679}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Movie", "Movie", "{ECA9BE97-7454-45D8-BE1C-04B85D4C4CF7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MovieAPI", "src\Services\Movie\MovieAPI\MovieAPI.csproj", "{AB9E84CD-5FDE-44AA-9C53-1D2B8AB267C8}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5D5542B9-AE97-4FE6-9AD2-6CC280F62FDC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5D5542B9-AE97-4FE6-9AD2-6CC280F62FDC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5D5542B9-AE97-4FE6-9AD2-6CC280F62FDC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5D5542B9-AE97-4FE6-9AD2-6CC280F62FDC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F95734D3-F3E8-47C7-AA0B-8C67B008B390}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F95734D3-F3E8-47C7-AA0B-8C67B008B390}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F95734D3-F3E8-47C7-AA0B-8C67B008B390}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F95734D3-F3E8-47C7-AA0B-8C67B008B390}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AB9E84CD-5FDE-44AA-9C53-1D2B8AB267C8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AB9E84CD-5FDE-44AA-9C53-1D2B8AB267C8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AB9E84CD-5FDE-44AA-9C53-1D2B8AB267C8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AB9E84CD-5FDE-44AA-9C53-1D2B8AB267C8}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{50EF9956-FD13-4422-9FF5-0316F973AB40} = {FA6E9211-F8B4-4B0E-BEA5-BE5667F1E156}
+		{5D5542B9-AE97-4FE6-9AD2-6CC280F62FDC} = {50EF9956-FD13-4422-9FF5-0316F973AB40}
+		{7CE3923B-EDCE-409A-9F65-C189A109CE6B} = {FA6E9211-F8B4-4B0E-BEA5-BE5667F1E156}
+		{F95734D3-F3E8-47C7-AA0B-8C67B008B390} = {7CE3923B-EDCE-409A-9F65-C189A109CE6B}
+		{15CC12CF-0A5F-4130-AEC6-9BE3AF2C9679} = {FA6E9211-F8B4-4B0E-BEA5-BE5667F1E156}
+		{ECA9BE97-7454-45D8-BE1C-04B85D4C4CF7} = {15CC12CF-0A5F-4130-AEC6-9BE3AF2C9679}
+		{AB9E84CD-5FDE-44AA-9C53-1D2B8AB267C8} = {ECA9BE97-7454-45D8-BE1C-04B85D4C4CF7}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {32F5B53E-9F30-4959-BA7B-5D43D3398543}
+	EndGlobalSection
+EndGlobal
