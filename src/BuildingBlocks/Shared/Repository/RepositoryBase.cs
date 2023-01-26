@@ -12,6 +12,7 @@ namespace Shared.Repository
         where TEntity : class, IEntity, new()
         where TContext : DbContext, new()
     {
+
         public async Task CreateAsync(TEntity entity)
         {
             using (TContext context = new TContext())

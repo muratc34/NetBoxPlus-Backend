@@ -14,7 +14,7 @@ namespace MovieAPI.Services
             _genreRepository = genreRepository;
         }
 
-        public async Task<IResult> Add(Genre genre)
+        public async Task<IResult> AddAsync(Genre genre)
         {
             genre.Id = Guid.NewGuid();
 
@@ -22,28 +22,28 @@ namespace MovieAPI.Services
             return new SuccessResult();
         }
 
-        public async Task<IResult> Delete(Genre genre)
+        public async Task<IResult> DeleteAsync(Genre genre)
         {
             await _genreRepository.RemoveAsync(genre);
             return new SuccessResult();
         }
 
-        public async Task<IDataResult<List<Genre>>> GetAll()
+        public async Task<IDataResult<List<Genre>>> GetAllAsync()
         {
             return new SuccessDataResult<List<Genre>>(await _genreRepository.GetAllAsync());
         }
 
-        public async Task<IDataResult<Genre>> GetById(Guid id)
+        public async Task<IDataResult<Genre>> GetByIdAsync(Guid id)
         {
             return new SuccessDataResult<Genre>(await _genreRepository.GetAsync(b => b.Id == id));
         }
 
-        public async Task<IDataResult<List<Genre>>> GetByGenreCode(int code)
+        public async Task<IDataResult<List<Genre>>> GetByGenreCodeAsync(int code)
         {
             return new SuccessDataResult<List<Genre>>(await _genreRepository.GetAllAsync(g => g.GenreCode == code));
         }
 
-        public async Task<IResult> Update(Genre genre)
+        public async Task<IResult> UpdateAsync(Genre genre)
         {
             await _genreRepository.UpdateAsync(genre);
             return new SuccessResult();

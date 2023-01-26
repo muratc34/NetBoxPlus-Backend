@@ -7,5 +7,9 @@
         public int ReleaseYear { get; set; }
         public MpaaRatingType MpaaRating { get; set; }
         public ICollection<Genre>? Genre { get; set; }
+        public IFormFile? Poster { get; set; }
+        public IFormFile? Backdrop { get; set; }
+        public IFormFile? Trailer { get; set; }
+
     }
 }

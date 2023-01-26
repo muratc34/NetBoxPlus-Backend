@@ -8,7 +8,7 @@ namespace MovieAPI.Services
     {
         Task<IDataResult<List<Movie>>> GetAll();
         Task<IDataResult<Movie>> GetById(Guid id);
-        Task<IResult> Add(IFormFile poster, IFormFile backdropPic, MovieDto movieDto);
+        Task<IResult> Add(MovieDto movieDto);
         Task<IResult> Update(Movie movie);
         Task<IResult> Delete(Movie movie);
 

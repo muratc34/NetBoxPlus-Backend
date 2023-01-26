@@ -1,5 +1,6 @@
 {
   "Routes": [
+    // Movie API
     {
       "DownstreamPathTemplate": "/{url}",
       "DownstreamScheme": "https",
@@ -12,7 +13,6 @@
       "UpstreamPathTemplate": "/{url}",
       "UpstreamHttpMethod": [ "GET" ]
     },
-
     {
       "DownstreamPathTemplate": "/api/genres",
       "DownstreamScheme": "https",
@@ -23,7 +23,11 @@
         }
       ],
       "UpstreamPathTemplate": "/genre",
-      "UpstreamHttpMethod": [ "POST", "PUT", "GET" ]
+      "UpstreamHttpMethod": [ "POST", "PUT", "GET" ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
     },
     {
       "DownstreamPathTemplate": "/api/Movies",
@@ -36,7 +40,32 @@
       ],
       "UpstreamPathTemplate": "/movie",
       "UpstreamHttpMethod": [ "POST", "PUT", "GET" ]
+    },
+    // Auth API
+    {
+      "DownstreamPathTemplate": "/api/Auth/login",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 44332
+        }
+      ],
+      "UpstreamPathTemplate": "/login",
+      "UpstreamHttpMethod": [ "POST", "GET" ]
+    },
+    {
+      "DownstreamPathTemplate": "/api/Auth/register",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 44332
+        }
+      ],
+      "UpstreamPathTemplate": "/register",
+      "UpstreamHttpMethod": [ "POST", "GET" ]
     }
   ],
   "GlobalConfiguration": {}
-}
+  }

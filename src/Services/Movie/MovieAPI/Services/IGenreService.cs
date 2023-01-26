@@ -6,12 +6,12 @@ namespace MovieAPI.Services
 {
     public interface IGenreService
     {
-        Task<IDataResult<List<Genre>>> GetAll();
-        Task<IDataResult<Genre>> GetById(Guid id);
-        Task<IDataResult<List<Genre>>> GetByGenreCode(int code);
-        Task<IResult> Add(Genre genre);
-        Task<IResult> Update(Genre genre);
-        Task<IResult> Delete(Genre genre);
+        Task<IDataResult<List<Genre>>> GetAllAsync();
+        Task<IDataResult<Genre>> GetByIdAsync(Guid id);
+        Task<IDataResult<List<Genre>>> GetByGenreCodeAsync(int code);
+        Task<IResult> AddAsync(Genre genre);
+        Task<IResult> UpdateAsync(Genre genre);
+        Task<IResult> DeleteAsync(Genre genre);
     }
 
 }

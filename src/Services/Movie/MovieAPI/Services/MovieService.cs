@@ -17,10 +17,11 @@ namespace MovieAPI.Services
             //_publishEndpoint = publishEndpoint;
         }
 
-        public async Task<IResult> Add(IFormFile poster, IFormFile backdropPic, MovieDto movieDto)
+        public async Task<IResult> Add(MovieDto movieDto)
         {
-            var newPosterPath = FileHelper.Add(poster, @"/images/");
-            var newBackdropPicPath = FileHelper.Add(backdropPic, @"/backdrops/");
+            var newPosterPath = FileHelper.Add(movieDto.Poster!, @"/images/");
+            var newBackdropPicPath = FileHelper.Add(movieDto.Backdrop!, @"/backdrops/");
+            var newTrailerPath = FileHelper.Add(movieDto.Trailer!, @"/trailers/");
 
             var movie = new Movie
             {
@@ -32,6 +33,8 @@ namespace MovieAPI.Services
                 Genres = movieDto.Genre,
                 PosterPath = newPosterPath,
                 BackdropPicPath = newBackdropPicPath,
+                TrailerPath = newTrailerPath,
+                MovieClickCount = 0
             };
 
             //var genre = new GenreCreatedEvent

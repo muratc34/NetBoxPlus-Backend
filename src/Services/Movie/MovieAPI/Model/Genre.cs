@@ -1,5 +1,6 @@
 ﻿using Shared;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MovieAPI.Model
 {
@@ -8,6 +9,7 @@ namespace MovieAPI.Model
         [Key]
         [Required]
         public Guid Id { get; set; }
+        public Guid MovieId { get; set; }
         public int GenreCode { get; set; }
         public string? GenreTitle { get; set; }
     }

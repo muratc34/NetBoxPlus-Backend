@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MovieAPI.Model;
 using MovieAPI.Services;
@@ -19,7 +20,7 @@ namespace MovieAPI.Controllers
         [HttpGet]
         public IActionResult GetAll()
         {
-            var result = _genreService.GetAll().Result;
+            var result = _genreService.GetAllAsync().Result;
             if (result.Success)
             {
                 return Ok(result);
@@ -30,7 +31,7 @@ namespace MovieAPI.Controllers
         [HttpGet("{id}")]
         public IActionResult GetById(Guid id)
         {
-            var result = _genreService.GetById(id).Result;
+            var result = _genreService.GetByIdAsync(id).Result;
             if (result.Success)
             {
                 return Ok(result);
@@ -41,7 +42,7 @@ namespace MovieAPI.Controllers
         [HttpGet("code/{code}")]
         public IActionResult GetByGenreCode(int code)
         {
-            var result = _genreService.GetByGenreCode(code).Result;
+            var result = _genreService.GetByGenreCodeAsync(code).Result;
             if (result.Success)
             {
                 return Ok(result);
@@ -52,7 +53,7 @@ namespace MovieAPI.Controllers
         [HttpPost]
         public IActionResult Add(Genre genre)
         {
-            var result = _genreService.Add(genre).Result;
+            var result = _genreService.AddAsync(genre).Result;
             if (result.Success)
             {
                 return Ok(result);
@@ -63,7 +64,7 @@ namespace MovieAPI.Controllers
         [HttpDelete]
         public IActionResult Delete(Genre genre)
         {
-            var result = _genreService.Delete(genre).Result;
+            var result = _genreService.DeleteAsync(genre).Result;
             if (result.Success)
             {
                 return Ok(result);
@@ -74,7 +75,7 @@ namespace MovieAPI.Controllers
         [HttpPut]
         public IActionResult Update(Genre genre)
         {
-            var result = _genreService.Update(genre).Result;
+            var result = _genreService.UpdateAsync(genre).Result;
             if (result.Success)
             {
                 return Ok(result);

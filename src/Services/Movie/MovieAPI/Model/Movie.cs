@@ -1,5 +1,6 @@
 ﻿using Shared;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MovieAPI.Model
 {
@@ -14,6 +15,7 @@ namespace MovieAPI.Model
         public string? BackdropPicPath { get; set; }
         public string? MoviePath { get; set; }
         public string? TrailerPath { get; set; }
+        public int MovieClickCount { get; set; }
         public int ReleaseYear { get; set; }
         public MpaaRatingType MpaaRating { get; set; }
         public ICollection<Genre>? Genres { get; set; }

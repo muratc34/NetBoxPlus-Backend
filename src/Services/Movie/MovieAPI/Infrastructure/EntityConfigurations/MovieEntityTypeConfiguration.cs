@@ -16,6 +16,9 @@ namespace MovieAPI.Infrastructure.EntityConfigurations
             builder.Property(mi => mi.Title)
                 .IsRequired();
 
+            builder.Property(mi => mi.MovieClickCount)
+                .IsRequired();
+
             builder.Property(mi => mi.ReleaseYear)
                 .IsRequired()
                 .HasMaxLength(4);
@@ -25,8 +28,6 @@ namespace MovieAPI.Infrastructure.EntityConfigurations
                 .HasConversion(
                     v => v.ToString(),
                     v => (MpaaRatingType)Enum.Parse(typeof(MpaaRatingType), v));
-
-
 
         }
     }

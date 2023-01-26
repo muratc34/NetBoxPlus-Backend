@@ -1,12 +1,15 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MovieAPI.Model;
 using MovieAPI.Services;
 
 namespace MovieAPI.Controllers
 {
+    
     [Route("api/[controller]")]
     [ApiController]
+    
     public class MoviesController : ControllerBase
     {
         IMovieService _movieService;
@@ -15,8 +18,9 @@ namespace MovieAPI.Controllers
         {
             _movieService = movieService;
         }
-
+        
         [HttpGet]
+        [AllowAnonymous]
         public IActionResult GetAll()
         {
             var result = _movieService.GetAll().Result;
@@ -39,9 +43,9 @@ namespace MovieAPI.Controllers
         }
 
         [HttpPost]
-        public IActionResult Add(IFormFile poster, IFormFile backdropPic, [FromForm] MovieDto movieDto)
+        public IActionResult Add( [FromForm] MovieDto movieDto)
         {
-            var result = _movieService.Add(poster, backdropPic, movieDto).Result;
+            var result = _movieService.Add(movieDto).Result;
             if (result.Success)
             {
                 return Ok(result);

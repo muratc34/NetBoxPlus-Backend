@@ -1,5 +1,8 @@
 using MovieAPI.Infrastructure.Repositories;
 using MovieAPI.Services;
+using Shared;
+using Shared.Security.Jwt;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +24,9 @@ builder.Services.AddScoped<IGenreRepository, GenreRepository>();
 //    });
 //});
 
+var tokenOptions = builder.Configuration.GetSection("TokenOptions").Get<TokenOptions>();
+builder.Services.AddCustomJwtAuthentication(tokenOptions!);
+
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -36,7 +42,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
 app.UseStaticFiles();
+
+app.UseAuthentication();
 
 app.UseAuthorization();
 

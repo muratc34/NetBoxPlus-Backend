@@ -12,7 +12,10 @@ namespace MovieAPI.Infrastructure.Repositories
         {
             using (MovieContext context = new MovieContext())
             {
-                return await context.Set<Movie>().Include("Genres").SingleOrDefaultAsync(filter);
+                var movie = await context.Set<Movie>().Include("Genres").SingleOrDefaultAsync(filter);
+                movie.MovieClickCount += 1;
+                await context.SaveChangesAsync();
+                return movie;
             }
         }
 
