@@ -23,12 +23,6 @@ namespace MovieAPI.Infrastructure.EntityConfigurations
                 .IsRequired()
                 .HasMaxLength(4);
 
-            builder.Property(mi => mi.MpaaRating)
-                .IsRequired()
-                .HasConversion(
-                    v => v.ToString(),
-                    v => (MpaaRatingType)Enum.Parse(typeof(MpaaRatingType), v));
-
         }
     }
 }

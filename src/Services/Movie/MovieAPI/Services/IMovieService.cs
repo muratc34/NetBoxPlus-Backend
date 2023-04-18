@@ -6,11 +6,11 @@ namespace MovieAPI.Services
 {
     public interface IMovieService
     {
-        Task<IDataResult<List<Movie>>> GetAll();
-        Task<IDataResult<Movie>> GetById(Guid id);
-        Task<IResult> Add(MovieDto movieDto);
-        Task<IResult> Update(Movie movie);
-        Task<IResult> Delete(Movie movie);
+        Task<IDataResult<List<Movie>>> GetAllAsync();
+        Task<IDataResult<Movie>> GetByIdAsync(Guid id);
+        Task<IResult> AddAsync(MovieDto movieDto);
+        Task<IResult> UpdateAsync(Movie movie);
+        Task<IResult> DeleteAsync(Movie movie);
 
     }
 

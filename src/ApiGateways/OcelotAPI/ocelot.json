@@ -23,11 +23,7 @@
         }
       ],
       "UpstreamPathTemplate": "/genre",
-      "UpstreamHttpMethod": [ "POST", "PUT", "GET" ],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
-      }
+      "UpstreamHttpMethod": [ "POST", "PUT", "GET" ]
     },
     {
       "DownstreamPathTemplate": "/api/Movies",
@@ -40,6 +36,18 @@
       ],
       "UpstreamPathTemplate": "/movie",
       "UpstreamHttpMethod": [ "POST", "PUT", "GET" ]
+    },
+    {
+      "DownstreamPathTemplate": "/api/Movies/{id}",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 44372
+        }
+      ],
+      "UpstreamPathTemplate": "/movie/{id}",
+      "UpstreamHttpMethod": [ "GET" ]
     },
     // Auth API
     {
@@ -67,5 +75,5 @@
       "UpstreamHttpMethod": [ "POST", "GET" ]
     }
   ],
-  "GlobalConfiguration": {}
-  }
+  "GlobalConfiguration": { }
+}

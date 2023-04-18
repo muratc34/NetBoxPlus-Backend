@@ -18,13 +18,15 @@ namespace MovieAPI.Infrastructure
 
         public DbSet<Movie> Movies { get; set; }
         public DbSet<Genre> Genres { get; set; }
+        public DbSet<AgeRating> AgeRatings { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.ApplyConfiguration(new MovieEntityTypeConfiguration());
             modelBuilder.ApplyConfiguration(new GenreEntityTypeConfiguration());
+            modelBuilder.ApplyConfiguration(new AgeRatingEntityTypeConfiguration());
 
-            #region Genre and Movie Ids
+            #region Define Ids
             Guid genre1 = Guid.NewGuid();
             Guid genre2 = Guid.NewGuid();
             Guid genre3 = Guid.NewGuid();
@@ -47,6 +49,12 @@ namespace MovieAPI.Infrastructure
             Guid movie1 = Guid.NewGuid();
             Guid movie2 = Guid.NewGuid();
             Guid movie3 = Guid.NewGuid();
+
+            Guid age1 = Guid.NewGuid();
+            Guid age2 = Guid.NewGuid();
+            Guid age3 = Guid.NewGuid();
+            Guid age4 = Guid.NewGuid();
+            Guid age5 = Guid.NewGuid();
             #endregion
 
             #region Genre Data
@@ -58,10 +66,19 @@ namespace MovieAPI.Infrastructure
                 new() { Id = genre4, GenreTitle = "Macera", GenreCode = 2, MovieId = movie2},
                 new() { Id = genre5, GenreTitle = "Macera", GenreCode = 2, MovieId = movie3},
                 new() { Id = genre6, GenreTitle = "Komedi", GenreCode = 4, MovieId = movie3},
-                new() { Id = genre7, GenreTitle = "Fantastik", GenreCode = 9, MovieId = movie3 },
-                new() { Id = genre8, GenreTitle = "Bilim Kurgu", GenreCode = 15, MovieId = movie1 },
-                new() { Id = genre9, GenreTitle = "Bilim Kurgu", GenreCode = 15, MovieId = movie2 },
-                new() { Id = genre10, GenreTitle = "Batılı", GenreCode = 18, MovieId = movie3 }
+                new() { Id = genre7, GenreTitle = "Fantastik", GenreCode = 9, MovieId = movie3},
+                new() { Id = genre8, GenreTitle = "Bilim Kurgu", GenreCode = 15, MovieId = movie1},
+                new() { Id = genre9, GenreTitle = "Bilim Kurgu", GenreCode = 15, MovieId = movie2},
+                new() { Id = genre10, GenreTitle = "Batılı", GenreCode = 18, MovieId = movie3}
+            };
+            #endregion
+
+            #region AgeRatingData
+            List<AgeRating> ageRatingSeed = new List<AgeRating>()
+            {
+                new() { Id = age1, Rating = "13+", RatingCode= 3, MovieId = movie1 },
+                new() { Id = age2, Rating = "18+", RatingCode= 5, MovieId = movie2 },
+                new() { Id = age3, Rating = "13+", RatingCode= 3, MovieId = movie3 },
             };
             #endregion
 
@@ -76,7 +93,6 @@ namespace MovieAPI.Infrastructure
                     BackdropPicPath = "/backdrops/2b0c25864b3142e38ef89e3818ac026b.jpg",
                     TrailerPath = "/trailers/881bc6d2b70047aea0da2bc39f437e85.mp4",
                     ReleaseYear = 2008,
-                    MpaaRating = MpaaRatingType.P13,
                     MovieClickCount = 0,
                 },
                 new() {
@@ -87,7 +103,6 @@ namespace MovieAPI.Infrastructure
                     BackdropPicPath = "/backdrops/92a1013355f641098dbfb8ada29d378d.jpg",
                     TrailerPath = "/trailers/21caaee63a934d40adbbac4c09fbe97d.mp4",
                     ReleaseYear = 2004,
-                    MpaaRating = MpaaRatingType.P18,
                     MovieClickCount = 0,
                 },
                 new() {
@@ -98,7 +113,6 @@ namespace MovieAPI.Infrastructure
                     BackdropPicPath = "/backdrops/8af11b4faa4645f986553222ae2af034.jpg",
                     TrailerPath = "/trailers/20a27c60c72e4f58a2cad022214de908.mp4",
                     ReleaseYear = 2009,
-                    MpaaRating = MpaaRatingType.P18,
                     MovieClickCount = 0,
                 }
 
@@ -107,6 +121,7 @@ namespace MovieAPI.Infrastructure
 
             modelBuilder.Entity<Movie>().HasData(movieSeed);
             modelBuilder.Entity<Genre>().HasData(genreSeed);
+            modelBuilder.Entity<AgeRating>().HasData(ageRatingSeed);
         }
     }
 }

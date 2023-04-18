@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MovieAPI.Migrations
 {
     [DbContext(typeof(MovieContext))]
-    [Migration("20230124091910_init")]
+    [Migration("20230406081327_init")]
     partial class init
     {
         /// <inheritdoc />
@@ -24,6 +24,53 @@ namespace MovieAPI.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("MovieAPI.Model.AgeRating", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MovieId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Rating")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("RatingCode")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MovieId")
+                        .IsUnique();
+
+                    b.ToTable("AgeRating", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("86f4410a-834d-41f0-ab03-9f7f423ffa68"),
+                            MovieId = new Guid("aad9fa7b-ed42-4578-8bd4-9d11300c5aa7"),
+                            Rating = "13+",
+                            RatingCode = 3
+                        },
+                        new
+                        {
+                            Id = new Guid("4511ce42-49af-4172-899c-66d90b740cbf"),
+                            MovieId = new Guid("e381968a-6868-4d18-8a5e-d0b689526786"),
+                            Rating = "18+",
+                            RatingCode = 5
+                        },
+                        new
+                        {
+                            Id = new Guid("235a753a-7069-41c2-9184-d74bc518e025"),
+                            MovieId = new Guid("c8542199-bc95-4d19-8ef9-cbf85134a113"),
+                            Rating = "13+",
+                            RatingCode = 3
+                        });
+                });
 
             modelBuilder.Entity("MovieAPI.Model.Genre", b =>
                 {
@@ -50,73 +97,73 @@ namespace MovieAPI.Migrations
                     b.HasData(
                         new
                         {
-                            Id = new Guid("deb36810-6e9d-4e8f-9f7e-b4856509fe42"),
+                            Id = new Guid("25ef1df0-a2ea-45d0-940d-43af27713381"),
                             GenreCode = 1,
                             GenreTitle = "Aksiyon",
-                            MovieId = new Guid("43e3434b-c570-4c6c-bc16-7b62c183cde9")
+                            MovieId = new Guid("aad9fa7b-ed42-4578-8bd4-9d11300c5aa7")
                         },
                         new
                         {
-                            Id = new Guid("8dc1695a-5f22-4246-98f9-c0a08f76bd83"),
+                            Id = new Guid("7da6cb20-2174-44d9-937c-4f8cdadd0ff6"),
                             GenreCode = 1,
                             GenreTitle = "Aksiyon",
-                            MovieId = new Guid("0d26828a-e2d4-4e1e-99e8-c850b6b84cbf")
+                            MovieId = new Guid("e381968a-6868-4d18-8a5e-d0b689526786")
                         },
                         new
                         {
-                            Id = new Guid("d8c38547-2721-41fe-93a2-47693ab00300"),
+                            Id = new Guid("9477c56a-c7c3-4eaa-9b6c-c5b900c3cc68"),
                             GenreCode = 2,
                             GenreTitle = "Macera",
-                            MovieId = new Guid("43e3434b-c570-4c6c-bc16-7b62c183cde9")
+                            MovieId = new Guid("aad9fa7b-ed42-4578-8bd4-9d11300c5aa7")
                         },
                         new
                         {
-                            Id = new Guid("fefbffe2-bd9d-44cf-b78a-8871783ae509"),
+                            Id = new Guid("945bb268-f789-4ba4-a38d-ae25a31dfbf0"),
                             GenreCode = 2,
                             GenreTitle = "Macera",
-                            MovieId = new Guid("0d26828a-e2d4-4e1e-99e8-c850b6b84cbf")
+                            MovieId = new Guid("e381968a-6868-4d18-8a5e-d0b689526786")
                         },
                         new
                         {
-                            Id = new Guid("40a295f6-3dcd-46ec-93e7-c98f8311cad3"),
+                            Id = new Guid("cb8dd30d-453d-4042-98a6-03cb3aab3a21"),
                             GenreCode = 2,
                             GenreTitle = "Macera",
-                            MovieId = new Guid("14b24a0e-6c17-4bda-802a-a0c31325cd16")
+                            MovieId = new Guid("c8542199-bc95-4d19-8ef9-cbf85134a113")
                         },
                         new
                         {
-                            Id = new Guid("98c27043-4f59-42b1-b9ad-5ab6330b8bfe"),
+                            Id = new Guid("3932bbf2-d6ee-4cfd-af39-23b737713046"),
                             GenreCode = 4,
                             GenreTitle = "Komedi",
-                            MovieId = new Guid("14b24a0e-6c17-4bda-802a-a0c31325cd16")
+                            MovieId = new Guid("c8542199-bc95-4d19-8ef9-cbf85134a113")
                         },
                         new
                         {
-                            Id = new Guid("e0265f7c-3a1c-4ba6-960f-c04ccb271efa"),
+                            Id = new Guid("dfe037b0-1590-40ed-b27e-c8bfa0d8b312"),
                             GenreCode = 9,
                             GenreTitle = "Fantastik",
-                            MovieId = new Guid("14b24a0e-6c17-4bda-802a-a0c31325cd16")
+                            MovieId = new Guid("c8542199-bc95-4d19-8ef9-cbf85134a113")
                         },
                         new
                         {
-                            Id = new Guid("907af036-93e8-4b2c-bacf-84bdf3414a2f"),
+                            Id = new Guid("e4768910-5cd2-4b18-b00b-3e42b6be2689"),
                             GenreCode = 15,
                             GenreTitle = "Bilim Kurgu",
-                            MovieId = new Guid("43e3434b-c570-4c6c-bc16-7b62c183cde9")
+                            MovieId = new Guid("aad9fa7b-ed42-4578-8bd4-9d11300c5aa7")
                         },
                         new
                         {
-                            Id = new Guid("070ecd47-2425-47c8-b51c-2661a80a5931"),
+                            Id = new Guid("cbce449f-aacd-45b9-876d-fe5ff9a19549"),
                             GenreCode = 15,
                             GenreTitle = "Bilim Kurgu",
-                            MovieId = new Guid("0d26828a-e2d4-4e1e-99e8-c850b6b84cbf")
+                            MovieId = new Guid("e381968a-6868-4d18-8a5e-d0b689526786")
                         },
                         new
                         {
-                            Id = new Guid("4055ee8f-def7-4d20-88eb-c70ec0456839"),
+                            Id = new Guid("8d648e87-0387-44f7-a3b5-46e21a1bb2d0"),
                             GenreCode = 18,
                             GenreTitle = "Batılı",
-                            MovieId = new Guid("14b24a0e-6c17-4bda-802a-a0c31325cd16")
+                            MovieId = new Guid("c8542199-bc95-4d19-8ef9-cbf85134a113")
                         });
                 });
 
@@ -136,10 +183,6 @@ namespace MovieAPI.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("MoviePath")
-                        .HasColumnType("text");
-
-                    b.Property<string>("MpaaRating")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("PosterPath")
@@ -163,11 +206,10 @@ namespace MovieAPI.Migrations
                     b.HasData(
                         new
                         {
-                            Id = new Guid("43e3434b-c570-4c6c-bc16-7b62c183cde9"),
+                            Id = new Guid("aad9fa7b-ed42-4578-8bd4-9d11300c5aa7"),
                             BackdropPicPath = "/backdrops/2b0c25864b3142e38ef89e3818ac026b.jpg",
                             MovieClickCount = 0,
                             MovieDescription = "Komutan Logar, halı tüccarı Arif'i zamanda bir milyon yıl geriye gönderir. Burada dinozorlarla karşılaşan Arif, sakalını tıraş etmenin bir yolunu da bulur.",
-                            MpaaRating = "P13",
                             PosterPath = "/images/7c176488167c4a389acf5eea903db08b.jpg",
                             ReleaseYear = 2008,
                             Title = "A.R.O.G",
@@ -175,11 +217,10 @@ namespace MovieAPI.Migrations
                         },
                         new
                         {
-                            Id = new Guid("0d26828a-e2d4-4e1e-99e8-c850b6b84cbf"),
+                            Id = new Guid("e381968a-6868-4d18-8a5e-d0b689526786"),
                             BackdropPicPath = "/backdrops/92a1013355f641098dbfb8ada29d378d.jpg",
                             MovieClickCount = 0,
                             MovieDescription = "Sahte UFO fotoğrafçısı ve halı tüccarı olan Arif uzaylılarca kaçırılır. Gora gezegeninde, yaklaşan göktaşından kurtulmak ve özgür kalmak için arkadaşlarına yardım eder.",
-                            MpaaRating = "P18",
                             PosterPath = "/images/3ebd25faf255400a94f923db9a020d0c.jpg",
                             ReleaseYear = 2004,
                             Title = "G.O.R.A",
@@ -187,16 +228,24 @@ namespace MovieAPI.Migrations
                         },
                         new
                         {
-                            Id = new Guid("14b24a0e-6c17-4bda-802a-a0c31325cd16"),
+                            Id = new Guid("c8542199-bc95-4d19-8ef9-cbf85134a113"),
                             BackdropPicPath = "/backdrops/8af11b4faa4645f986553222ae2af034.jpg",
                             MovieClickCount = 0,
                             MovieDescription = "İki Osmanlı yetkilisi, sultanlarının adına ABD başkanına elmas bir kolye teslim etmek üzere cesurca Vahşi Batı'ya gider. Ama yaşanan kaos yüzünden bu görev raydan çıkar.",
-                            MpaaRating = "P18",
                             PosterPath = "/images/bb9434b7c54546488964dd2cc7687067.jpg",
                             ReleaseYear = 2009,
                             Title = "Yahşi Batı",
                             TrailerPath = "/trailers/20a27c60c72e4f58a2cad022214de908.mp4"
                         });
+                });
+
+            modelBuilder.Entity("MovieAPI.Model.AgeRating", b =>
+                {
+                    b.HasOne("MovieAPI.Model.Movie", null)
+                        .WithOne("AgeRating")
+                        .HasForeignKey("MovieAPI.Model.AgeRating", "MovieId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("MovieAPI.Model.Genre", b =>
@@ -210,6 +259,8 @@ namespace MovieAPI.Migrations
 
             modelBuilder.Entity("MovieAPI.Model.Movie", b =>
                 {
+                    b.Navigation("AgeRating");
+
                     b.Navigation("Genres");
                 });
 #pragma warning restore 612, 618

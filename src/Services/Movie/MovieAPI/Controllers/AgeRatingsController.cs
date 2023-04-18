@@ -1,24 +1,25 @@
-﻿using AuthAPI.Model;
-using AuthAPI.Services;
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using MovieAPI.Model;
+using MovieAPI.Services;
 
-namespace AuthAPI.Controllers
+namespace MovieAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class UsersController : ControllerBase
+    public class AgeRatingsController : ControllerBase
     {
-        IUserService _userService;
+        IAgeRatingService _ageRatingService;
 
-        public UsersController(IUserService userService)
+        public AgeRatingsController(IAgeRatingService ageRatingService)
         {
-            _userService = userService;
+            _ageRatingService = ageRatingService;
         }
+
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var result = await _userService.GetAllAsync();
+            var result = await _ageRatingService.GetAllAsync();
             if (result.Success)
             {
                 return Ok(result);
@@ -29,17 +30,18 @@ namespace AuthAPI.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(Guid id)
         {
-            var result = await _userService.GetByIdAsync(id);
+            var result = await _ageRatingService.GetByIdAsync(id);
             if (result.Success)
             {
                 return Ok(result);
             }
             return BadRequest(result);
         }
+
         [HttpPost]
-        public async Task<IActionResult> Add(User user)
+        public async Task<IActionResult> Add(AgeRating ageRating)
         {
-            var result = await _userService.AddAsync(user);
+            var result = await _ageRatingService.AddAsync(ageRating);
             if (result.Success)
             {
                 return Ok(result);
@@ -48,9 +50,9 @@ namespace AuthAPI.Controllers
         }
 
         [HttpDelete]
-        public async Task<IActionResult> Delete(User user)
+        public async Task<IActionResult> Delete(AgeRating ageRating)
         {
-            var result = await _userService.DeleteAsync(user);
+            var result = await _ageRatingService.DeleteAsync(ageRating);
             if (result.Success)
             {
                 return Ok(result);
@@ -59,9 +61,9 @@ namespace AuthAPI.Controllers
         }
 
         [HttpPut]
-        public async Task<IActionResult> Update(User user)
+        public async Task<IActionResult> Update(AgeRating ageRating)
         {
-            var result = await _userService.UpdateAsync(user);
+            var result = await _ageRatingService.UpdateAsync(ageRating);
             if (result.Success)
             {
                 return Ok(result);

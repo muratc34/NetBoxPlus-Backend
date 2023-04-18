@@ -20,10 +20,9 @@ namespace MovieAPI.Controllers
         }
         
         [HttpGet]
-        [AllowAnonymous]
-        public IActionResult GetAll()
+        public async Task<IActionResult> GetAll()
         {
-            var result = _movieService.GetAll().Result;
+            var result = await _movieService.GetAllAsync();
             if (result.Success)
             {
                 return Ok(result);
@@ -32,9 +31,9 @@ namespace MovieAPI.Controllers
         }
 
         [HttpGet("{id}")]
-        public IActionResult GetById(Guid id)
+        public async Task<IActionResult> GetById(Guid id)
         {
-            var result = _movieService.GetById(id).Result;
+            var result = await _movieService.GetByIdAsync(id);
             if (result.Success)
             {
                 return Ok(result);
@@ -43,9 +42,10 @@ namespace MovieAPI.Controllers
         }
 
         [HttpPost]
-        public IActionResult Add( [FromForm] MovieDto movieDto)
+        [DisableRequestSizeLimit]
+        public async Task<IActionResult> Add( [FromForm] MovieDto movieDto)
         {
-            var result = _movieService.Add(movieDto).Result;
+            var result = await _movieService.AddAsync(movieDto);
             if (result.Success)
             {
                 return Ok(result);
@@ -54,9 +54,9 @@ namespace MovieAPI.Controllers
         }
 
         [HttpDelete]
-        public IActionResult Delete(Movie movie)
+        public async Task<IActionResult> Delete(Movie movie)
         {
-            var result = _movieService.Delete(movie).Result;
+            var result = await _movieService.DeleteAsync(movie);
             if (result.Success)
             {
                 return Ok(result);
@@ -65,9 +65,9 @@ namespace MovieAPI.Controllers
         }
 
         [HttpPut]
-        public IActionResult Update(Movie movie)
+        public async Task<IActionResult> Update(Movie movie)
         {
-            var result = _movieService.Update(movie).Result;
+            var result = await _movieService.UpdateAsync(movie);
             if (result.Success)
             {
                 return Ok(result);

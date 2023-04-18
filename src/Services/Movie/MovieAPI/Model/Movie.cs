@@ -17,7 +17,7 @@ namespace MovieAPI.Model
         public string? TrailerPath { get; set; }
         public int MovieClickCount { get; set; }
         public int ReleaseYear { get; set; }
-        public MpaaRatingType MpaaRating { get; set; }
+        public AgeRating? AgeRating { get; set; }
         public ICollection<Genre>? Genres { get; set; }
     }
 }

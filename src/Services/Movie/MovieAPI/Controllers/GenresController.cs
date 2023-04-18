@@ -18,9 +18,9 @@ namespace MovieAPI.Controllers
         }
 
         [HttpGet]
-        public IActionResult GetAll()
+        public async Task<IActionResult> GetAll()
         {
-            var result = _genreService.GetAllAsync().Result;
+            var result = await _genreService.GetAllAsync();
             if (result.Success)
             {
                 return Ok(result);
@@ -29,9 +29,9 @@ namespace MovieAPI.Controllers
         }
 
         [HttpGet("{id}")]
-        public IActionResult GetById(Guid id)
+        public async Task<IActionResult> GetById(Guid id)
         {
-            var result = _genreService.GetByIdAsync(id).Result;
+            var result = await _genreService.GetByIdAsync(id);
             if (result.Success)
             {
                 return Ok(result);
@@ -40,9 +40,9 @@ namespace MovieAPI.Controllers
         }
 
         [HttpGet("code/{code}")]
-        public IActionResult GetByGenreCode(int code)
+        public async Task<IActionResult> GetByGenreCode(int code)
         {
-            var result = _genreService.GetByGenreCodeAsync(code).Result;
+            var result = await _genreService.GetByGenreCodeAsync(code);
             if (result.Success)
             {
                 return Ok(result);
@@ -51,9 +51,9 @@ namespace MovieAPI.Controllers
         }
 
         [HttpPost]
-        public IActionResult Add(Genre genre)
+        public async Task<IActionResult> Add(Genre genre)
         {
-            var result = _genreService.AddAsync(genre).Result;
+            var result = await _genreService.AddAsync(genre);
             if (result.Success)
             {
                 return Ok(result);
@@ -62,9 +62,9 @@ namespace MovieAPI.Controllers
         }
 
         [HttpDelete]
-        public IActionResult Delete(Genre genre)
+        public async Task<IActionResult> Delete(Genre genre)
         {
-            var result = _genreService.DeleteAsync(genre).Result;
+            var result = await _genreService.DeleteAsync(genre);
             if (result.Success)
             {
                 return Ok(result);
@@ -73,9 +73,9 @@ namespace MovieAPI.Controllers
         }
 
         [HttpPut]
-        public IActionResult Update(Genre genre)
+        public async Task<IActionResult> Update(Genre genre)
         {
-            var result = _genreService.UpdateAsync(genre).Result;
+            var result = await _genreService.UpdateAsync(genre);
             if (result.Success)
             {
                 return Ok(result);

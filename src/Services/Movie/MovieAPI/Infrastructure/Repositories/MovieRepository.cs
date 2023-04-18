@@ -12,7 +12,7 @@ namespace MovieAPI.Infrastructure.Repositories
         {
             using (MovieContext context = new MovieContext())
             {
-                var movie = await context.Set<Movie>().Include("Genres").SingleOrDefaultAsync(filter);
+                var movie = await context.Set<Movie>().Include("Genres").Include("AgeRating").SingleOrDefaultAsync(filter);
                 movie.MovieClickCount += 1;
                 await context.SaveChangesAsync();
                 return movie;
@@ -23,7 +23,7 @@ namespace MovieAPI.Infrastructure.Repositories
         {
             using (MovieContext context = new MovieContext())
             {
-                return await (filter == null ? context.Set<Movie>().Include("Genres").ToListAsync() : context.Set<Movie>().Include("Genres").Where(filter).ToListAsync());
+                return await (filter == null ? context.Set<Movie>().Include("Genres").Include("AgeRating").ToListAsync() : context.Set<Movie>().Include("Genres").Where(filter).ToListAsync());
             }
         }
     }

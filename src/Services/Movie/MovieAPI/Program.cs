@@ -14,6 +14,9 @@ builder.Services.AddScoped<IMovieRepository, MovieRepository>();
 builder.Services.AddScoped<IGenreService, GenreService>();
 builder.Services.AddScoped<IGenreRepository, GenreRepository>();
 
+builder.Services.AddScoped<IAgeRatingService, AgeRatingService>();
+builder.Services.AddScoped<IAgeRatingRepository, AgeRatingRepository>();
+
 //builder.Services.AddMassTransit(options => {
 //    options.UsingRabbitMq((context, cfg) => {
 //        cfg.Host(new Uri("rabbitmq://localhost:4001"), h => {

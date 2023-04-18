@@ -2,6 +2,8 @@
 using MovieAPI.Infrastructure.Repositories;
 using MovieAPI.Model;
 using Shared.Results;
+using System.Collections.Generic;
+using System.Text.Json;
 using IResult = Shared.Results.IResult;
 
 namespace MovieAPI.Services
@@ -17,7 +19,7 @@ namespace MovieAPI.Services
             //_publishEndpoint = publishEndpoint;
         }
 
-        public async Task<IResult> Add(MovieDto movieDto)
+        public async Task<IResult> AddAsync(MovieDto movieDto)
         {
             var newPosterPath = FileHelper.Add(movieDto.Poster!, @"/images/");
             var newBackdropPicPath = FileHelper.Add(movieDto.Backdrop!, @"/backdrops/");
@@ -29,7 +31,7 @@ namespace MovieAPI.Services
                 MovieDescription = movieDto.MovieDescription,
                 Title = movieDto.Title,
                 ReleaseYear = movieDto.ReleaseYear,
-                MpaaRating = movieDto.MpaaRating,
+                AgeRating = movieDto.AgeRating,
                 Genres = movieDto.Genre,
                 PosterPath = newPosterPath,
                 BackdropPicPath = newBackdropPicPath,
@@ -51,23 +53,23 @@ namespace MovieAPI.Services
             return new SuccessResult();
         }
 
-        public async Task<IResult> Delete(Movie movie)
+        public async Task<IResult> DeleteAsync(Movie movie)
         {
             await _movieRepository.RemoveAsync(movie);
             return new SuccessResult();
         }
 
-        public async Task<IDataResult<List<Movie>>> GetAll()
+        public async Task<IDataResult<List<Movie>>> GetAllAsync()
         {
             return new SuccessDataResult<List<Movie>>(await _movieRepository.GetAllIncludeAsync());
         }
 
-        public async Task<IDataResult<Movie>> GetById(Guid id)
+        public async Task<IDataResult<Movie>> GetByIdAsync(Guid id)
         {
             return new SuccessDataResult<Movie>(await _movieRepository.GetIncludeData(m => m.Id == id));
         }
 
-        public async Task<IResult> Update(Movie movie)
+        public async Task<IResult> UpdateAsync(Movie movie)
         {
             await _movieRepository.UpdateAsync(movie);
             return new SuccessResult();

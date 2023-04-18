@@ -1,5 +1,6 @@
 ﻿using AuthAPI.Infrastructure.Repositories;
 using AuthAPI.Model;
+using Microsoft.IdentityModel.Tokens;
 using Shared.Results;
 using static MassTransit.Monitoring.Performance.BuiltInCounters;
 using IResult = Shared.Results.IResult;
