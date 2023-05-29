@@ -2,9 +2,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace AuthAPI.Infrastructure.EntityConfiguration
+namespace AuthAPI.Infrastructure.EntityConfigurations
 {
-    public class OperationClaimEntityTypeConfiguration:IEntityTypeConfiguration<OperationClaim>
+    public class OperationClaimEntityTypeConfiguration
+        :IEntityTypeConfiguration<OperationClaim>
     {
         public void Configure(EntityTypeBuilder<OperationClaim> builder)
         {

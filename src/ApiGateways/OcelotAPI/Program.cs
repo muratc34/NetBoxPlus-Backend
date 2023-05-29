@@ -1,9 +1,5 @@
 using Ocelot.DependencyInjection;
 using Ocelot.Middleware;
-using Ocelot.Values;
-using Shared;
-using Shared.Security.Jwt;
-using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 

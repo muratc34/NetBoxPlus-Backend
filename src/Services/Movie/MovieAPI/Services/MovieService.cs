@@ -11,12 +11,10 @@ namespace MovieAPI.Services
     public class MovieService : IMovieService
     {
         private readonly IMovieRepository _movieRepository;
-        //private readonly IPublishEndpoint _publishEndpoint;
 
-        public MovieService(IMovieRepository movieRepository/*, IPublishEndpoint publishEndpoint*/)
+        public MovieService(IMovieRepository movieRepository)
         {
             _movieRepository = movieRepository;
-            //_publishEndpoint = publishEndpoint;
         }
 
         public async Task<IResult> AddAsync(MovieDto movieDto)
@@ -39,16 +37,7 @@ namespace MovieAPI.Services
                 MovieClickCount = 0
             };
 
-            //var genre = new GenreCreatedEvent
-            //{
-            //    Id = movie.Genre!.GenreId,
-            //    GenreCode = movie.Genre.GenreCode,
-            //    Title = movie.Genre.GenreTitle
-            //};
-            //movie.ImagePath = FileHelper.Add(file,@"/images/");
-
             await _movieRepository.CreateAsync(movie);
-            //await _publishEndpoint.Publish(genre);
 
             return new SuccessResult();
         }

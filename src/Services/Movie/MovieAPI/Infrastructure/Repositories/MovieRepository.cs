@@ -23,7 +23,7 @@ namespace MovieAPI.Infrastructure.Repositories
         {
             using (MovieContext context = new MovieContext())
             {
-                return await (filter == null ? context.Set<Movie>().Include("Genres").Include("AgeRating").ToListAsync() : context.Set<Movie>().Include("Genres").Where(filter).ToListAsync());
+                return await (filter == null ? context.Set<Movie>().Include("Genres").Include("AgeRating").ToListAsync() : context.Set<Movie>().Include("Genres").Include("AgeRating").Where(filter).ToListAsync());
             }
         }
     }

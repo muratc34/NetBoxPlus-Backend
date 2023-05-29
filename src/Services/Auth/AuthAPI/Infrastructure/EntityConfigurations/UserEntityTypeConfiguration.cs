@@ -2,9 +2,10 @@
 using Microsoft.EntityFrameworkCore;
 using AuthAPI.Model;
 
-namespace AuthAPI.Infrastructure.EntityConfiguration
+namespace AuthAPI.Infrastructure.EntityConfigurations
 {
-    public class UserEntityTypeConfiguration : IEntityTypeConfiguration<User>
+    public class UserEntityTypeConfiguration 
+        : IEntityTypeConfiguration<User>
     {
         public void Configure(EntityTypeBuilder<User> builder)
         {

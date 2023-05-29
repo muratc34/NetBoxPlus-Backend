@@ -13,5 +13,6 @@ namespace AuthAPI.Services
         Task<IResult> AddAsync(User user);
         Task<IResult> UpdateAsync(User user);
         Task<IResult> DeleteAsync(User user);
+        Task<User> GetByIdForEventAsync(Guid id);
     }
 }

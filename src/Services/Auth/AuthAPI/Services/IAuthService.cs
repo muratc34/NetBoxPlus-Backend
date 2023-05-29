@@ -1,4 +1,5 @@
 ﻿using AuthAPI.Model;
+using AuthAPI.Model.Dto;
 using AuthAPI.Security.Jwt;
 using Shared.Results;
 using IResult = Shared.Results.IResult;
@@ -11,5 +12,6 @@ namespace AuthAPI.Services
         Task<IDataResult<User>> Login(UserForLoginDto userForLoginDto);
         Task<IResult> UserExists(string email);
         Task<IDataResult<AccessToken>> CreateAccessToken(User user);
+        Task<IDataResult<User>> ChangePassword(UserForChangePasswordDto userForChangePasswordDto);
     }
 }

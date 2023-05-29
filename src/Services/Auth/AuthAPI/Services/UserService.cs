@@ -1,7 +1,12 @@
 ﻿using AuthAPI.Infrastructure.Repositories;
 using AuthAPI.Model;
+using AuthAPI.Model.Contracts;
+using MassTransit;
+using MassTransit.Transports;
 using Microsoft.IdentityModel.Tokens;
 using Shared.Results;
+using Steeltoe.Common.Discovery;
+using Steeltoe.Discovery;
 using static MassTransit.Monitoring.Performance.BuiltInCounters;
 using IResult = Shared.Results.IResult;
 
@@ -30,17 +35,17 @@ namespace AuthAPI.Services
 
         public async Task<IDataResult<List<User>>> GetAllAsync()
         {
-            return new SuccessDataResult<List<User>>(await _userRepository.GetAllAsync());
+            return new SuccessDataResult<List<User>>(await _userRepository.GetAllIncludeAsync());
         }
 
         public async Task<User> GetByEmailAsync(string email)
         {
-            return  await _userRepository.GetAsync(u => u.Email == email);
+            return  await _userRepository.GetIncludeData(u => u.Email == email);
         }
 
         public async Task<IDataResult<User>> GetByIdAsync(Guid id)
         {
-            return new SuccessDataResult<User>(await _userRepository.GetAsync(u => u.Id == id));
+            return new SuccessDataResult<User>(await _userRepository.GetIncludeData(u => u.Id == id));
         }
 
         public async Task<List<OperationClaim>> GetClaimsAsync(User user)
@@ -52,6 +57,11 @@ namespace AuthAPI.Services
         {
             await _userRepository.UpdateAsync(user);
             return new SuccessResult("Kullanıcı güncellendi.");
+        }
+
+        public async Task<User> GetByIdForEventAsync(Guid id)
+        {
+            return await _userRepository.GetIncludeData(u => u.Id == id);
         }
     }
 }

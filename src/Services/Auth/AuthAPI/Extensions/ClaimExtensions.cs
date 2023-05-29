@@ -12,12 +12,12 @@ namespace AuthAPI.Extensions
 
         public static void AddName(this ICollection<Claim> claims, string name)
         {
-            claims.Add(new Claim(ClaimTypes.Name, name));
+            claims.Add(new Claim("Name", name));
         }
 
         public static void AddNameIdentifier(this ICollection<Claim> claims, string nameIdentifier)
         {
-            claims.Add(new Claim(ClaimTypes.NameIdentifier, nameIdentifier));
+            claims.Add(new Claim("Id", nameIdentifier));
         }
 
         public static void AddRoles(this ICollection<Claim> claims, string[] roles)

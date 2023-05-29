@@ -17,6 +17,7 @@ namespace MovieAPI.Controllers
             _genreService = genreService;
         }
 
+        //[Authorize]
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {

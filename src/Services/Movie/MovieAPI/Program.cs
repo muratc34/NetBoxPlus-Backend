@@ -17,20 +17,12 @@ builder.Services.AddScoped<IGenreRepository, GenreRepository>();
 builder.Services.AddScoped<IAgeRatingService, AgeRatingService>();
 builder.Services.AddScoped<IAgeRatingRepository, AgeRatingRepository>();
 
-//builder.Services.AddMassTransit(options => {
-//    options.UsingRabbitMq((context, cfg) => {
-//        cfg.Host(new Uri("rabbitmq://localhost:4001"), h => {
-//            h.Username("guest");
-//            h.Password("guest");
-//        });
-
-//    });
-//});
 
 var tokenOptions = builder.Configuration.GetSection("TokenOptions").Get<TokenOptions>();
 builder.Services.AddCustomJwtAuthentication(tokenOptions!);
 
 builder.Services.AddControllers();
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

@@ -1,4 +1,5 @@
 ﻿using AuthAPI.Model;
+using AuthAPI.Model.Dto;
 using AuthAPI.Security.Hashing;
 using AuthAPI.Security.Jwt;
 using Shared.Results;
@@ -52,6 +53,34 @@ namespace AuthAPI.Services
             };
             await _userService.AddAsync(user);
             return new SuccessDataResult<User>(user, "Başarıyla kayıt olundu!");
+        }
+
+        public async Task<IDataResult<User>> ChangePassword(UserForChangePasswordDto userForChangePasswordDto)
+        {
+            byte[] passwordHash, passwordSalt;
+            HashingHelper.CreatePasswordHash(userForChangePasswordDto.NewPassword!, out passwordHash, out passwordSalt);
+            var data = await _userService.GetByIdAsync(userForChangePasswordDto.Id);
+
+            if (!HashingHelper.VerifyPasswordHash(userForChangePasswordDto.CurrentPassword!, data.Data.PasswordHash!, data.Data.PasswordSalt!))
+            {
+                return new ErrorDataResult<User>("Şifre yanlış!");
+            }
+
+            var user = new User
+            {
+                Id = userForChangePasswordDto.Id,
+                Email = data.Data.Email,
+                FirstName = data.Data.FirstName,
+                LastName = data.Data.LastName,
+                OperationClaims = data.Data.OperationClaims,
+                PasswordHash = passwordHash,
+                PasswordSalt = passwordSalt,
+                Status = data.Data.Status
+            };
+            
+            await _userService.UpdateAsync(user);
+
+            return new SuccessDataResult<User>("Şifre başarıyla değiştirildi.");
         }
 
         public async Task<IResult> UserExists(string email)

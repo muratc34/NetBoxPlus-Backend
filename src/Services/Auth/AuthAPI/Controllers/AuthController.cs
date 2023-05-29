@@ -1,4 +1,4 @@
-﻿using AuthAPI.Model;
+﻿using AuthAPI.Model.Dto;
 using AuthAPI.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -45,6 +45,18 @@ namespace AuthAPI.Controllers
 
             var registerResult = await _authService.Register(userForRegisterDto, userForRegisterDto.Password!);
             var result = await _authService.CreateAccessToken(registerResult.Data);
+            if (result.Success)
+            {
+                return Ok(result);
+            }
+
+            return Ok(result);
+        }
+
+        [HttpPost("changepassword")]
+        public async Task<ActionResult> ChangePassword(UserForChangePasswordDto userForChangePasswordDto)
+        {
+            var result = await _authService.ChangePassword(userForChangePasswordDto);
             if (result.Success)
             {
                 return Ok(result);
