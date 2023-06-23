@@ -6,7 +6,9 @@ namespace MovieAPI.Infrastructure.Repositories
 {
     public interface IMovieRepository : IRepository<Movie>
     {
-        Task<Movie> GetIncludeData(Expression<Func<Movie, bool>> filter);
-        Task<List<Movie>> GetAllIncludeAsync(Expression<Func<Movie, bool>> filter = null!);
+        Task<MovieDetailDto> GetDetailDataAsync(Guid id);
+        Task<List<MovieDetailDto>> GetAllDetailAsync();
+        Task<List<MovieDetailDto>> GetAllDetailByGenreIdAsync(Guid? genreId);
+        Task<List<MovieDetailDto>> GetByGenreSimilarityAsync(List<Guid> genreIds);
     }
 }

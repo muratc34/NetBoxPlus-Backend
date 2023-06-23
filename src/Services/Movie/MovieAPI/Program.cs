@@ -1,5 +1,7 @@
+using MovieAPI.Extensions;
 using MovieAPI.Infrastructure.Repositories;
 using MovieAPI.Services;
+using Nest;
 using Shared;
 using Shared.Security.Jwt;
 using System.Text;
@@ -17,6 +19,7 @@ builder.Services.AddScoped<IGenreRepository, GenreRepository>();
 builder.Services.AddScoped<IAgeRatingService, AgeRatingService>();
 builder.Services.AddScoped<IAgeRatingRepository, AgeRatingRepository>();
 
+builder.Services.AddElasticSearch(builder.Configuration);
 
 var tokenOptions = builder.Configuration.GetSection("TokenOptions").Get<TokenOptions>();
 builder.Services.AddCustomJwtAuthentication(tokenOptions!);

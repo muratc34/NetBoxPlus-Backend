@@ -50,6 +50,42 @@
       "UpstreamPathTemplate": "/movie/{id}",
       "UpstreamHttpMethod": [ "GET" ]
     },
+    {
+      "DownstreamPathTemplate": "/api/Movies/search/",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 44372
+        }
+      ],
+      "UpstreamPathTemplate": "/search",
+      "UpstreamHttpMethod": [ "GET" ]
+    },
+    {
+      "DownstreamPathTemplate": "/api/Movies/getbygenre/",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 44372
+        }
+      ],
+      "UpstreamPathTemplate": "/getbygenre",
+      "UpstreamHttpMethod": [ "GET" ] 
+    },
+    {
+      "DownstreamPathTemplate": "/api/Movies/getbygenresimilarity",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 44372
+        }
+      ],
+      "UpstreamPathTemplate": "/getbygenresimilarity",
+      "UpstreamHttpMethod": [ "GET" ]
+    },
     // Auth API
     {
       "DownstreamPathTemplate": "/api/Auth/login",
@@ -61,7 +97,7 @@
         }
       ],
       "UpstreamPathTemplate": "/login",
-      "UpstreamHttpMethod": [ "POST", "GET" ]
+      "UpstreamHttpMethod": [ "POST" ]
     },
     {
       "DownstreamPathTemplate": "/api/Auth/register",
@@ -73,7 +109,7 @@
         }
       ],
       "UpstreamPathTemplate": "/register",
-      "UpstreamHttpMethod": [ "POST", "GET" ]
+      "UpstreamHttpMethod": [ "POST" ]
     },
     {
       "DownstreamPathTemplate": "/api/Users/{id}",
@@ -99,6 +135,7 @@
       "UpstreamPathTemplate": "/changepassword",
       "UpstreamHttpMethod": [ "POST" ]
     },
+
     //PaymentAPI
     {
       "DownstreamPathTemplate": "/api/creditcard",
@@ -106,14 +143,62 @@
       "DownstreamHostAndPorts": [
         {
           "Host": "localhost",
-          "Port": 44372
+          "Port": 44350
         }
-
       ],
       "UpstreamPathTemplate": "/creditcard",
       "UpstreamHttpMethod": [ "POST", "PUT", "GET" ]
-    }
+    },
+    {
+      "DownstreamPathTemplate": "/api/creditcard/{id}",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 44350
+        }
+      ],
+      "UpstreamPathTemplate": "/creditcard/{id}",
+      "UpstreamHttpMethod": [ "GET" ]
+    },
 
+    //SubscriptionAPI
+    {
+      "DownstreamPathTemplate": "/api/subscriptions",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 44326
+        }
+      ],
+      "UpstreamPathTemplate": "/subscription",
+      "UpstreamHttpMethod": [ "POST", "PUT", "GET" ]
+    },
+    {
+      "DownstreamPathTemplate": "/api/subscriptions/{id}",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 44326
+        }
+      ],
+      "UpstreamPathTemplate": "/subscription/{id}",
+      "UpstreamHttpMethod": [ "GET" ]
+    },
+    {
+      "DownstreamPathTemplate": "/api/plans",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 44326
+        }
+      ],
+      "UpstreamPathTemplate": "/plan",
+      "UpstreamHttpMethod": [ "GET" ]
+    }
   ],
   "GlobalConfiguration": { }
 }

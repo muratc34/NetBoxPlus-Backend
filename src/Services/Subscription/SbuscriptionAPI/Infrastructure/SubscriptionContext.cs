@@ -35,7 +35,7 @@ namespace SubscriptionAPI.Infrastructure
 
             List<Subscription> subscriptionSeed = new List<Subscription>()
             {
-                new () { Id= subsId1, PlanId = planId1, SubscriptionExpiration = DateTime.Now.AddDays(30), SubscriptionStartDate= DateTime.Now, SubscriptionStatus= true}
+                new () { Id= subsId1, PlanId = planId1, SubscriptionExpiration = DateTime.Now.AddDays(30), SubscriptionStartDate = DateTime.Now, SubscriptionStatus= true}
             };
 
 

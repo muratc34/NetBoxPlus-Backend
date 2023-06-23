@@ -18,8 +18,10 @@ namespace SubscriptionAPI.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    PlanName = table.Column<string>(type: "text", nullable: true),
                     Quality = table.Column<string>(type: "text", nullable: false),
-                    ProfileCount = table.Column<int>(type: "integer", nullable: false)
+                    ProfileCount = table.Column<int>(type: "integer", nullable: false),
+                    Amount = table.Column<decimal>(type: "numeric", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -40,43 +42,32 @@ namespace SubscriptionAPI.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Subscriptions", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_Subscriptions_Plans_PlanId",
-                        column: x => x.PlanId,
-                        principalTable: "Plans",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.InsertData(
                 table: "Plans",
-                columns: new[] { "Id", "ProfileCount", "Quality" },
+                columns: new[] { "Id", "Amount", "PlanName", "ProfileCount", "Quality" },
                 values: new object[,]
                 {
-                    { new Guid("1198a41e-043b-47f2-81ce-e0ed9e3313e2"), 2, "FHD" },
-                    { new Guid("7c455f08-cb50-4b04-b0e0-bc5f827dfc18"), 3, "UHD" },
-                    { new Guid("ba50cd36-001b-47ce-998e-4f6e53523120"), 1, "HD" }
+                    { new Guid("0318768b-675e-4647-b8bb-d53e9743917b"), 0m, null, 2, "FHD" },
+                    { new Guid("0494158e-41b6-4399-97e5-60cd004ca972"), 0m, null, 1, "HD" },
+                    { new Guid("b3d21573-3eb0-48c8-8f68-519bde071d52"), 0m, null, 3, "UHD" }
                 });
 
             migrationBuilder.InsertData(
                 table: "Subscriptions",
                 columns: new[] { "Id", "PlanId", "SubscriptionExpiration", "SubscriptionStartDate", "SubscriptionStatus", "UserId" },
-                values: new object[] { new Guid("8ce76648-d034-44da-9376-dfba0e65f528"), new Guid("ba50cd36-001b-47ce-998e-4f6e53523120"), new DateTimeOffset(new DateTime(2023, 6, 28, 11, 46, 26, 307, DateTimeKind.Unspecified).AddTicks(3478), new TimeSpan(0, 3, 0, 0, 0)), new DateTimeOffset(new DateTime(2023, 5, 29, 11, 46, 26, 307, DateTimeKind.Unspecified).AddTicks(3516), new TimeSpan(0, 3, 0, 0, 0)), true, new Guid("00000000-0000-0000-0000-000000000000") });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Subscriptions_PlanId",
-                table: "Subscriptions",
-                column: "PlanId");
+                values: new object[] { new Guid("edd2a38a-5670-41fb-b997-52042cc68e36"), new Guid("0494158e-41b6-4399-97e5-60cd004ca972"), new DateTimeOffset(new DateTime(2023, 6, 28, 18, 3, 27, 464, DateTimeKind.Unspecified).AddTicks(3125), new TimeSpan(0, 3, 0, 0, 0)), new DateTimeOffset(new DateTime(2023, 5, 29, 18, 3, 27, 464, DateTimeKind.Unspecified).AddTicks(3165), new TimeSpan(0, 3, 0, 0, 0)), true, new Guid("00000000-0000-0000-0000-000000000000") });
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "Subscriptions");
+                name: "Plans");
 
             migrationBuilder.DropTable(
-                name: "Plans");
+                name: "Subscriptions");
         }
     }
 }

@@ -28,6 +28,12 @@ namespace SubscriptionAPI.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("PlanName")
+                        .HasColumnType("text");
+
                     b.Property<int>("ProfileCount")
                         .HasColumnType("integer");
 
@@ -42,19 +48,22 @@ namespace SubscriptionAPI.Migrations
                     b.HasData(
                         new
                         {
-                            Id = new Guid("ba50cd36-001b-47ce-998e-4f6e53523120"),
+                            Id = new Guid("0494158e-41b6-4399-97e5-60cd004ca972"),
+                            Amount = 0m,
                             ProfileCount = 1,
                             Quality = "HD"
                         },
                         new
                         {
-                            Id = new Guid("1198a41e-043b-47f2-81ce-e0ed9e3313e2"),
+                            Id = new Guid("0318768b-675e-4647-b8bb-d53e9743917b"),
+                            Amount = 0m,
                             ProfileCount = 2,
                             Quality = "FHD"
                         },
                         new
                         {
-                            Id = new Guid("7c455f08-cb50-4b04-b0e0-bc5f827dfc18"),
+                            Id = new Guid("b3d21573-3eb0-48c8-8f68-519bde071d52"),
+                            Amount = 0m,
                             ProfileCount = 3,
                             Quality = "UHD"
                         });
@@ -83,31 +92,18 @@ namespace SubscriptionAPI.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("PlanId");
-
                     b.ToTable("Subscriptions", (string)null);
 
                     b.HasData(
                         new
                         {
-                            Id = new Guid("8ce76648-d034-44da-9376-dfba0e65f528"),
-                            PlanId = new Guid("ba50cd36-001b-47ce-998e-4f6e53523120"),
-                            SubscriptionExpiration = new DateTimeOffset(new DateTime(2023, 6, 28, 11, 46, 26, 307, DateTimeKind.Unspecified).AddTicks(3478), new TimeSpan(0, 3, 0, 0, 0)),
-                            SubscriptionStartDate = new DateTimeOffset(new DateTime(2023, 5, 29, 11, 46, 26, 307, DateTimeKind.Unspecified).AddTicks(3516), new TimeSpan(0, 3, 0, 0, 0)),
+                            Id = new Guid("edd2a38a-5670-41fb-b997-52042cc68e36"),
+                            PlanId = new Guid("0494158e-41b6-4399-97e5-60cd004ca972"),
+                            SubscriptionExpiration = new DateTimeOffset(new DateTime(2023, 6, 28, 18, 3, 27, 464, DateTimeKind.Unspecified).AddTicks(3125), new TimeSpan(0, 3, 0, 0, 0)),
+                            SubscriptionStartDate = new DateTimeOffset(new DateTime(2023, 5, 29, 18, 3, 27, 464, DateTimeKind.Unspecified).AddTicks(3165), new TimeSpan(0, 3, 0, 0, 0)),
                             SubscriptionStatus = true,
                             UserId = new Guid("00000000-0000-0000-0000-000000000000")
                         });
-                });
-
-            modelBuilder.Entity("SubscriptionAPI.Model.Subscription", b =>
-                {
-                    b.HasOne("SubscriptionAPI.Model.Plan", "Plan")
-                        .WithMany()
-                        .HasForeignKey("PlanId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Plan");
                 });
 #pragma warning restore 612, 618
         }

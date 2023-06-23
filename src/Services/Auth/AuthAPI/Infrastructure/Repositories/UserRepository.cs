@@ -35,7 +35,7 @@ namespace AuthAPI.Infrastructure.Repositories
         {
             using (AuthContext context = new AuthContext())
             {
-                return await (filter == null ? context.Set<User>().Include("Profiles").ToListAsync() : context.Set<User>().Include("Subscriptions").Include("Profiles").Where(filter).ToListAsync());
+                return await (filter == null ? context.Set<User>().Include("Profiles").ToListAsync() : context.Set<User>().Include("Profiles").Where(filter).ToListAsync());
             }
         }
     }

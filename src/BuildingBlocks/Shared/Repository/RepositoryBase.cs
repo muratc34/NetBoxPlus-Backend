@@ -12,7 +12,6 @@ namespace Shared.Repository
         where TEntity : class, IEntity, new()
         where TContext : DbContext, new()
     {
-
         public async Task CreateAsync(TEntity entity)
         {
             using (TContext context = new TContext())
@@ -22,15 +21,15 @@ namespace Shared.Repository
                 await context.SaveChangesAsync();
             }
         }
-
         public async Task<List<TEntity>> GetAllAsync(Expression<Func<TEntity, bool>> filter = null!)
         {
             using (TContext context = new TContext())
             {
-                return await (filter == null ? context.Set<TEntity>().ToListAsync() : context.Set<TEntity>().Where(filter).ToListAsync());
+                return await (filter == null ? 
+                    context.Set<TEntity>().ToListAsync() : 
+                    context.Set<TEntity>().Where(filter).ToListAsync());
             }
         }
-
 #nullable disable
         public async Task<TEntity> GetAsync(Expression<Func<TEntity, bool>> filter)
         {
@@ -39,7 +38,6 @@ namespace Shared.Repository
                 return await context.Set<TEntity>().SingleOrDefaultAsync(filter);
             }
         }
-
         public async Task RemoveAsync(TEntity entity)
         {
             using (TContext context = new TContext())
@@ -49,7 +47,6 @@ namespace Shared.Repository
                 await context.SaveChangesAsync();
             }
         }
-
         public async Task UpdateAsync(TEntity entity)
         {
             using (TContext context = new TContext())

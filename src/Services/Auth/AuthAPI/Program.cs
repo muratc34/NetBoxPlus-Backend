@@ -27,6 +27,7 @@ builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<CreditCardCreatedConsumer>();
     x.AddConsumer<SubscriptionCreatedConsumer>();
+    x.AddConsumer<UserSubscriptionRemovedConsumer>();
 
     x.UsingRabbitMq((context, cfg) =>
     {
@@ -39,10 +40,13 @@ builder.Services.AddMassTransit(x =>
         {
             e.ConfigureConsumer<CreditCardCreatedConsumer>(context);
         });
-
         cfg.ReceiveEndpoint("subs-created-event", e =>
         {
             e.ConfigureConsumer<SubscriptionCreatedConsumer>(context);
+        });
+        cfg.ReceiveEndpoint("subs-removed-event", e =>
+        {
+            e.ConfigureConsumer<UserSubscriptionRemovedConsumer>(context);
         });
     });
 });

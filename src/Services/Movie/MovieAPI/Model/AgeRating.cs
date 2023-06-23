@@ -5,7 +5,6 @@ namespace MovieAPI.Model
     public class AgeRating : IEntity
     {
         public Guid Id { get; set; }
-        public Guid MovieId { get; set; }
         public int RatingCode { get; set; }
         public string? Rating { get; set; }
 

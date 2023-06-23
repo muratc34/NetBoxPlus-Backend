@@ -5,6 +5,8 @@ using PaymentAPI.Model;
 using PaymentAPI.Security.Encryption;
 using Shared.Contracts;
 using Shared.Results;
+using System.Text.RegularExpressions;
+using static System.Net.Mime.MediaTypeNames;
 using IResult = Shared.Results.IResult;
 
 namespace PaymentAPI.Services
@@ -105,8 +107,9 @@ namespace PaymentAPI.Services
         private string MarkCardNumber(string cardNumber)
         {
             var decryptedCardNumber = EncryptionService.Decrypt(cardNumber);
-            var lastDigitsCardNumber = decryptedCardNumber.Substring(12);
-            var censoredCardNumber = string.Concat(new String('*', decryptedCardNumber.Length - lastDigitsCardNumber.Length), lastDigitsCardNumber);
+            var removedSpacesCardNumber = Regex.Replace(decryptedCardNumber, @" ", "");
+            var lastDigitsCardNumber = removedSpacesCardNumber.Substring(12);
+            var censoredCardNumber = string.Concat(new String('*', removedSpacesCardNumber.Length - lastDigitsCardNumber.Length), lastDigitsCardNumber);
 
             return censoredCardNumber;
         }
