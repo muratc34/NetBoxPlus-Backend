@@ -4,8 +4,6 @@ using AuthAPI.Infrastructure.Repositories;
 using AuthAPI.Security.Jwt;
 using AuthAPI.Services;
 using MassTransit;
-using Shared.Contracts;
-using Steeltoe.Extensions.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 

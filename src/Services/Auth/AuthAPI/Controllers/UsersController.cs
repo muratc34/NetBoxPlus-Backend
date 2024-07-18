@@ -1,11 +1,6 @@
 ﻿using AuthAPI.Model;
 using AuthAPI.Services;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json;
-using Steeltoe.Common.Discovery;
-using Steeltoe.Discovery;
-using Steeltoe.Discovery.Eureka;
 
 namespace AuthAPI.Controllers
 {

@@ -1,13 +1,6 @@
 ﻿using AuthAPI.Infrastructure.Repositories;
 using AuthAPI.Model;
-using AuthAPI.Model.Contracts;
-using MassTransit;
-using MassTransit.Transports;
-using Microsoft.IdentityModel.Tokens;
 using Shared.Results;
-using Steeltoe.Common.Discovery;
-using Steeltoe.Discovery;
-using static MassTransit.Monitoring.Performance.BuiltInCounters;
 using IResult = Shared.Results.IResult;
 
 namespace AuthAPI.Services
