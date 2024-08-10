@@ -19,7 +19,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MovieAPI", "src\Services\Mo
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Auth", "Auth", "{91D65088-155F-44E9-8E13-72049A8CB7CA}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AuthAPI", "src\Services\Auth\AuthAPI\AuthAPI.csproj", "{D06F560D-AEEC-4628-A544-500BF025C34B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Auth.API", "src\Services\Auth\AuthAPI\Auth.API.csproj", "{D06F560D-AEEC-4628-A544-500BF025C34B}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Payment", "Payment", "{FC4AB285-8E94-4581-ABA8-6C15E9B7B01F}"
 EndProject
@@ -31,13 +31,15 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SubscriptionAPI", "src\Serv
 EndProject
 Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-compose.dcproj", "{6FDC5A08-B0DC-41F9-BE5B-09F3FE0229A0}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Application", "src\Services\Auth\Application\Application.csproj", "{758A434E-2A18-4DE5-85A8-E410A3B08CC0}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Auth.Application", "src\Services\Auth\Application\Auth.Application.csproj", "{758A434E-2A18-4DE5-85A8-E410A3B08CC0}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Domain", "src\Services\Auth\Domain\Domain.csproj", "{4FC5E955-F78F-46C2-8972-0E966ABC1965}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Auth.Domain", "src\Services\Auth\Domain\Auth.Domain.csproj", "{4FC5E955-F78F-46C2-8972-0E966ABC1965}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Infrastructure", "src\Services\Auth\Infrastructure\Infrastructure.csproj", "{4E48CEAF-8511-4C17-BDB8-917772322DEC}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Auth.Infrastructure", "src\Services\Auth\Infrastructure\Auth.Infrastructure.csproj", "{4E48CEAF-8511-4C17-BDB8-917772322DEC}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Persistence", "src\Services\Auth\Persistence\Persistence.csproj", "{DF238CFE-5763-4764-AC2C-F83B1B3028B2}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Auth.Persistence", "src\Services\Auth\Persistence\Auth.Persistence.csproj", "{DF238CFE-5763-4764-AC2C-F83B1B3028B2}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Shared", "src\BuildingBlocks\Shared\Shared.csproj", "{647575E7-F880-431B-8591-A49A96B031A3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -106,6 +108,12 @@ Global
 		{DF238CFE-5763-4764-AC2C-F83B1B3028B2}.NoVariablesDefault|Any CPU.Build.0 = Debug|Any CPU
 		{DF238CFE-5763-4764-AC2C-F83B1B3028B2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DF238CFE-5763-4764-AC2C-F83B1B3028B2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{647575E7-F880-431B-8591-A49A96B031A3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{647575E7-F880-431B-8591-A49A96B031A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{647575E7-F880-431B-8591-A49A96B031A3}.NoVariablesDefault|Any CPU.ActiveCfg = Debug|Any CPU
+		{647575E7-F880-431B-8591-A49A96B031A3}.NoVariablesDefault|Any CPU.Build.0 = Debug|Any CPU
+		{647575E7-F880-431B-8591-A49A96B031A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{647575E7-F880-431B-8591-A49A96B031A3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -127,6 +135,7 @@ Global
 		{4FC5E955-F78F-46C2-8972-0E966ABC1965} = {91D65088-155F-44E9-8E13-72049A8CB7CA}
 		{4E48CEAF-8511-4C17-BDB8-917772322DEC} = {91D65088-155F-44E9-8E13-72049A8CB7CA}
 		{DF238CFE-5763-4764-AC2C-F83B1B3028B2} = {91D65088-155F-44E9-8E13-72049A8CB7CA}
+		{647575E7-F880-431B-8591-A49A96B031A3} = {7CE3923B-EDCE-409A-9F65-C189A109CE6B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {32F5B53E-9F30-4959-BA7B-5D43D3398543}

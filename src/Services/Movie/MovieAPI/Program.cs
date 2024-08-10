@@ -1,28 +1,6 @@
-using MovieAPI.Extensions;
-using MovieAPI.Infrastructure.Repositories;
-using MovieAPI.Services;
-using Nest;
-using Shared;
-using Shared.Security.Jwt;
-using System.Text;
-
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-
-builder.Services.AddScoped<IMovieService, MovieService>();
-builder.Services.AddScoped<IMovieRepository, MovieRepository>();
-
-builder.Services.AddScoped<IGenreService, GenreService>();
-builder.Services.AddScoped<IGenreRepository, GenreRepository>();
-
-builder.Services.AddScoped<IAgeRatingService, AgeRatingService>();
-builder.Services.AddScoped<IAgeRatingRepository, AgeRatingRepository>();
-
-builder.Services.AddElasticSearch(builder.Configuration);
-
-var tokenOptions = builder.Configuration.GetSection("TokenOptions").Get<TokenOptions>();
-builder.Services.AddCustomJwtAuthentication(tokenOptions!);
 
 builder.Services.AddControllers();
 

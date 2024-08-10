@@ -1,4 +1,5 @@
-﻿using Domain.Entities;
+﻿using Auth.Domain.Users;
+using Shared.Domain.Event;
 
 namespace Domain.Core.Events.DomainEvents
 {

@@ -1,72 +1,26 @@
-﻿using AuthAPI.Model;
-using AuthAPI.Services;
+﻿using Auth.Application.Users.CreateUser;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Shared.Domain.Result;
+using System.Reflection;
 
 namespace AuthAPI.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("[controller]")]
     [ApiController]
-    public class UsersController : ControllerBase
+    public sealed class UsersController : ControllerBase
     {
-        IUserService _userService;
-
-        public UsersController(IUserService userService)
+        private readonly ISender _sender;
+        public UsersController(ISender sender)
         {
-            _userService = userService;
+            _sender = sender;
         }
 
-        [HttpGet]
-        public async Task<IActionResult> GetAll()
-        {
-            var result = await _userService.GetAllAsync();
-            if (result.Success)
-            {
-                return Ok(result);
-            }
-            return BadRequest(result);
-        }
-
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(Guid id)
-        {
-            var result = await _userService.GetByIdAsync(id);
-            if (result.Success)
-            {
-                return Ok(result);
-            }
-            return BadRequest(result);
-        }
         [HttpPost]
-        public async Task<IActionResult> Add(User user)
+        public async Task<IActionResult> CreateUser(CreateUserCommand command)
         {
-            var result = await _userService.AddAsync(user);
-            if (result.Success)
-            {
-                return Ok(result);
-            }
-            return BadRequest(result);
-        }
-
-        [HttpDelete]
-        public async Task<IActionResult> Delete(User user)
-        {
-            var result = await _userService.DeleteAsync(user);
-            if (result.Success)
-            {
-                return Ok(result);
-            }
-            return BadRequest(result);
-        }
-
-        [HttpPut]
-        public async Task<IActionResult> Update(User user)
-        {
-            var result = await _userService.UpdateAsync(user);
-            if (result.Success)
-            {
-                return Ok(result);
-            }
-            return BadRequest(result);
+            var result = await _sender.Send(command);
+            return result.IsSuccess ? Ok(result) : BadRequest(result.Error);
         }
     }
 }

@@ -1,16 +1,13 @@
-﻿using Domain.Entities;
-using Microsoft.EntityFrameworkCore.Query;
-using System.Linq.Expressions;
+﻿using Auth.Domain.Users;
+using Persistence.Context;
+using Shared.Repository;
 
-namespace Persistence.Repositories
+namespace Persistence.Repositories;
+
+public sealed class UserRepository : Repository<User,DatabaseContext>, IUserRepository
 {
-
-    public interface IUserRepository
+    public UserRepository(DatabaseContext context)
+        : base(context)
     {
-    }
-
-    public sealed class UserRepository
-    {
-
     }
 }

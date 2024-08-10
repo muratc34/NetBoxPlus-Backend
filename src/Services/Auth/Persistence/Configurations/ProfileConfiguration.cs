@@ -1,4 +1,4 @@
-﻿using Domain.Entities;
+﻿using Auth.Domain.Profiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 

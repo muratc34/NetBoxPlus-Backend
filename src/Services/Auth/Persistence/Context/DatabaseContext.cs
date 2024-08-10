@@ -1,4 +1,5 @@
-﻿using Domain.Entities;
+﻿using Auth.Domain.Profiles;
+using Auth.Domain.Users;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection;
 
@@ -13,8 +14,6 @@ namespace Persistence.Context
 
         public DbSet<User> Users { get; set; }
         public DbSet<Profile> Profiles { get; set; }
-        public DbSet<OperationClaim> OperationClaims { get; set; }
-        public DbSet<UserOperationClaim> UserOperationClaims { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
