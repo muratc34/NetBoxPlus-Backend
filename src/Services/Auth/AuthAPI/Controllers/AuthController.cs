@@ -33,7 +33,7 @@ namespace AuthAPI.Controllers
         }
 
         [HttpPost]
-        [Route("change-password")]
+        [Route("changepassword")]
         [Authorize]
         public async Task<IActionResult> ChangePassword(ChangePasswordCommand command)
         {

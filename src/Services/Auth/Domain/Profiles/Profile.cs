@@ -1,20 +1,19 @@
 ﻿using Auth.Domain.Profiles.DomainEvents;
 using Shared.Domain;
 using Shared.Domain.Abstractions;
+using Shared.Domain.Result;
 using Shared.Domain.Utility;
 
 namespace Auth.Domain.Profiles;
 
 public class Profile : Entity, IAuditableEntity, ISoftDeletableEntity
 {
-    public Profile(Guid userId, ProfileName profileName, byte[]? pinHash, byte[]? pinSalt) : base(Guid.NewGuid())
+    public Profile(Guid userId, ProfileName profileName) : base(Guid.NewGuid())
     {
         Ensure.NotNull(profileName, "The first name is required.", nameof(profileName));
 
         UserId = userId;
         ProfileName = profileName;
-        PinHash = pinHash;
-        PinSalt = pinSalt;
     }
 
     private Profile()
@@ -30,10 +29,18 @@ public class Profile : Entity, IAuditableEntity, ISoftDeletableEntity
     public byte[]? PinHash { get; private set; }
     public byte[]? PinSalt { get; private set; }
 
-    public static Profile Create(Guid userId, ProfileName profileName, byte[]? pinHash, byte[]? pinSalt)
+    public static Profile Create(Guid userId, ProfileName profileName)
     {
-        var profile = new Profile(userId, profileName, pinHash, pinSalt);
+        var profile = new Profile(userId, profileName);
         profile.RaiseDomainEvent(new ProfileCreatedDomainEvent(profile));
         return profile;
+    }
+
+    public Result SetProfilePin(byte[] pinHash, byte[] pinSalt)
+    {
+        PinHash = pinHash;
+        PinSalt = pinSalt;
+        RaiseDomainEvent(new ProfileSettedPinDomainEvent(this));
+        return Result.Success();
     }
 }

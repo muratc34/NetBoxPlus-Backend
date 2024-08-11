@@ -35,6 +35,11 @@ namespace Domain.Core.Errors
             public static Error MissingNonAlphaNumeric => new Error("Password.MissingNonAlphaNumeric", "The password requires at least one non-alphanumeric.");
         }
 
+        public static class Profile
+        {
+            public static Error NotFound => new Error("Profile.NotFound", "The profile with the specified identifier was not found.");
+        }
+
         public static class ProfileName
         {
             public static Error NullOrEmpty => new Error("ProfileName.NullOrEmpty", "The profile name is required.");
