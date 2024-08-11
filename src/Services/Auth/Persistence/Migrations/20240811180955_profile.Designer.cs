@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Persistence.Context;
@@ -11,9 +12,11 @@ using Persistence.Context;
 namespace Auth.Persistence.Migrations
 {
     [DbContext(typeof(DatabaseContext))]
-    partial class DatabaseContextModelSnapshot : ModelSnapshot
+    [Migration("20240811180955_profile")]
+    partial class profile
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -43,9 +46,11 @@ namespace Auth.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<byte[]>("PinHash")
+                        .IsRequired()
                         .HasColumnType("bytea");
 
                     b.Property<byte[]>("PinSalt")
+                        .IsRequired()
                         .HasColumnType("bytea");
 
                     b.Property<Guid>("UserId")

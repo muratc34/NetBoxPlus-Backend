@@ -35,10 +35,17 @@ namespace Domain.Core.Errors
             public static Error MissingNonAlphaNumeric => new Error("Password.MissingNonAlphaNumeric", "The password requires at least one non-alphanumeric.");
         }
 
-        public static class General
+        public static class ProfileName
         {
-            public static Error UnProcessableRequest => new Error("General.UnProcessableRequest", "The server could not process the request.");
-            public static Error ServerError => new Error("General.ServerError", "The server encountered an unrecoverable error.");
+            public static Error NullOrEmpty => new Error("ProfileName.NullOrEmpty", "The profile name is required.");
+            public static Error LongerThanAllowed => new Error("ProfileName.LongerThanAllowed", "The profile name is longer than allowed.");
+        }
+
+        public static class Pin
+        {
+            public static Error NullOrEmpty => new Error("Pin.NullOrEmpty", "The pin is required.");
+            public static Error MustBe4Digits => new Error("Pin.TooShortOrTooLong", "The pin length must be 4 digits");
+            public static Error ConsistOfNums => new Error("Pin.MustBeJustDigit", "The pin should only consist of numbers");
         }
 
         public static class Authentication
