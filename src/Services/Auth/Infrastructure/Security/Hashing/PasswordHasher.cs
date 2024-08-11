@@ -28,4 +28,13 @@ public class PasswordHasher : IPasswordHasher
         }
         return true;
     }
+
+    public void ChangePassword(string password, out byte[] passwordHash, byte[] passwordSalt)
+    {        
+        using (var hmac = new System.Security.Cryptography.HMACSHA512())
+        {
+            hmac.Key = passwordSalt;
+            passwordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
+        }
+    }
 }

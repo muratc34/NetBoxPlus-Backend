@@ -28,7 +28,7 @@ public sealed class LoginCommandHandler : ICommandHandler<LoginCommand, Result<A
         {
             return Result.Failure<AccessToken>(DomainErrors.Authentication.InvalidEmailOrPassword);
         }
-        var user = await _userRepository.GetAsync(x => x.Email.Equals(emailResult.Value));
+        var user = await _userRepository.GetAsync(x => x.Email.Value == emailResult.Data!.Value);
 
         if (user is null)
         {

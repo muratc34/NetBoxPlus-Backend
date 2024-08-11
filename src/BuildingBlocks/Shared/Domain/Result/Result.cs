@@ -22,11 +22,11 @@ public class Result
     public Error? Error { get; }
 
     public static Result Success() => new Result(true, Error.None);
-    public static Result<TValue> Success<TValue>(TValue value) => new(value, true, Error.None);
+    public static Result<TData> Success<TData>(TData data) => new(data, true, Error.None);
 
 
     public static Result Failure(Error error) => new Result(false, error);
-    public static Result<TValue> Failure<TValue>(Error error) => new(default!, false, error);
+    public static Result<TData> Failure<TData>(Error error) => new(default!, false, error);
 
     public static Result FirstFailureOrSuccess(params Result[] results)
     {
@@ -42,17 +42,17 @@ public class Result
     }
 }
 
-public class Result<TValue> : Result
+public class Result<TData> : Result
 {
-    private readonly TValue _value;
+    private readonly TData _data;
 
-    protected internal Result(TValue value, bool isSuccess, Error? error)
+    protected internal Result(TData data, bool isSuccess, Error? error)
         : base(isSuccess, error)
-        => _value = value;
+        => _data = data;
 
-    public static implicit operator Result<TValue>(TValue value) => Success(value);
+    public static implicit operator Result<TData>(TData data) => Success(data);
 
-    public TValue? Value => IsSuccess
-        ? _value
+    public TData? Data => IsSuccess
+        ? _data
         : default;
 }

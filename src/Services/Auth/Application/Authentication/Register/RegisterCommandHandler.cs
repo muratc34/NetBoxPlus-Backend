@@ -6,17 +6,17 @@ using Shared.Application.Abstractions;
 using Shared.Domain.Result;
 using Shared.UnitOfWork;
 
-namespace Auth.Application.Users.CreateUser;
+namespace Auth.Application.Authentication.Register;
 
-public sealed class CreateUserCommandHandler : ICommandHandler<CreateUserCommand, Result<AccessToken>>
+public sealed class RegisterCommandHandler : ICommandHandler<RegisterCommand, Result<AccessToken>>
 {
     private readonly IUserRepository _userRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtProvider _jwtProvider;
 
-    public CreateUserCommandHandler(
-        IUserRepository userRepository, 
+    public RegisterCommandHandler(
+        IUserRepository userRepository,
         IUnitOfWork unitOfWork,
         IPasswordHasher passwordHasher,
         IJwtProvider jwtProvider)
@@ -27,7 +27,7 @@ public sealed class CreateUserCommandHandler : ICommandHandler<CreateUserCommand
         _jwtProvider = jwtProvider;
     }
 
-    public async Task<Result<AccessToken>> Handle(CreateUserCommand request, CancellationToken cancellationToken)
+    public async Task<Result<AccessToken>> Handle(RegisterCommand request, CancellationToken cancellationToken)
     {
         Result<FirstName> firstNameResult = FirstName.Create(request.FirstName);
         Result<LastName> lastNameResult = LastName.Create(request.LastName);
@@ -47,9 +47,9 @@ public sealed class CreateUserCommandHandler : ICommandHandler<CreateUserCommand
         }
 
         byte[] passwordHash, passwordSalt;
-        _passwordHasher.CreatePasswordHash(passwordResult.Value!.Value, out passwordHash, out passwordSalt);
+        _passwordHasher.CreatePasswordHash(passwordResult.Data!.Value, out passwordHash, out passwordSalt);
 
-        var user = User.Create(firstNameResult.Value!, lastNameResult.Value!, emailResult.Value!, passwordHash, passwordSalt);
+        var user = User.Create(firstNameResult.Data!, lastNameResult.Data!, emailResult.Data!, passwordHash, passwordSalt);
         await _userRepository.CreateAsync(user);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -57,7 +57,7 @@ public sealed class CreateUserCommandHandler : ICommandHandler<CreateUserCommand
         return Result.Success(token);
     }
 
-    private async Task<User> GetByEmailAsync(string email) 
+    private async Task<User> GetByEmailAsync(string email)
     {
         return await _userRepository.GetAsync(u => u.Email.Value.Equals(email));
     }

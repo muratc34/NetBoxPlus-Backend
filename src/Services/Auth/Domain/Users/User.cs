@@ -1,7 +1,9 @@
 ﻿using Auth.Domain.Profiles;
+using Domain.Core.Errors;
 using Domain.Core.Events.DomainEvents;
 using Shared.Domain;
 using Shared.Domain.Abstractions;
+using Shared.Domain.Result;
 using Shared.Domain.Utility;
 
 namespace Auth.Domain.Users;
@@ -44,5 +46,17 @@ public class User : Entity, ISoftDeletableEntity, IAuditableEntity
         user.RaiseDomainEvent(new UserCreatedDomainEvent(user));
 
         return user;
+    }
+
+    public Result ChangePassword(string password, byte[] passwordHash)
+    {
+        if (passwordHash.SequenceEqual(PasswordHash))
+        {
+            return Result.Failure(DomainErrors.User.CannotChangePassword);
+        }
+        PasswordHash = passwordHash;
+
+        RaiseDomainEvent(new UserPasswordChangedDomainEvent(this));
+        return Result.Success();
     }
 }

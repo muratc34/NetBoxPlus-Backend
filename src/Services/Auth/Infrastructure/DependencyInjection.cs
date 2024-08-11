@@ -30,6 +30,7 @@ namespace Auth.Infrastructure
                 };
             });
 
+            services.AddScoped<IUserContext, UserContext>();
             services.AddScoped<IJwtProvider, JwtProvider>();
             services.AddTransient<IPasswordHasher, PasswordHasher>();
 

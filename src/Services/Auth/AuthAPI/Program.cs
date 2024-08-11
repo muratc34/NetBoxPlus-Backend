@@ -2,6 +2,7 @@ using Auth.Application;
 using Auth.Infrastructure;
 using Auth.Infrastructure.Security;
 using Auth.Persistence;
+using Shared.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +21,8 @@ builder.Services
     .AddInfrastructure(tokenOptions!)
     .AddPersistence(configuration);
 
+builder.Services.AddHttpContextAccessor();
+
 builder.Services.AddControllers();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -34,6 +37,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseMiddleware<ExceptionHandlerMiddleware>();
 
 app.UseHttpsRedirection();
 
