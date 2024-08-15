@@ -42,7 +42,7 @@ public class User : Entity, ISoftDeletableEntity, IAuditableEntity
     public static User Create(FirstName firstName, LastName lastName, Email email, byte[] passwordHash, byte[] passwordSalt)
     {
         var user = new User(firstName, lastName, email, passwordHash, passwordSalt);
-        user.RaiseDomainEvent(new UserCreatedDomainEvent(user));
+        user.RaiseDomainEvent(new UserRegisteredDomainEvent(user));
         return user;
     }
 

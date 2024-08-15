@@ -15,12 +15,12 @@ public class UnitOfWork<TContext> : IUnitOfWork
     where TContext : DbContext
 {
     private readonly TContext _context;
-    private readonly IMediator _mediator;
+    private readonly IPublisher _publisher;
 
-    public UnitOfWork(TContext context, IMediator mediator)
+    public UnitOfWork(TContext context, IPublisher publisher)
     {
         _context = context;
-        _mediator = mediator;
+        _publisher = publisher;
     }
 
     public async Task<int>  SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -93,7 +93,7 @@ public class UnitOfWork<TContext> : IUnitOfWork
         // Domain events publish
         foreach (var domainEvent in domainEvents)
         {
-            await _mediator.Publish(domainEvent);
+            await _publisher.Publish(domainEvent);
         }
     }
 }
