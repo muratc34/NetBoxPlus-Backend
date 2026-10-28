@@ -95,7 +95,14 @@ dolana kadar solution genelinde test bu yüzden başarısız olur; proje bazınd
   yeniden adlandırılmaz (mesaj tipi adı tip adından gelir).
 - **Zaman:** `DateTime.UtcNow` doğrudan çağrılmaz, `TimeProvider` kullanılır.
 - **ID'ler:** düz `Guid`, `Guid.CreateVersion7()`.
-- **Loglama:** structured (message template), string interpolation yok; token/şifre/kart/e-posta
-  loglanmaz.
+- **API:** Minimal API. Her uygulama `builder.AddServiceDefaults()` → `app.UseServiceDefaults()` →
+  (auth) → endpoint'ler → `app.MapDefaultEndpoints()`. Endpoint'ler `result.ToHttpResult()` döner;
+  hatalar RFC 9457 problem details. Yetki `RequirePermission("servis:kaynak:eylem")`.
+- **Loglama:** Serilog yok; .NET `ILogger` + OpenTelemetry. `[LoggerMessage]` ile structured log,
+  string interpolation yok; token/şifre/kart/e-posta loglanmaz. Hassas parametreler
+  `[PersonalData]` / `[SecretData]` ile işaretlenir (projede `Microsoft.Extensions.Telemetry.Abstractions`
+  doğrudan referanslı olmalı).
+- **JWT:** asimetrik imza, servisler Auth'un JWKS'i ile doğrular; claim adları olduğu gibi (`sub`,
+  `permission`).
 - **Lisans kontrolü:** MediatR, AutoMapper, MassTransit v9, FluentAssertions v8 gibi ticari lisansa
   geçmiş paketler kullanılmaz. Yeni bir paket eklemeden önce lisansını kontrol et.

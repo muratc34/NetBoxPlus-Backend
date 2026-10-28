@@ -15,7 +15,7 @@ independently deployable services in a single repository.
 - **Errors:** RFC 9457 problem details
 - **Gateway:** YARP, also acting as the token handler for browser clients
 - **Authorization:** permission-based policies, short-lived access tokens with rotating refresh tokens
-- **Observability:** Serilog + OpenTelemetry
+- **Observability:** OpenTelemetry (traces, metrics, logs) with log redaction
 
 ## Build
 
