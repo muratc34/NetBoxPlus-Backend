@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Domain building blocks for NetBoxPlus services: Entity, AggregateRoot, Result, Error. No dependencies.</Description>
+  </PropertyGroup>
+
+</Project>

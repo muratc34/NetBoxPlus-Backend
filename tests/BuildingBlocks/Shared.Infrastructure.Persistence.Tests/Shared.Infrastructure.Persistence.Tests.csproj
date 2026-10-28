@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\BuildingBlocks\Shared.Infrastructure.Persistence\Shared.Infrastructure.Persistence.csproj" />
+  </ItemGroup>
+
+</Project>

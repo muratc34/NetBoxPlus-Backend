@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>RabbitMQ messaging: publisher, idempotent consumer, event envelope, retry and dead-lettering.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Shared.Application\Shared.Application.csproj" />
+  </ItemGroup>
+
+</Project>

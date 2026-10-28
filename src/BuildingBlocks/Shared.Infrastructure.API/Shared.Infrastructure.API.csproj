@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Shared ASP.NET Core setup: observability, RFC 9457 problem details, JWT and permission-based authorization.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Shared.Application\Shared.Application.csproj" />
+  </ItemGroup>
+
+</Project>

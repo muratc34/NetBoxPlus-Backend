@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>EF Core infrastructure: auditing and soft-delete interceptors, unit of work, transactional outbox and inbox.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Shared.Application\Shared.Application.csproj" />
+  </ItemGroup>
+
+</Project>
