@@ -4,7 +4,7 @@ namespace Shared.Domain;
 /// Outcome of an operation that can fail for expected reasons. A successful result always carries
 /// <see cref="Error.None"/>; a failed result always carries a real error.
 /// </summary>
-public class Result
+public class Result : IFailureResult<Result>
 {
     private static readonly Result SuccessResult = new(true, Error.None);
 
@@ -57,12 +57,14 @@ public class Result
     }
 
     public static implicit operator Result(Error error) => Failure(error);
+
+    static Result IFailureResult<Result>.Failure(Error error) => Failure(error);
 }
 
 /// <summary>
 /// Outcome of an operation that produces a value when it succeeds.
 /// </summary>
-public sealed class Result<TValue> : Result
+public sealed class Result<TValue> : Result, IFailureResult<Result<TValue>>
 {
     private readonly TValue? _value;
 
@@ -81,4 +83,6 @@ public sealed class Result<TValue> : Result
     public static implicit operator Result<TValue>(TValue value) => Success(value);
 
     public static implicit operator Result<TValue>(Error error) => Failure<TValue>(error);
+
+    static Result<TValue> IFailureResult<Result<TValue>>.Failure(Error error) => Failure<TValue>(error);
 }

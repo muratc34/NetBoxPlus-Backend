@@ -86,6 +86,13 @@ dolana kadar solution genelinde test bu yüzden başarısız olur; proje bazınd
 - **Shared'a girmeyenler:** generic repository, event/contract modelleri, servise özel hatalar.
 - **Hatalar:** handler'lar `Result` döner, exception akış kontrolü için kullanılmaz. HTTP sınırında
   RFC 9457 ProblemDetails.
+- **CQRS:** `IDispatcher.Send` / `Query`; kayıt `services.AddCqrs(assembly)`. Handler'lar
+  **`SaveChanges` çağırmaz** — başarılı command'ı `TransactionBehavior` kaydeder. Bir request'in
+  tam olarak bir handler'ı olur.
+- **Validation:** `IValidator<T>` senkron ve I/O yapmaz (zorunlu alan, uzunluk, format). Veritabanı
+  gerektiren kurallar handler'da. Validator hatası exception değil `ValidationError`.
+- **Contract'lar:** `*.Contracts` içinde düz record; işaret arayüzü yok, bağımlılık yok, tipler
+  yeniden adlandırılmaz (mesaj tipi adı tip adından gelir).
 - **Zaman:** `DateTime.UtcNow` doğrudan çağrılmaz, `TimeProvider` kullanılır.
 - **ID'ler:** düz `Guid`, `Guid.CreateVersion7()`.
 - **Loglama:** structured (message template), string interpolation yok; token/şifre/kart/e-posta
