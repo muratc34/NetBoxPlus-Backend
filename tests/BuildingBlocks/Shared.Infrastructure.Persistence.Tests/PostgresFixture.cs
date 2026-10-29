@@ -1,9 +1,9 @@
-using DotNet.Testcontainers.Builders;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
+using NetBoxPlus.Testing;
 using Npgsql;
 using Shared.Application;
 using Shared.Application.Messaging;
@@ -31,7 +31,7 @@ public sealed class PostgresFixture : IAsyncLifetime
             await _container.StartAsync();
             IsAvailable = true;
         }
-        catch (Exception exception) when (IsDockerMissing(exception))
+        catch (Exception exception) when (DockerAvailability.CanSkip(exception))
         {
             SkipReason = $"Docker is not available: {exception.Message}";
         }
@@ -80,11 +80,6 @@ public sealed class PostgresFixture : IAsyncLifetime
 
         return new TestServices(provider, time, transport);
     }
-
-    private static bool IsDockerMissing(Exception exception)
-        => exception is DockerUnavailableException
-            || exception.InnerException is DockerUnavailableException
-            || exception is TypeInitializationException { InnerException: DockerUnavailableException };
 }
 
 [CollectionDefinition(nameof(PostgresCollection))]

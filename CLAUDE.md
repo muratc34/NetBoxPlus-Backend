@@ -55,7 +55,16 @@ Testler **Microsoft.Testing.Platform** ile çalışır (`global.json` → `test.
 
 Persistence ve Messaging integration testleri **Testcontainers** ile gerçek Postgres/RabbitMQ'ya
 karşı çalışır ve **Docker** ister. Docker yoksa hata vermez, "atlandı" olarak raporlanır — atlanan
-bir test doğrulanmış sayılmaz. Test image'ları `deploy/compose.yaml` ile aynı sürümde tutulur.
+bir test doğrulanmış sayılmaz. CI'da `NETBOXPLUS_REQUIRE_DOCKER=true` set edilir ve Docker
+yokluğu testi **kırar**. Container başlatan her fixture bunu `DockerAvailability.CanSkip(exception)`
+ile yapar (`tests/TestSupport/DockerAvailability.cs`, csproj'a link'lenir). Test image'ları
+`deploy/compose.yaml` ile aynı sürümde tutulur.
+
+**CI** (`.github/workflows/ci.yml`, `v2` ve `master`'a push ve PR'larda): Release build (uyarı =
+hata) → `docs/openapi` build çıktısıyla aynı değilse kırılır → tüm testler (Docker zorunlu) →
+paralel olarak her Dockerfile'ın image build'i (push yok). API değiştiyse build'i lokalde çalıştırıp
+`docs/openapi/*.json`'ı da commit'le. Action'lar commit SHA'sıyla sabit; Dependabot (actions + NuGet)
+haftalık PR'ları `v2`'ye açar.
 
 Lokal bağımlılıklar (Postgres, RabbitMQ, Valkey, Aspire dashboard; `-Search` ile Elasticsearch):
 
@@ -112,8 +121,8 @@ Yeni bir servis Sample'ın yapısını birebir izler:
   dokümanı build'de `docs/openapi/<servis>.json`'a yazılır ve commit'lenir; build sırasında
   altyapı kaydı `BuildTimeOpenApi.IsGeneratingDocument` ile atlanır.
 - Dockerfile Sample'daki gibi (chiseled, non-root). Yeni servis `deploy/dev.ps1`'deki `$services`
-  listesine, `deploy/compose.yaml`'daki `NETBOXPLUS_DATABASES`'e ve `tests/Architecture.Tests`
-  csproj'una eklenir.
+  listesine, `deploy/compose.yaml`'daki `NETBOXPLUS_DATABASES`'e, `tests/Architecture.Tests`
+  csproj'una ve `.github/workflows/ci.yml`'deki `image` matrix'ine eklenir.
 - Gateway'e iki route eklenir (`src/Gateway/Gateway/appsettings.json`): `<s>-public`
   (`/<s>/{**remainder}`, `PathRemovePrefix: /<s>`, `RouteGroup: public`) ve, admin endpoint'i
   varsa, `<s>-admin` (`/admin/<s>/{**remainder}`, `PathPattern: /admin/{**remainder}`,

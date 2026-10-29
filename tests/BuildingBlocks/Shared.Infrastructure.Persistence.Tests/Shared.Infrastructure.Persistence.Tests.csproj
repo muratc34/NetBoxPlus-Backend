@@ -11,4 +11,8 @@
     <PackageReference Include="Testcontainers.PostgreSql" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="../../TestSupport/DockerAvailability.cs" Link="TestSupport/DockerAvailability.cs" />
+  </ItemGroup>
+
 </Project>

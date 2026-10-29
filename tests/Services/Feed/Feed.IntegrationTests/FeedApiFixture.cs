@@ -1,5 +1,4 @@
 using System.Text.Json;
-using DotNet.Testcontainers.Builders;
 using Feed.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -7,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Testing;
+using NetBoxPlus.Testing;
 using Shared.Application.Messaging;
 using Testcontainers.PostgreSql;
 using Testcontainers.RabbitMq;
@@ -36,7 +36,7 @@ public sealed class FeedApiFixture : IAsyncLifetime
             _rabbit = new RabbitMqBuilder("rabbitmq:4.4-management-alpine").Build();
             await Task.WhenAll(_postgres.StartAsync(), _rabbit.StartAsync());
         }
-        catch (Exception exception) when (exception is DockerUnavailableException || exception.InnerException is DockerUnavailableException)
+        catch (Exception exception) when (DockerAvailability.CanSkip(exception))
         {
             SkipReason = $"Docker is not available: {exception.Message}";
             return;

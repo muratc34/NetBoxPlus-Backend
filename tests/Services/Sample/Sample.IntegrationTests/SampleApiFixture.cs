@@ -1,6 +1,5 @@
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
-using DotNet.Testcontainers.Builders;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -9,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
+using NetBoxPlus.Testing;
 using Sample.Infrastructure.Persistence;
 using Testcontainers.PostgreSql;
 using Testcontainers.RabbitMq;
@@ -43,7 +43,7 @@ public sealed class SampleApiFixture : IAsyncLifetime
             _rabbit = new RabbitMqBuilder("rabbitmq:4.4-management-alpine").Build();
             await Task.WhenAll(_postgres.StartAsync(), _rabbit.StartAsync());
         }
-        catch (Exception exception) when (exception is DockerUnavailableException || exception.InnerException is DockerUnavailableException)
+        catch (Exception exception) when (DockerAvailability.CanSkip(exception))
         {
             SkipReason = $"Docker is not available: {exception.Message}";
             return;

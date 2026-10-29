@@ -1,10 +1,10 @@
 using System.Text.Json;
-using DotNet.Testcontainers.Builders;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using NetBoxPlus.Testing;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Exceptions;
 using Shared.Application;
@@ -35,7 +35,7 @@ public sealed class RabbitMqFixture : IAsyncLifetime
             await _container.StartAsync();
             IsAvailable = true;
         }
-        catch (Exception exception) when (exception is DockerUnavailableException || exception.InnerException is DockerUnavailableException)
+        catch (Exception exception) when (DockerAvailability.CanSkip(exception))
         {
             SkipReason = $"Docker is not available: {exception.Message}";
         }

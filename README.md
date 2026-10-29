@@ -27,7 +27,12 @@ dotnet test --solution NetBoxPlus.slnx
 ```
 
 Integration tests start PostgreSQL and RabbitMQ in containers (Testcontainers) and need Docker.
-Without Docker they are reported as skipped.
+Without Docker they are reported as skipped locally; in CI they fail.
+
+The build also writes each service's OpenAPI document to `docs/openapi/`. Commit them with API
+changes: [CI](.github/workflows/ci.yml) fails when they differ from the build output. CI runs on
+every push and pull request: build (warnings are errors), the OpenAPI check, all tests and a build
+of every container image.
 
 ## Local development
 
