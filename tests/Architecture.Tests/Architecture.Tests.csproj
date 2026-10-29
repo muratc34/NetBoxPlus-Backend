@@ -1,9 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Every service project, so their assemblies land in this test's output and can be inspected. -->
+  <!-- Every service project and the gateway, so their assemblies land in this test's output and can be inspected. -->
   <ItemGroup>
     <ProjectReference Include="../../src/Services/Sample/Sample.API/Sample.API.csproj" />
     <ProjectReference Include="../../src/Services/Sample/Sample.Migrator/Sample.Migrator.csproj" />
+    <ProjectReference Include="../../src/Gateway/Gateway/Gateway.csproj" />
   </ItemGroup>
 
 </Project>

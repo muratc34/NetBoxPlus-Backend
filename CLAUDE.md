@@ -77,6 +77,12 @@ dotnet run --project src/Services/Sample/Sample.Migrator
 dotnet run --project src/Services/Sample/Sample.API --launch-profile Sample.API
 ```
 
+Gateway (`http://localhost:5100`, Development'ta Sample'a `localhost:5101` üzerinden gider):
+
+```powershell
+dotnet run --project src/Gateway/Gateway --launch-profile Gateway
+```
+
 `secrets`, `deploy/.env`'deki değerleri servisin User Secrets'ına (`netboxplus-<servis>`) yazar.
 Migration eklemek: `dotnet tool restore` ve
 `dotnet ef migrations add <Ad> --project src/Services/<S>/<S>.Infrastructure --output-dir Persistence/Migrations`.
@@ -102,6 +108,19 @@ Yeni bir servis Sample'ın yapısını birebir izler:
 - Dockerfile Sample'daki gibi (chiseled, non-root). Yeni servis `deploy/dev.ps1`'deki `$services`
   listesine, `deploy/compose.yaml`'daki `NETBOXPLUS_DATABASES`'e ve `tests/Architecture.Tests`
   csproj'una eklenir.
+- Gateway'e iki route eklenir (`src/Gateway/Gateway/appsettings.json`): `<s>-public`
+  (`/<s>/{**remainder}`, `PathRemovePrefix: /<s>`, `RouteGroup: public`) ve `<s>-admin`
+  (`/admin/<s>/{**remainder}`, `PathPattern: /admin/{**remainder}`, `RouteGroup: admin`); cluster
+  adresi base'de compose adı, `appsettings.Development.json`'da `localhost` portu.
+
+## Gateway — `src/Gateway/Gateway`
+
+- İş mantığı yok; sadece `Shared.Infrastructure.API`'yi referans alır.
+- Route'un CORS ve rate limiter policy'si **grubundan** gelir (`RouteGroupConfigFilter`); route'a
+  `CorsPolicy`/`RateLimiterPolicy` yazılmaz. Kurala uymayan route'la gateway başlamaz.
+- Public route'tan servisin `/admin` yollarına erişim 404'tür; servisin döndüğü `Location`
+  gateway yoluna çevrilir. Servisler gateway'i bilmez, kendi yollarını döner.
+- İstemcinin trace header'ları devam ettirilmez; trace gateway'de başlar.
 
 ## Çalışma kuralları
 

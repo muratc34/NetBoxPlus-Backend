@@ -70,6 +70,20 @@ The API listens on http://localhost:5101 (`POST /notes`, `GET /notes/{id}`; the 
 at `/openapi/v1.json` in development and committed under `docs/openapi/`). Logs and traces appear
 in the Aspire dashboard.
 
+### Gateway
+
+Clients call the services through the YARP gateway:
+
+```powershell
+dotnet run --project src/Gateway/Gateway --launch-profile Gateway
+```
+
+It listens on http://localhost:5100. Public routes are `/{service}/...` (for example
+`POST /sample/notes`), admin routes `/admin/{service}/...`. Each group has its own CORS origins
+and rate limits; requests over the limit get `429` problem details with `Retry-After`. Every
+request starts a new trace at the gateway, so a call shows up in the Aspire dashboard as one
+trace from the gateway down to the database and the message broker.
+
 ## License
 
 [MIT](LICENSE)
