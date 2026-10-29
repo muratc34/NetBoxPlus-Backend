@@ -31,7 +31,7 @@ public sealed class RabbitMqFixture : IAsyncLifetime
     {
         try
         {
-            _container = new RabbitMqBuilder("rabbitmq:4-alpine").Build();
+            _container = new RabbitMqBuilder("rabbitmq:4.4-management-alpine").Build();
             await _container.StartAsync();
             IsAvailable = true;
         }

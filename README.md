@@ -26,6 +26,35 @@ dotnet build NetBoxPlus.slnx
 dotnet test --solution NetBoxPlus.slnx
 ```
 
+Integration tests start PostgreSQL and RabbitMQ in containers (Testcontainers) and need Docker.
+Without Docker they are reported as skipped.
+
+## Local development
+
+Requires Docker Desktop. The dependencies run from `deploy/compose.yaml`:
+
+```powershell
+./deploy/dev.ps1 up            # PostgreSQL, RabbitMQ, Valkey, Aspire dashboard
+./deploy/dev.ps1 up -Search    # ... plus Elasticsearch
+./deploy/dev.ps1 status
+./deploy/dev.ps1 down          # stop, keep data
+./deploy/dev.ps1 reset -Force  # stop and delete all local data
+```
+
+The first `up` creates `deploy/.env` (ignored by git) with random passwords; every credential
+lives there.
+
+| Dependency | Address | Notes |
+|---|---|---|
+| PostgreSQL 18 | `localhost:5432` | Databases `auth`, `catalog`, `billing`, `streaming`, `sample`, each owned by a role of the same name that can connect only to it |
+| RabbitMQ 4 | `localhost:5672`, UI http://localhost:15672 | |
+| Valkey 9 | `localhost:6379` | Password-protected |
+| Elasticsearch 9 | http://localhost:9200 | Only with `-Search`; security disabled locally |
+| Aspire dashboard | http://localhost:18888, OTLP `localhost:4317` | Logs, traces and metrics; point services at it with `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317` |
+
+All ports are bound to `127.0.0.1` only. The databases are created on the first start of an empty
+volume; after changing the list, run `reset -Force`.
+
 ## License
 
 [MIT](LICENSE)

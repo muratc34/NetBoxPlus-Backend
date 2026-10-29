@@ -1,7 +1,7 @@
-# Repo içinde satır sonları LF olarak saklanır; checkout platforma göre yapılır.
+# Store line endings as LF in the repository; check out with the platform default.
 * text=auto
 
-# Linux'ta çalışan dosyalar her zaman LF.
+# Files that run on Linux always use LF.
 *.sh text eol=lf
 Dockerfile text eol=lf
 *.yml text eol=lf

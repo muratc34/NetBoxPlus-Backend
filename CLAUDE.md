@@ -55,11 +55,27 @@ Testler **Microsoft.Testing.Platform** ile çalışır (`global.json` → `test.
 
 Persistence ve Messaging integration testleri **Testcontainers** ile gerçek Postgres/RabbitMQ'ya
 karşı çalışır ve **Docker** ister. Docker yoksa hata vermez, "atlandı" olarak raporlanır — atlanan
-bir test doğrulanmış sayılmaz.
+bir test doğrulanmış sayılmaz. Test image'ları `deploy/compose.yaml` ile aynı sürümde tutulur.
+
+Lokal bağımlılıklar (Postgres, RabbitMQ, Valkey, Aspire dashboard; `-Search` ile Elasticsearch):
+
+```powershell
+./deploy/dev.ps1 up
+```
+
+- Credential'lar sadece `deploy/.env`'de (git'te yok); ilk `up` rastgele parolalarla üretir.
+- Postgres'te servis başına database ve aynı adlı, sadece kendi database'ine bağlanabilen kullanıcı.
+- Tüm portlar `127.0.0.1`'e bağlı. Image'lar sürüm etiketiyle sabit, `latest` yok.
+- PowerShell script'lerinde regex için **`-cmatch`** kullan: `-match` kültüre göre büyük/küçük harf
+  eşler ve `tr-TR`'de `I` harfi `[A-Z]` ile eşleşmez.
 
 ## Çalışma kuralları
 
-- Kullanıcıyla Türkçe konuşulur; kod, identifier'lar ve commit mesajları İngilizce.
+- **Dil:** kullanıcıyla sohbet ve md dosyaları Türkçe. Bunun dışındaki **her şey İngilizce**: kod,
+  identifier'lar, yorumlar, XML doc, log mesajları, hata mesajları ve kodları, test verisi,
+  konfigürasyon (yorumlar dahil), script çıktıları, kullanıcı adları ve diğer değerler, commit
+  mesajları. PowerShell script'leri ayrıca **sadece ASCII** (Windows PowerShell 5.1 BOM'suz UTF-8'i
+  ANSI okur).
 - Kullanıcı tasarımı kod yazmadan önce netleştirmek istiyor. Büyük bir değişiklikten önce yaklaşımı
   anlat, onay al.
 - PHASE dosyasındaki bir kalem bittiğinde `[x]` olarak işaretle; yeni bir uygulama kararı alındıysa

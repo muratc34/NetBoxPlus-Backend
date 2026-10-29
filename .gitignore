@@ -481,5 +481,5 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 
-# Tasarım ve faz dokümanları sadece lokal tutulur (CLAUDE.md ve README.md hariç md dosyaları commit edilmez).
+# Design and phase documents stay local; the only committed markdown files are CLAUDE.md and README.md.
 /docs/*.md

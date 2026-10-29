@@ -1,0 +1,92 @@
+# Local development dependencies. Start with ./deploy/dev.ps1 up (creates deploy/.env on first run).
+# Every port is bound to 127.0.0.1 only: several services run without authentication locally.
+
+name: netboxplus
+
+x-healthcheck: &healthcheck
+  interval: 5s
+  timeout: 5s
+  retries: 30
+  start_period: 10s
+
+services:
+  postgres:
+    image: postgres:18.6-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER:?set POSTGRES_ADMIN_USER in deploy/.env}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?set POSTGRES_ADMIN_PASSWORD in deploy/.env}
+      # One database and one login role per service, each role limited to its own database.
+      NETBOXPLUS_DATABASES: auth,catalog,billing,streaming,sample
+      NETBOXPLUS_SERVICE_PASSWORD: ${POSTGRES_SERVICE_PASSWORD:?set POSTGRES_SERVICE_PASSWORD in deploy/.env}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD-SHELL", "pg_isready --username \"$${POSTGRES_USER}\" --dbname postgres"]
+
+  rabbitmq:
+    image: rabbitmq:4.4-management-alpine
+    # RabbitMQ keys its data directory by node name; a fixed hostname keeps the volume usable.
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?set RABBITMQ_USER in deploy/.env}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?set RABBITMQ_PASSWORD in deploy/.env}
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "rabbitmq-diagnostics", "--quiet", "ping"]
+
+  valkey:
+    image: valkey/valkey:9.2-alpine
+    environment:
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:?set VALKEY_PASSWORD in deploy/.env}
+    command: ["sh", "-c", "exec valkey-server --appendonly yes --requirepass \"$$VALKEY_PASSWORD\""]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - valkey-data:/data
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD-SHELL", "valkey-cli --no-auth-warning -a \"$$VALKEY_PASSWORD\" ping | grep -q PONG"]
+
+  # Search is needed from phase 2 on; start it with ./deploy/dev.ps1 up -Search.
+  elasticsearch:
+    image: elasticsearch:9.5.5
+    profiles: ["search"]
+    environment:
+      discovery.type: single-node
+      # Local only (bound to 127.0.0.1); production runs with security enabled.
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "127.0.0.1:9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    healthcheck:
+      <<: *healthcheck
+      start_period: 30s
+      test: ["CMD-SHELL", "curl -fs 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s' > /dev/null"]
+
+  # Receives OTLP from the services (OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317) and shows
+  # logs, traces and metrics at http://localhost:18888.
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:13.6.2
+    environment:
+      ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
+    ports:
+      - "127.0.0.1:18888:18888"
+      - "127.0.0.1:4317:18889"
+      - "127.0.0.1:4318:18890"
+
+volumes:
+  postgres-data:
+  rabbitmq-data:
+  valkey-data:
+  elasticsearch-data:

@@ -1,5 +1,5 @@
 <Project>
-  <!-- Central Package Management: tüm paket versiyonları burada. csproj'larda Version attribute'u kullanılmaz. -->
+  <!-- Central Package Management: every package version lives here; csproj files never set Version. -->
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
