@@ -55,6 +55,21 @@ lives there.
 All ports are bound to `127.0.0.1` only. The databases are created on the first start of an empty
 volume; after changing the list, run `reset -Force`.
 
+### Running a service
+
+`src/Services/Sample` is the reference service every other service follows. To run it:
+
+```powershell
+./deploy/dev.ps1 up
+./deploy/dev.ps1 secrets   # writes connection settings from deploy/.env into user secrets
+dotnet run --project src/Services/Sample/Sample.Migrator
+dotnet run --project src/Services/Sample/Sample.API --launch-profile Sample.API
+```
+
+The API listens on http://localhost:5101 (`POST /notes`, `GET /notes/{id}`; the OpenAPI document is
+at `/openapi/v1.json` in development and committed under `docs/openapi/`). Logs and traces appear
+in the Aspire dashboard.
+
 ## License
 
 [MIT](LICENSE)

@@ -1,0 +1,11 @@
+# Images copy only what they need from src/; keep build output, secrets and tooling out of the context.
+**/bin/
+**/obj/
+**/TestResults/
+.git/
+.vs/
+.idea/
+**/*.user
+deploy/.env
+docs/
+tests/

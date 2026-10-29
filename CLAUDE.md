@@ -69,6 +69,40 @@ Lokal bağımlılıklar (Postgres, RabbitMQ, Valkey, Aspire dashboard; `-Search`
 - PowerShell script'lerinde regex için **`-cmatch`** kullan: `-match` kültüre göre büyük/küçük harf
   eşler ve `tr-TR`'de `I` harfi `[A-Z]` ile eşleşmez.
 
+Bir servisi lokalde çalıştırmak (örnek: Sample):
+
+```powershell
+./deploy/dev.ps1 secrets
+dotnet run --project src/Services/Sample/Sample.Migrator
+dotnet run --project src/Services/Sample/Sample.API --launch-profile Sample.API
+```
+
+`secrets`, `deploy/.env`'deki değerleri servisin User Secrets'ına (`netboxplus-<servis>`) yazar.
+Migration eklemek: `dotnet tool restore` ve
+`dotnet ef migrations add <Ad> --project src/Services/<S>/<S>.Infrastructure --output-dir Persistence/Migrations`.
+
+## Yeni servis — referans: `src/Services/Sample`
+
+Yeni bir servis Sample'ın yapısını birebir izler:
+
+- Projeler `<S>.Domain`, `.Application`, `.Infrastructure`, `.API`, `.Contracts`, `.Migrator`; testler
+  `tests/Services/<S>/`. API ve Migrator aynı `UserSecretsId`'yi kullanır: `netboxplus-<servis>`.
+- Domain: aggregate `AggregateRoot`'tan türer; value object'ler `Create` ile `Result` döner;
+  hatalar `<Aggregate>Errors` static sınıfında; repository arayüzü domain'de.
+- Application: use case başına bir dosya (`Notes/CreateNote/CreateNote.cs`: command + validator +
+  handler); handler'lar `internal sealed`. Query'ler servisin okuma arayüzünden
+  (`I<S>ReadModel`) projection yapar. Integration event'ler bir domain event handler'ından yayınlanır.
+- Infrastructure: `<S>DbContext : ServiceDbContext, I<S>ReadModel`, `ConnectionStrings:Database`,
+  configuration'lar `IEntityTypeConfiguration`, tek değerli value object'ler `ComplexProperty`,
+  soft delete için `HasQueryFilter`, design-time factory.
+- API: `Program.cs` Sample'daki sırayla; endpoint'ler `MapGroup` ile, `[FromServices] IDispatcher`,
+  `Produces`/`ProducesProblem` metadata'sı (OpenAPI'den TypeScript client üretilecek). OpenAPI
+  dokümanı build'de `docs/openapi/<servis>.json`'a yazılır ve commit'lenir; build sırasında
+  altyapı kaydı `BuildTimeOpenApi.IsGeneratingDocument` ile atlanır.
+- Dockerfile Sample'daki gibi (chiseled, non-root). Yeni servis `deploy/dev.ps1`'deki `$services`
+  listesine, `deploy/compose.yaml`'daki `NETBOXPLUS_DATABASES`'e ve `tests/Architecture.Tests`
+  csproj'una eklenir.
+
 ## Çalışma kuralları
 
 - **Dil:** kullanıcıyla sohbet ve md dosyaları Türkçe. Bunun dışındaki **her şey İngilizce**: kod,

@@ -4,11 +4,13 @@
 
 .DESCRIPTION
     Wraps "docker compose" for deploy/compose.yaml. On the first "up" it creates deploy/.env from
-    deploy/.env.example, replacing every "generate" value with a random password.
+    deploy/.env.example, replacing every "generate" value with a random password. "secrets" writes
+    the services' connection settings from deploy/.env into their user secrets.
 
 .EXAMPLE
     ./deploy/dev.ps1 up            # Postgres, RabbitMQ, Valkey, Aspire dashboard
     ./deploy/dev.ps1 up -Search    # ... plus Elasticsearch
+    ./deploy/dev.ps1 secrets       # connection settings for running services from the IDE
     ./deploy/dev.ps1 status
     ./deploy/dev.ps1 down          # stop, keep data
     ./deploy/dev.ps1 reset -Force  # stop and DELETE all local data
@@ -16,7 +18,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('up', 'down', 'status', 'logs', 'reset')]
+    [ValidateSet('up', 'down', 'status', 'logs', 'reset', 'secrets')]
     [string]$Command = 'status',
 
     # Also start Elasticsearch (compose profile "search").
@@ -35,6 +37,9 @@ $deployDir = $PSScriptRoot
 $composeFile = Join-Path $deployDir 'compose.yaml'
 $envFile = Join-Path $deployDir '.env'
 $envExample = Join-Path $deployDir '.env.example'
+
+# Services whose projects use the user secrets id "netboxplus-<name>" and own a database "<name>".
+$services = @('sample')
 
 function Get-DockerExecutable {
     $command = Get-Command docker -ErrorAction SilentlyContinue
@@ -75,6 +80,30 @@ function Initialize-EnvFile {
     }
     Set-Content -Path $envFile -Value $lines -Encoding Ascii
     Write-Host "Created $envFile with random passwords."
+}
+
+function Read-EnvFile {
+    $values = @{}
+    Get-Content $envFile | ForEach-Object {
+        if ($_ -cmatch '^\s*([A-Z0-9_]+)=(.*)$') { $values[$Matches[1]] = $Matches[2].Trim() }
+    }
+    return $values
+}
+
+function Set-ServiceSecrets {
+    $values = Read-EnvFile
+    $amqp = "amqp://$($values['RABBITMQ_USER']):$($values['RABBITMQ_PASSWORD'])@localhost:5672/"
+
+    foreach ($name in $services) {
+        $id = "netboxplus-$name"
+        $database = "Host=localhost;Port=5432;Database=$name;Username=$name;Password=$($values['POSTGRES_SERVICE_PASSWORD'])"
+
+        foreach ($secret in @(@('ConnectionStrings:Database', $database), @('Messaging:ConnectionString', $amqp))) {
+            & dotnet user-secrets set $secret[0] $secret[1] --id $id | Out-Null
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        }
+        Write-Host "User secrets set for $name (id $id)."
+    }
 }
 
 function Invoke-Compose {
@@ -119,5 +148,8 @@ switch ($Command) {
         }
         Invoke-Compose @('--profile', 'search', 'down', '--volumes')
         Write-Host 'All local data removed. The next "up" recreates the databases.'
+    }
+    'secrets' {
+        Set-ServiceSecrets
     }
 }

@@ -7,12 +7,29 @@
     <Project Path="src/BuildingBlocks/Shared.Infrastructure.Messaging/Shared.Infrastructure.Messaging.csproj" />
     <Project Path="src/BuildingBlocks/Shared.Infrastructure.Persistence/Shared.Infrastructure.Persistence.csproj" />
   </Folder>
-  <Folder Name="/tests/" />
+  <Folder Name="/src/Services/" />
+  <Folder Name="/src/Services/Sample/">
+    <Project Path="src/Services/Sample/Sample.API/Sample.API.csproj" />
+    <Project Path="src/Services/Sample/Sample.Application/Sample.Application.csproj" />
+    <Project Path="src/Services/Sample/Sample.Contracts/Sample.Contracts.csproj" />
+    <Project Path="src/Services/Sample/Sample.Domain/Sample.Domain.csproj" />
+    <Project Path="src/Services/Sample/Sample.Infrastructure/Sample.Infrastructure.csproj" />
+    <Project Path="src/Services/Sample/Sample.Migrator/Sample.Migrator.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Architecture.Tests/Architecture.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/BuildingBlocks/">
     <Project Path="tests/BuildingBlocks/Shared.Application.Tests/Shared.Application.Tests.csproj" />
     <Project Path="tests/BuildingBlocks/Shared.Domain.Tests/Shared.Domain.Tests.csproj" />
     <Project Path="tests/BuildingBlocks/Shared.Infrastructure.API.Tests/Shared.Infrastructure.API.Tests.csproj" />
     <Project Path="tests/BuildingBlocks/Shared.Infrastructure.Messaging.Tests/Shared.Infrastructure.Messaging.Tests.csproj" />
     <Project Path="tests/BuildingBlocks/Shared.Infrastructure.Persistence.Tests/Shared.Infrastructure.Persistence.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Services/" />
+  <Folder Name="/tests/Services/Sample/">
+    <Project Path="tests/Services/Sample/Sample.Application.Tests/Sample.Application.Tests.csproj" />
+    <Project Path="tests/Services/Sample/Sample.Domain.Tests/Sample.Domain.Tests.csproj" />
+    <Project Path="tests/Services/Sample/Sample.IntegrationTests/Sample.IntegrationTests.csproj" />
   </Folder>
 </Solution>

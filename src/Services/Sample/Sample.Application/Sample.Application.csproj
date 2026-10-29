@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Sample service use cases.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Sample.Domain/Sample.Domain.csproj" />
+    <ProjectReference Include="../Sample.Contracts/Sample.Contracts.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/Shared.Application/Shared.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Core package only, for async LINQ in query handlers; no database provider. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Sample.Application.Tests" />
+  </ItemGroup>
+
+</Project>
