@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Shared.Application.Cqrs;
 using Shared.Application.Events;
+using Shared.Application.Messaging;
 using Shared.Application.Validation;
 
 namespace Shared.Application.Tests;
@@ -24,7 +25,7 @@ public sealed class RegistrationTests
         var services = new ServiceCollection().AddCqrs(typeof(RegistrationTests).Assembly);
 
         Assert.All(
-            services.Where(d => d.ServiceType != typeof(TimeProvider)),
+            services.Where(d => d.ServiceType != typeof(TimeProvider) && d.ServiceType != typeof(IntegrationEventSubscriptions)),
             d => Assert.Equal(ServiceLifetime.Scoped, d.Lifetime));
     }
 
@@ -68,6 +69,30 @@ public sealed class RegistrationTests
             [typeof(PingHandler), typeof(DuplicatePingHandler<int>)]));
 
         Assert.Contains(nameof(PingCommand), exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AddCqrs_RegistersIntegrationEventHandlersAndRecordsTheirEvents()
+    {
+        var services = new ServiceCollection().AddCqrs(typeof(RegistrationTests).Assembly);
+
+        Assert.Contains(services, d => d.ServiceType == typeof(IIntegrationEventHandler<ItemShipped>)
+            && d.ImplementationType == typeof(ItemShippedHandler));
+
+        var subscriptions = Assert.Single(services, d => d.ServiceType == typeof(IntegrationEventSubscriptions)).ImplementationInstance;
+        Assert.Equal([typeof(ItemShipped)], Assert.IsType<IntegrationEventSubscriptions>(subscriptions).EventTypes);
+    }
+
+    [Fact]
+    public void Subscriptions_AreSharedWithAnInstanceRegisteredEarlier()
+    {
+        var services = new ServiceCollection();
+        var early = CqrsServiceCollectionExtensions.GetOrAddSubscriptions(services);
+
+        services.AddCqrs(typeof(RegistrationTests).Assembly);
+
+        Assert.Contains(typeof(ItemShipped), early.EventTypes);
+        Assert.Single(services, d => d.ServiceType == typeof(IntegrationEventSubscriptions));
     }
 
     [Fact]

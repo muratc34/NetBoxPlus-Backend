@@ -51,8 +51,11 @@ dotnet test --project tests/BuildingBlocks/Shared.Domain.Tests
 ```
 
 Testler **Microsoft.Testing.Platform** ile çalışır (`global.json` → `test.runner`). Hiç test
-çalışmayan bir proje çıkış kodu 8 ile başarısız sayılır — bu bilerek açık. Boş test projeleri
-dolana kadar solution genelinde test bu yüzden başarısız olur; proje bazında çalıştır.
+çalışmayan bir proje çıkış kodu 8 ile başarısız sayılır — bu bilerek açık.
+
+Persistence ve Messaging integration testleri **Testcontainers** ile gerçek Postgres/RabbitMQ'ya
+karşı çalışır ve **Docker** ister. Docker yoksa hata vermez, "atlandı" olarak raporlanır — atlanan
+bir test doğrulanmış sayılmaz.
 
 ## Çalışma kuralları
 
@@ -92,7 +95,15 @@ dolana kadar solution genelinde test bu yüzden başarısız olur; proje bazınd
 - **Validation:** `IValidator<T>` senkron ve I/O yapmaz (zorunlu alan, uzunluk, format). Veritabanı
   gerektiren kurallar handler'da. Validator hatası exception değil `ValidationError`.
 - **Contract'lar:** `*.Contracts` içinde düz record; işaret arayüzü yok, bağımlılık yok, tipler
-  yeniden adlandırılmaz (mesaj tipi adı tip adından gelir).
+  yeniden adlandırılmaz (mesaj tipi adı tip adından gelir). Namespace **`<Servis>.Contracts`**
+  olmak zorunda — RabbitMQ exchange adı buradan türetiliyor.
+- **Persistence:** servisin DbContext'i `ServiceDbContext`'ten türer, modelini `ConfigureModel`'da
+  kurar (`OnModelCreating` sealed). Kayıt: `services.AddPersistence<TContext>(connectionString)`.
+  Event yayınlamak için `IIntegrationEventPublisher` — outbox'a yazar, doğrudan kuyruğa değil.
+- **Messaging:** `services.AddRabbitMqMessaging()`, ayarlar `Messaging` bölümünde. Integration
+  event handler'ları `IIntegrationEventHandler<T>` implement eder ve `Task<Result>` döner: kalıcı
+  başarısızlık `Result.Failure`, geçici sorun exception (retry → DLQ). Her mesaj bir handler'a en
+  fazla bir kez ulaşır (inbox).
 - **Zaman:** `DateTime.UtcNow` doğrudan çağrılmaz, `TimeProvider` kullanılır.
 - **ID'ler:** düz `Guid`, `Guid.CreateVersion7()`.
 - **API:** Minimal API. Her uygulama `builder.AddServiceDefaults()` → `app.UseServiceDefaults()` →

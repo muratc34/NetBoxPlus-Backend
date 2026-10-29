@@ -1,5 +1,6 @@
 using Shared.Application.Cqrs;
 using Shared.Application.Events;
+using Shared.Application.Messaging;
 using Shared.Application.Validation;
 using Shared.Domain;
 
@@ -146,6 +147,14 @@ internal sealed class SecondItemCreatedHandler(CallLog log) : IDomainEventHandle
         log.Add($"second:{domainEvent.ItemId}");
         return Task.CompletedTask;
     }
+}
+
+internal sealed record ItemShipped(Guid ItemId);
+
+internal sealed class ItemShippedHandler : IIntegrationEventHandler<ItemShipped>
+{
+    public Task<Result> Handle(ItemShipped integrationEvent, CancellationToken cancellationToken)
+        => Task.FromResult(Result.Success());
 }
 
 /// <summary>

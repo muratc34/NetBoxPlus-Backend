@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Shared.Application.Behaviors;
 using Shared.Application.Cqrs;
 using Shared.Application.Events;
+using Shared.Application.Messaging;
 using Shared.Application.Validation;
 
 namespace Shared.Application;
@@ -23,12 +24,14 @@ public static class CqrsServiceCollectionExtensions
     [
         typeof(IDomainEventHandler<>),
         typeof(IValidator<>),
+        typeof(IIntegrationEventHandler<>),
     ];
 
     /// <summary>
     /// Registers the dispatcher, the standard pipeline (logging, validation, transaction — in that
-    /// order, outermost first) and every handler, validator and domain event handler found in the
-    /// given assemblies. All of them are scoped.
+    /// order, outermost first) and every handler, validator, domain event handler and integration
+    /// event handler found in the given assemblies. All of them are scoped. The handled integration
+    /// event types are recorded in <see cref="IntegrationEventSubscriptions"/>.
     /// </summary>
     /// <remarks>
     /// The transaction behavior needs an <see cref="IUnitOfWork"/>, which the persistence layer
@@ -59,6 +62,8 @@ public static class CqrsServiceCollectionExtensions
 
     internal static void AddHandlers(IServiceCollection services, IEnumerable<Type> types)
     {
+        var subscriptions = GetOrAddSubscriptions(services);
+
         foreach (var type in types.Where(IsConcreteClass))
         {
             foreach (var serviceType in type.GetInterfaces().Where(i => i.IsGenericType))
@@ -79,9 +84,28 @@ public static class CqrsServiceCollectionExtensions
                 else if (MultiHandlerInterfaces.Contains(definition))
                 {
                     services.TryAddEnumerable(ServiceDescriptor.Scoped(serviceType, type));
+
+                    if (definition == typeof(IIntegrationEventHandler<>))
+                    {
+                        subscriptions.Add(serviceType.GetGenericArguments()[0]);
+                    }
                 }
             }
         }
+    }
+
+    /// <summary>One shared instance, whether messaging or AddCqrs registers first.</summary>
+    internal static IntegrationEventSubscriptions GetOrAddSubscriptions(IServiceCollection services)
+    {
+        if (services.FirstOrDefault(d => d.ServiceType == typeof(IntegrationEventSubscriptions))?.ImplementationInstance
+            is IntegrationEventSubscriptions existing)
+        {
+            return existing;
+        }
+
+        var subscriptions = new IntegrationEventSubscriptions();
+        services.AddSingleton(subscriptions);
+        return subscriptions;
     }
 
     private static bool IsConcreteClass(Type type)
