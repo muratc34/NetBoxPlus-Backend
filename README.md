@@ -46,7 +46,7 @@ lives there.
 
 | Dependency | Address | Notes |
 |---|---|---|
-| PostgreSQL 18 | `localhost:5432` | Databases `auth`, `catalog`, `billing`, `streaming`, `sample`, each owned by a role of the same name that can connect only to it |
+| PostgreSQL 18 | `localhost:5432` | Databases `auth`, `catalog`, `billing`, `streaming`, `sample`, `feed`, each owned by a role of the same name that can connect only to it |
 | RabbitMQ 4 | `localhost:5672`, UI http://localhost:15672 | |
 | Valkey 9 | `localhost:6379` | Password-protected |
 | Elasticsearch 9 | http://localhost:9200 | Only with `-Search`; security disabled locally |
@@ -70,6 +70,11 @@ The API listens on http://localhost:5101 (`POST /notes`, `GET /notes/{id}`; the 
 at `/openapi/v1.json` in development and committed under `docs/openapi/`). Logs and traces appear
 in the Aspire dashboard.
 
+`src/Services/Feed` is the reference for consuming another service's events: it reacts to the
+sample service's `NoteCreated` and keeps a feed of new notes (`GET /items`, on
+http://localhost:5102). Run it the same way with `Feed.Migrator` and `Feed.API`. Each message
+reaches it once, even when the broker delivers it again.
+
 ### Gateway
 
 Clients call the services through the YARP gateway:
@@ -82,7 +87,8 @@ It listens on http://localhost:5100. Public routes are `/{service}/...` (for exa
 `POST /sample/notes`), admin routes `/admin/{service}/...`. Each group has its own CORS origins
 and rate limits; requests over the limit get `429` problem details with `Retry-After`. Every
 request starts a new trace at the gateway, so a call shows up in the Aspire dashboard as one
-trace from the gateway down to the database and the message broker.
+trace from the gateway down to the database, the message broker and the consuming service: a
+`POST /sample/notes` is followed by the note appearing in `GET /feed/items`, in the same trace.
 
 ## License
 

@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../../../../src/Services/Feed/Feed.Domain/Feed.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

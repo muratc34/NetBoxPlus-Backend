@@ -16,7 +16,7 @@ services:
       POSTGRES_USER: ${POSTGRES_ADMIN_USER:?set POSTGRES_ADMIN_USER in deploy/.env}
       POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?set POSTGRES_ADMIN_PASSWORD in deploy/.env}
       # One database and one login role per service, each role limited to its own database.
-      NETBOXPLUS_DATABASES: auth,catalog,billing,streaming,sample
+      NETBOXPLUS_DATABASES: auth,catalog,billing,streaming,sample,feed
       NETBOXPLUS_SERVICE_PASSWORD: ${POSTGRES_SERVICE_PASSWORD:?set POSTGRES_SERVICE_PASSWORD in deploy/.env}
     ports:
       - "127.0.0.1:5432:5432"

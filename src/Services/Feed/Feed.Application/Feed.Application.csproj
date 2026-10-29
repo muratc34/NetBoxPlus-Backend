@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Feed service use cases.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Feed.Domain/Feed.Domain.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/Shared.Application/Shared.Application.csproj" />
+    <!-- The events this service consumes. Another service is reachable only through its Contracts. -->
+    <ProjectReference Include="../../Sample/Sample.Contracts/Sample.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Core package only, for async LINQ in query handlers; no database provider. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Feed.Application.Tests" />
+  </ItemGroup>
+
+</Project>

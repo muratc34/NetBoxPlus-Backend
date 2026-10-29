@@ -68,6 +68,10 @@ Lokal bağımlılıklar (Postgres, RabbitMQ, Valkey, Aspire dashboard; `-Search`
 - Tüm portlar `127.0.0.1`'e bağlı. Image'lar sürüm etiketiyle sabit, `latest` yok.
 - PowerShell script'lerinde regex için **`-cmatch`** kullan: `-match` kültüre göre büyük/küçük harf
   eşler ve `tr-TR`'de `I` harfi `[A-Z]` ile eşleşmez.
+- `dev.ps1`'i `2>&1` ile çağırma: Windows PowerShell docker'ın stderr'deki ilerleme çıktısını
+  hataya çevirir ve script durur.
+- `NETBOXPLUS_DATABASES`'e eklenen database sadece boş volume'da oluşur: ekledikten sonra
+  `./deploy/dev.ps1 reset -Force` (lokal veri silinir), sonra `up` ve `secrets`.
 
 Bir servisi lokalde çalıştırmak (örnek: Sample):
 
@@ -77,7 +81,8 @@ dotnet run --project src/Services/Sample/Sample.Migrator
 dotnet run --project src/Services/Sample/Sample.API --launch-profile Sample.API
 ```
 
-Gateway (`http://localhost:5100`, Development'ta Sample'a `localhost:5101` üzerinden gider):
+Feed da aynı şekilde (`Feed.Migrator`, `Feed.API`). Gateway (`http://localhost:5100`;
+Development'ta Sample'a `localhost:5101`, Feed'e `localhost:5102` üzerinden gider):
 
 ```powershell
 dotnet run --project src/Gateway/Gateway --launch-profile Gateway
@@ -91,8 +96,9 @@ Migration eklemek: `dotnet tool restore` ve
 
 Yeni bir servis Sample'ın yapısını birebir izler:
 
-- Projeler `<S>.Domain`, `.Application`, `.Infrastructure`, `.API`, `.Contracts`, `.Migrator`; testler
-  `tests/Services/<S>/`. API ve Migrator aynı `UserSecretsId`'yi kullanır: `netboxplus-<servis>`.
+- Projeler `<S>.Domain`, `.Application`, `.Infrastructure`, `.API`, `.Contracts`, `.Migrator`;
+  `.Contracts` sadece servis event yayınlıyorsa açılır. Testler `tests/Services/<S>/`. API ve
+  Migrator aynı `UserSecretsId`'yi kullanır: `netboxplus-<servis>`.
 - Domain: aggregate `AggregateRoot`'tan türer; value object'ler `Create` ile `Result` döner;
   hatalar `<Aggregate>Errors` static sınıfında; repository arayüzü domain'de.
 - Application: use case başına bir dosya (`Notes/CreateNote/CreateNote.cs`: command + validator +
@@ -109,9 +115,20 @@ Yeni bir servis Sample'ın yapısını birebir izler:
   listesine, `deploy/compose.yaml`'daki `NETBOXPLUS_DATABASES`'e ve `tests/Architecture.Tests`
   csproj'una eklenir.
 - Gateway'e iki route eklenir (`src/Gateway/Gateway/appsettings.json`): `<s>-public`
-  (`/<s>/{**remainder}`, `PathRemovePrefix: /<s>`, `RouteGroup: public`) ve `<s>-admin`
-  (`/admin/<s>/{**remainder}`, `PathPattern: /admin/{**remainder}`, `RouteGroup: admin`); cluster
-  adresi base'de compose adı, `appsettings.Development.json`'da `localhost` portu.
+  (`/<s>/{**remainder}`, `PathRemovePrefix: /<s>`, `RouteGroup: public`) ve, admin endpoint'i
+  varsa, `<s>-admin` (`/admin/<s>/{**remainder}`, `PathPattern: /admin/{**remainder}`,
+  `RouteGroup: admin`); cluster adresi base'de compose adı, `appsettings.Development.json`'da
+  `localhost` portu. Portlar: gateway 5100, Sample 5101, Feed 5102; sıradaki servis 5103.
+
+**Başka bir servisin event'ini tüketmek — referans: `src/Services/Feed`**
+
+- `<S>.Application` diğer servisin sadece `*.Contracts` projesini referans alır.
+- `IIntegrationEventHandler<TEvent>` event'i bir command'a çevirip `dispatcher.Send` ile gönderir;
+  kayıt, validation ve inbox kaydı aynı pipeline/transaction'da olur. Ayrıca kayıt yok — `AddCqrs`
+  handler'ı bulur, messaging de bu event'e abone olur.
+- Handler'ın tam tip adı inbox anahtarıdır: işlenmiş mesajı olan bir handler'ı yeniden adlandırma
+  veya taşıma, yoksa o mesajlar tekrar işlenir.
+- Command handler aynı kaydı ikinci kez görürse başarılı döner (idempotent); DB'de unique index.
 
 ## Gateway — `src/Gateway/Gateway`
 

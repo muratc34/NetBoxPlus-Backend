@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Feed service persistence and messaging.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Feed.Application/Feed.Application.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/Shared.Infrastructure.Persistence/Shared.Infrastructure.Persistence.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/Shared.Infrastructure.Messaging/Shared.Infrastructure.Messaging.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

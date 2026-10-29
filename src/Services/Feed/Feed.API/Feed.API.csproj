@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <Description>Feed service HTTP API and event consumer.</Description>
+    <UserSecretsId>netboxplus-feed</UserSecretsId>
+    <!-- The OpenAPI document is generated at build time and committed, so API changes show in diffs. -->
+    <OpenApiGenerateDocuments>true</OpenApiGenerateDocuments>
+    <OpenApiDocumentsDirectory>$(MSBuildThisFileDirectory)../../../../docs/openapi</OpenApiDocumentsDirectory>
+    <OpenApiGenerateDocumentsOptions>--file-name feed</OpenApiGenerateDocumentsOptions>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Feed.Infrastructure/Feed.Infrastructure.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/Shared.Infrastructure.API/Shared.Infrastructure.API.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.Extensions.ApiDescription.Server" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Feed.IntegrationTests" />
+  </ItemGroup>
+
+</Project>
