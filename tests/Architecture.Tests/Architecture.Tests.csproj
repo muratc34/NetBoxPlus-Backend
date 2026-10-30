@@ -6,6 +6,8 @@
     <ProjectReference Include="../../src/Services/Sample/Sample.Migrator/Sample.Migrator.csproj" />
     <ProjectReference Include="../../src/Services/Feed/Feed.API/Feed.API.csproj" />
     <ProjectReference Include="../../src/Services/Feed/Feed.Migrator/Feed.Migrator.csproj" />
+    <ProjectReference Include="../../src/Services/Auth/Auth.API/Auth.API.csproj" />
+    <ProjectReference Include="../../src/Services/Auth/Auth.Migrator/Auth.Migrator.csproj" />
     <ProjectReference Include="../../src/Gateway/Gateway/Gateway.csproj" />
   </ItemGroup>
 

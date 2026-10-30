@@ -90,6 +90,8 @@ jobs:
             dockerfile: src/Services/Sample/Sample.API/Dockerfile
           - name: feed-api
             dockerfile: src/Services/Feed/Feed.API/Dockerfile
+          - name: auth-api
+            dockerfile: src/Services/Auth/Auth.API/Dockerfile
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

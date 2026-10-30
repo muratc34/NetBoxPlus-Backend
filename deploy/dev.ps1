@@ -39,7 +39,7 @@ $envFile = Join-Path $deployDir '.env'
 $envExample = Join-Path $deployDir '.env.example'
 
 # Services whose projects use the user secrets id "netboxplus-<name>" and own a database "<name>".
-$services = @('sample', 'feed')
+$services = @('sample', 'feed', 'auth')
 
 function Get-DockerExecutable {
     $command = Get-Command docker -ErrorAction SilentlyContinue

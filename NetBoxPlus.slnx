@@ -11,6 +11,13 @@
     <Project Path="src/Gateway/Gateway/Gateway.csproj" />
   </Folder>
   <Folder Name="/src/Services/" />
+  <Folder Name="/src/Services/Auth/">
+    <Project Path="src/Services/Auth/Auth.API/Auth.API.csproj" />
+    <Project Path="src/Services/Auth/Auth.Application/Auth.Application.csproj" />
+    <Project Path="src/Services/Auth/Auth.Domain/Auth.Domain.csproj" />
+    <Project Path="src/Services/Auth/Auth.Infrastructure/Auth.Infrastructure.csproj" />
+    <Project Path="src/Services/Auth/Auth.Migrator/Auth.Migrator.csproj" />
+  </Folder>
   <Folder Name="/src/Services/Feed/">
     <Project Path="src/Services/Feed/Feed.API/Feed.API.csproj" />
     <Project Path="src/Services/Feed/Feed.Application/Feed.Application.csproj" />
@@ -40,6 +47,10 @@
     <Project Path="tests/Gateway/Gateway.Tests/Gateway.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/Services/" />
+  <Folder Name="/tests/Services/Auth/">
+    <Project Path="tests/Services/Auth/Auth.Domain.Tests/Auth.Domain.Tests.csproj" />
+    <Project Path="tests/Services/Auth/Auth.IntegrationTests/Auth.IntegrationTests.csproj" />
+  </Folder>
   <Folder Name="/tests/Services/Feed/">
     <Project Path="tests/Services/Feed/Feed.Application.Tests/Feed.Application.Tests.csproj" />
     <Project Path="tests/Services/Feed/Feed.Domain.Tests/Feed.Domain.Tests.csproj" />

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Auth service use cases.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Auth.Domain/Auth.Domain.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/Shared.Application/Shared.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Core package only, for async LINQ in query handlers; no database provider. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Auth.Application.Tests" />
+  </ItemGroup>
+
+</Project>

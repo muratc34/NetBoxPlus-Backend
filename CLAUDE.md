@@ -5,7 +5,7 @@ mikroservisler, servis başına Clean Architecture, ortak kod `src/BuildingBlock
 Her geliştirmeden sonra bu dosya ve ilgili doküman güncellenir.
 
 - Kararlar ve gerekçeleri: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- Aktif faz ve iş dökümü: [docs/PHASE-0.md](docs/PHASE-0.md)
+- Aktif faz ve iş dökümü: [docs/PHASE-1.md](docs/PHASE-1.md) (Faz 0 bitti: [docs/PHASE-0.md](docs/PHASE-0.md))
 
 Bu iki doküman **sadece lokalde** durur, repoya commit edilmez (`.gitignore`'da `/docs/*.md`).
 GitHub'da yokturlar; commit'lenen hiçbir dosya (README dahil) onlara link vermez.
@@ -90,7 +90,7 @@ dotnet run --project src/Services/Sample/Sample.Migrator
 dotnet run --project src/Services/Sample/Sample.API --launch-profile Sample.API
 ```
 
-Feed da aynı şekilde (`Feed.Migrator`, `Feed.API`). Gateway (`http://localhost:5100`;
+Feed ve Auth da aynı şekilde (`<S>.Migrator`, `<S>.API`). Gateway (`http://localhost:5100`;
 Development'ta Sample'a `localhost:5101`, Feed'e `localhost:5102` üzerinden gider):
 
 ```powershell
@@ -114,7 +114,8 @@ Yeni bir servis Sample'ın yapısını birebir izler:
   handler); handler'lar `internal sealed`. Query'ler servisin okuma arayüzünden
   (`I<S>ReadModel`) projection yapar. Integration event'ler bir domain event handler'ından yayınlanır.
 - Infrastructure: `<S>DbContext : ServiceDbContext, I<S>ReadModel`, `ConnectionStrings:Database`,
-  configuration'lar `IEntityTypeConfiguration`, tek değerli value object'ler `ComplexProperty`,
+  configuration'lar `IEntityTypeConfiguration`, tek değerli value object'ler `ComplexProperty`
+  (üzerinde index veya arama gerekiyorsa `HasConversion`, ör. Auth'taki `EmailAddress`),
   soft delete için `HasQueryFilter`, design-time factory.
 - API: `Program.cs` Sample'daki sırayla; endpoint'ler `MapGroup` ile, `[FromServices] IDispatcher`,
   `Produces`/`ProducesProblem` metadata'sı (OpenAPI'den TypeScript client üretilecek). OpenAPI
@@ -127,7 +128,10 @@ Yeni bir servis Sample'ın yapısını birebir izler:
   (`/<s>/{**remainder}`, `PathRemovePrefix: /<s>`, `RouteGroup: public`) ve, admin endpoint'i
   varsa, `<s>-admin` (`/admin/<s>/{**remainder}`, `PathPattern: /admin/{**remainder}`,
   `RouteGroup: admin`); cluster adresi base'de compose adı, `appsettings.Development.json`'da
-  `localhost` portu. Portlar: gateway 5100, Sample 5101, Feed 5102; sıradaki servis 5103.
+  `localhost` portu. Portlar: gateway 5100, Sample 5101, Feed 5102, Auth 5103; sıradaki servis 5104.
+- Servisin permission'ları önce `src/Services/Auth/Auth.Domain/Roles/Permissions.cs`'te kendi
+  iç içe sınıfına eklenir (`<servis>:<kaynak>:<eylem>`, küçük harf); servis aynı string'i
+  `RequirePermission` ile kontrol eder. Katalogda olmayan permission bir role atanamaz.
 
 **Başka bir servisin event'ini tüketmek — referans: `src/Services/Feed`**
 
@@ -187,6 +191,11 @@ Yeni bir servis Sample'ın yapısını birebir izler:
 - **CQRS:** `IDispatcher.Send` / `Query`; kayıt `services.AddCqrs(assembly)`. Handler'lar
   **`SaveChanges` çağırmaz** — başarılı command'ı `TransactionBehavior` kaydeder. Bir request'in
   tam olarak bir handler'ı olur.
+  - **İstisna — başarısızlıkta da kalması gereken güvenlik yazmaları:** repository'de
+    `ExecuteUpdate` ile **anında ve atomik SQL** (ör. `FailedSignInCount + 1`, "UsedAt boşsa
+    doldur, etkilenen satır = 1 mi"). Sadece command başarısız olsa bile kalıcı olması gereken veya
+    eş zamanlı isteklerin yarıştığı yazmalar için; metodun XML doc'unda gerekçesi yazar. Örnekler:
+    `IUserRepository.RecordFailedSignInAsync`, `IRefreshTokenRepository.TryMarkUsedAsync`.
 - **Validation:** `IValidator<T>` senkron ve I/O yapmaz (zorunlu alan, uzunluk, format). Veritabanı
   gerektiren kurallar handler'da. Validator hatası exception değil `ValidationError`.
 - **Contract'lar:** `*.Contracts` içinde düz record; işaret arayüzü yok, bağımlılık yok, tipler
