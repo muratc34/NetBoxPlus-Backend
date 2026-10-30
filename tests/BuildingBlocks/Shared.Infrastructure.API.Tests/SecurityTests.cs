@@ -1,8 +1,14 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Tokens;
 using Shared.Application;
 using Shared.Infrastructure.API.Security;
 
@@ -53,6 +59,68 @@ public sealed class SecurityTests
         var response = await Send(app, "/movies/write", token);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task TokenOfAnotherType_IsRejected()
+    {
+        await using var app = await Start();
+
+        var token = app.CreateToken(Guid.CreateVersion7(), [WritePermission], tokenType: "JWT");
+        var response = await Send(app, "/movies/write", token);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task TokenSignedWithAnotherAlgorithm_IsRejected_EvenWithATrustedKey()
+    {
+        using var rsa = RSA.Create(2048);
+        var rsaKey = new RsaSecurityKey(rsa) { KeyId = "rsa" };
+
+        // The RSA key is trusted, so only the algorithm restriction can turn the token away.
+        await using var app = await TestApp.StartAsync(Map, withAuthentication: true, configure: builder =>
+            builder.Services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
+                options.TokenValidationParameters.IssuerSigningKeys = [rsaKey]));
+
+        var token = new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
+        {
+            TokenType = AccessTokenFormat.Type,
+            Issuer = TestApp.Issuer,
+            Audience = TestApp.Audience,
+            Expires = DateTime.UtcNow.AddMinutes(15),
+            Claims = new Dictionary<string, object>
+            {
+                [JwtRegisteredClaimNames.Sub] = Guid.CreateVersion7().ToString(),
+                [NetBoxPlusClaimTypes.Permission] = new[] { WritePermission },
+            },
+            SigningCredentials = new SigningCredentials(rsaKey, SecurityAlgorithms.RsaSha256),
+        });
+        var response = await Send(app, "/movies/write", token);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task WithoutAnAuthority_TheApplicationDoesNotStart()
+    {
+        var exception = await Assert.ThrowsAsync<OptionsValidationException>(() => TestApp.StartAsync(
+            Map,
+            configure: builder => builder.Services.AddJwtAuthentication()));
+
+        Assert.Contains("Authority", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task WithAnAuthority_TheApplicationStarts()
+    {
+        await using var app = await TestApp.StartAsync(Map, configure: builder =>
+        {
+            builder.Configuration["Authentication:Schemes:Bearer:Authority"] = "https://auth.test";
+            builder.Services.AddJwtAuthentication();
+        });
+
+        Assert.NotNull(app.Client);
     }
 
     [Fact]

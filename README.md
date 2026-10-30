@@ -66,7 +66,7 @@ volume; after changing the list, run `reset -Force`.
 
 ```powershell
 ./deploy/dev.ps1 up
-./deploy/dev.ps1 secrets   # writes connection settings from deploy/.env into user secrets
+./deploy/dev.ps1 secrets   # writes connection settings (and the auth signing key) into user secrets
 dotnet run --project src/Services/Sample/Sample.Migrator
 dotnet run --project src/Services/Sample/Sample.API --launch-profile Sample.API
 ```

@@ -1,3 +1,5 @@
+using Auth.API.Security;
+using Auth.API.WellKnown;
 using Auth.Application;
 using Auth.Infrastructure;
 using Shared.Infrastructure.API.Hosting;
@@ -13,6 +15,7 @@ builder.Services.AddAuthApplication();
 if (!BuildTimeOpenApi.IsGeneratingDocument)
 {
     builder.Services.AddAuthInfrastructure(builder.Configuration);
+    builder.Services.AddSelfIssuedTokenValidation();
 }
 
 var app = builder.Build();
@@ -25,6 +28,8 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+
+app.MapWellKnownEndpoints();
 
 // Sign-in, token and admin endpoints come in the next steps of phase 1.
 app.MapDefaultEndpoints();

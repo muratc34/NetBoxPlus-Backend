@@ -10,7 +10,7 @@
 .EXAMPLE
     ./deploy/dev.ps1 up            # Postgres, RabbitMQ, Valkey, Aspire dashboard
     ./deploy/dev.ps1 up -Search    # ... plus Elasticsearch
-    ./deploy/dev.ps1 secrets       # connection settings for running services from the IDE
+    ./deploy/dev.ps1 secrets       # connection settings (and a token signing key) for running services from the IDE
     ./deploy/dev.ps1 status
     ./deploy/dev.ps1 down          # stop, keep data
     ./deploy/dev.ps1 reset -Force  # stop and DELETE all local data
@@ -104,6 +104,31 @@ function Set-ServiceSecrets {
         }
         Write-Host "User secrets set for $name (id $id)."
     }
+
+    Set-AuthSigningKey
+}
+
+function Set-AuthSigningKey {
+    $id = 'netboxplus-auth'
+
+    # Created once: a new key would invalidate every token signed with the previous one.
+    $existing = & dotnet user-secrets list --id $id
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    if ($existing -cmatch '^Auth:Tokens:ActiveKeyId = ') {
+        Write-Host "Token signing key already set for auth (id $id)."
+        return
+    }
+
+    # .NET Framework (Windows PowerShell 5.1) cannot export EC keys as PEM, so a small .NET app does it.
+    $pem = (& dotnet run (Join-Path $deployDir 'tools\NewSigningKey.cs')) -join "`n"
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+    $keyId = 'local-' + [DateTime]::UtcNow.ToString('yyyyMMddHHmmss')
+    foreach ($secret in @(@("Auth:Tokens:SigningKeys:$keyId", $pem), @('Auth:Tokens:ActiveKeyId', $keyId))) {
+        & dotnet user-secrets set $secret[0] $secret[1] --id $id | Out-Null
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    }
+    Write-Host "Token signing key $keyId created for auth (id $id)."
 }
 
 function Invoke-Compose {

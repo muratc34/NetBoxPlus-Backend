@@ -107,6 +107,10 @@ public sealed class FeedApiFixture : IAsyncLifetime
             builder.UseSetting("ConnectionStrings:Database", database);
             builder.UseSetting("Messaging:ConnectionString", rabbit);
 
+            // No endpoint here needs a token, so the keys are never fetched; the service only must not refuse to start.
+            builder.UseSetting("Authentication:Schemes:Bearer:Authority", "http://auth.test");
+            builder.UseSetting("Authentication:Schemes:Bearer:RequireHttpsMetadata", "false");
+
             // The consumer reports skipped duplicates at debug level.
             builder.UseSetting("Logging:LogLevel:Shared.Infrastructure.Messaging", "Debug");
             builder.ConfigureLogging(logging => logging.AddFakeLogging());

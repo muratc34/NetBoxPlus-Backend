@@ -98,6 +98,8 @@ dotnet run --project src/Gateway/Gateway --launch-profile Gateway
 ```
 
 `secrets`, `deploy/.env`'deki değerleri servisin User Secrets'ına (`netboxplus-<servis>`) yazar.
+Auth için bir kez token imza anahtarı da üretir (`deploy/tools/NewSigningKey.cs`). Servisler
+token'ı Auth'un JWKS'i ile doğruladığı için korumalı bir endpoint'i denerken Auth da çalışmalı.
 Migration eklemek: `dotnet tool restore` ve
 `dotnet ef migrations add <Ad> --project src/Services/<S>/<S>.Infrastructure --output-dir Persistence/Migrations`.
 
@@ -121,6 +123,10 @@ Yeni bir servis Sample'ın yapısını birebir izler:
   `Produces`/`ProducesProblem` metadata'sı (OpenAPI'den TypeScript client üretilecek). OpenAPI
   dokümanı build'de `docs/openapi/<servis>.json`'a yazılır ve commit'lenir; build sırasında
   altyapı kaydı `BuildTimeOpenApi.IsGeneratingDocument` ile atlanır.
+  `appsettings.Development.json`: `Authentication:Schemes:Bearer:Authority` = `http://localhost:5103`
+  ve `RequireHttpsMetadata: false`; Authority yoksa servis başlamaz. Test fixture'ı token'ı kendi
+  ES256 anahtarıyla ve `typ: at+jwt` ile imzalar, anahtarı `PostConfigure<JwtBearerOptions>` ile
+  verir (`SampleApiFixture`).
 - Dockerfile Sample'daki gibi (chiseled, non-root). Yeni servis `deploy/dev.ps1`'deki `$services`
   listesine, `deploy/compose.yaml`'daki `NETBOXPLUS_DATABASES`'e, `tests/Architecture.Tests`
   csproj'una ve `.github/workflows/ci.yml`'deki `image` matrix'ine eklenir.
@@ -217,7 +223,8 @@ Yeni bir servis Sample'ın yapısını birebir izler:
   string interpolation yok; token/şifre/kart/e-posta loglanmaz. Hassas parametreler
   `[PersonalData]` / `[SecretData]` ile işaretlenir (projede `Microsoft.Extensions.Telemetry.Abstractions`
   doğrudan referanslı olmalı).
-- **JWT:** asimetrik imza, servisler Auth'un JWKS'i ile doğrular; claim adları olduğu gibi (`sub`,
-  `permission`).
+- **JWT:** ES256, `typ: at+jwt`, 15 dk; servisler Auth'un JWKS'ini `Authority` üzerinden bulur,
+  başka algoritma veya tip kabul edilmez. Claim adları olduğu gibi (`sub`, `role`, `permission`).
+  İmza anahtarları `Auth:Tokens` altında, asla loglanmaz; rotasyon adımları ARCHITECTURE §12.3.1.
 - **Lisans kontrolü:** MediatR, AutoMapper, MassTransit v9, FluentAssertions v8 gibi ticari lisansa
   geçmiş paketler kullanılmaz. Yeni bir paket eklemeden önce lisansını kontrol et.

@@ -24,7 +24,7 @@ public sealed class SampleApiFixture : IAsyncLifetime
     public const string Issuer = "https://auth.test";
     public const string Audience = "netboxplus";
 
-    private readonly RSA _signingKey = RSA.Create(2048);
+    private readonly ECDsa _signingKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
     private PostgreSqlContainer? _postgres;
     private RabbitMqContainer? _rabbit;
     private SampleApiFactory? _factory;
@@ -74,6 +74,7 @@ public sealed class SampleApiFixture : IAsyncLifetime
 
     public string CreateToken(params string[] permissions) => new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
     {
+        TokenType = "at+jwt",
         Issuer = Issuer,
         Audience = Audience,
         Expires = DateTime.UtcNow.AddMinutes(15),
@@ -82,7 +83,7 @@ public sealed class SampleApiFixture : IAsyncLifetime
             [JwtRegisteredClaimNames.Sub] = Guid.CreateVersion7().ToString(),
             ["permission"] = permissions,
         },
-        SigningCredentials = new SigningCredentials(new RsaSecurityKey(_signingKey), SecurityAlgorithms.RsaSha256),
+        SigningCredentials = new SigningCredentials(new ECDsaSecurityKey(_signingKey), SecurityAlgorithms.EcdsaSha256),
     });
 
     public async ValueTask DisposeAsync()
@@ -105,7 +106,7 @@ public sealed class SampleApiFixture : IAsyncLifetime
         _signingKey.Dispose();
     }
 
-    private sealed class SampleApiFactory(string database, string rabbit, RSA signingKey) : WebApplicationFactory<Program>
+    private sealed class SampleApiFactory(string database, string rabbit, ECDsa signingKey) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -121,7 +122,7 @@ public sealed class SampleApiFixture : IAsyncLifetime
                 options =>
                 {
                     options.TokenValidationParameters.ValidIssuer = Issuer;
-                    options.TokenValidationParameters.IssuerSigningKey = new RsaSecurityKey(signingKey);
+                    options.TokenValidationParameters.IssuerSigningKey = new ECDsaSecurityKey(signingKey);
                 }));
         }
     }

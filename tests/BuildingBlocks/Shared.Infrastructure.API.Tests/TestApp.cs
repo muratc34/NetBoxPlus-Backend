@@ -23,7 +23,7 @@ internal sealed class TestApp : IAsyncDisposable
 
     private readonly WebApplication _app;
 
-    private TestApp(WebApplication app, RSA signingKey)
+    private TestApp(WebApplication app, ECDsa signingKey)
     {
         _app = app;
         SigningKey = signingKey;
@@ -34,7 +34,7 @@ internal sealed class TestApp : IAsyncDisposable
 
     public IServiceProvider Services => _app.Services;
 
-    private RSA SigningKey { get; }
+    private ECDsa SigningKey { get; }
 
     public static async Task<TestApp> StartAsync(
         Action<WebApplication> mapEndpoints,
@@ -47,7 +47,7 @@ internal sealed class TestApp : IAsyncDisposable
         builder.Logging.AddFakeLogging();
 
         // Stands in for the Auth service: tokens are signed with this key instead of one found via JWKS.
-        var signingKey = RSA.Create(2048);
+        var signingKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         if (withAuthentication)
         {
             builder.Services.AddJwtAuthentication();
@@ -55,7 +55,7 @@ internal sealed class TestApp : IAsyncDisposable
             {
                 options.TokenValidationParameters.ValidIssuer = Issuer;
                 options.TokenValidationParameters.ValidAudience = Audience;
-                options.TokenValidationParameters.IssuerSigningKey = new RsaSecurityKey(signingKey);
+                options.TokenValidationParameters.IssuerSigningKey = new ECDsaSecurityKey(signingKey);
             });
         }
 
@@ -77,7 +77,11 @@ internal sealed class TestApp : IAsyncDisposable
         return new TestApp(app, signingKey);
     }
 
-    public string CreateToken(Guid userId, IEnumerable<string>? permissions = null, DateTime? expires = null)
+    public string CreateToken(
+        Guid userId,
+        IEnumerable<string>? permissions = null,
+        DateTime? expires = null,
+        string tokenType = AccessTokenFormat.Type)
     {
         var claims = new Dictionary<string, object>
         {
@@ -89,13 +93,14 @@ internal sealed class TestApp : IAsyncDisposable
 
         return new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
         {
+            TokenType = tokenType,
             Issuer = Issuer,
             Audience = Audience,
             Claims = claims,
             NotBefore = expiresAt.AddMinutes(-30),
             IssuedAt = expiresAt.AddMinutes(-30),
             Expires = expiresAt,
-            SigningCredentials = new SigningCredentials(new RsaSecurityKey(SigningKey), SecurityAlgorithms.RsaSha256),
+            SigningCredentials = new SigningCredentials(new ECDsaSecurityKey(SigningKey), SecurityAlgorithms.EcdsaSha256),
         });
     }
 

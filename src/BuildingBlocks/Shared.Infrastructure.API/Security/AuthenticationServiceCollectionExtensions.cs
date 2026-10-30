@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Shared.Application;
+using Shared.Infrastructure.API.Hosting;
 
 namespace Shared.Infrastructure.API.Security;
 
@@ -16,7 +17,9 @@ public static class AuthenticationServiceCollectionExtensions
     /// Tokens are signed with Auth's private key and verified with the public keys it publishes
     /// (JWKS), found through <c>Authentication:Schemes:Bearer:Authority</c>; audience and the other
     /// standard JwtBearer settings come from the same section. Claim names are kept as issued
-    /// (<c>sub</c>, <c>permission</c>) — no mapping to XML claim types.
+    /// (<c>sub</c>, <c>permission</c>) — no mapping to XML claim types. Only ES256-signed tokens of type
+    /// <c>at+jwt</c> are accepted, so neither another algorithm nor a JWT issued for another purpose
+    /// passes. Without a key source the application does not start.
     /// </remarks>
     public static IServiceCollection AddJwtAuthentication(this IServiceCollection services)
     {
@@ -31,7 +34,19 @@ public static class AuthenticationServiceCollectionExtensions
 
                 // Access tokens live 15 minutes; the default 5-minute skew would extend that by a third.
                 options.TokenValidationParameters.ClockSkew = TimeSpan.FromSeconds(30);
+
+                options.TokenValidationParameters.ValidAlgorithms = [AccessTokenFormat.Algorithm];
+                options.TokenValidationParameters.ValidTypes = [AccessTokenFormat.Type];
             });
+
+        if (!BuildTimeOpenApi.IsGeneratingDocument)
+        {
+            services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+                .Validate(
+                    HasSigningKeySource,
+                    "Authentication:Schemes:Bearer:Authority is not configured, so access tokens cannot be validated.")
+                .ValidateOnStart();
+        }
 
         services.AddAuthorization();
         services.Replace(ServiceDescriptor.Singleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>());
@@ -51,4 +66,12 @@ public static class AuthenticationServiceCollectionExtensions
 
         return builder.RequireAuthorization(PermissionPolicyProvider.PolicyName(permission));
     }
+
+    /// <summary>JwtBearer turns an Authority into a configuration manager; tests and the auth service set keys directly.</summary>
+    private static bool HasSigningKeySource(JwtBearerOptions options)
+        => options.ConfigurationManager is not null
+            || options.Configuration is not null
+            || options.TokenValidationParameters.IssuerSigningKey is not null
+            || options.TokenValidationParameters.IssuerSigningKeys?.Any() == true
+            || options.TokenValidationParameters.IssuerSigningKeyResolver is not null;
 }
