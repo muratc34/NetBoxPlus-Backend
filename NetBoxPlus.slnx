@@ -14,6 +14,7 @@
   <Folder Name="/src/Services/Auth/">
     <Project Path="src/Services/Auth/Auth.API/Auth.API.csproj" />
     <Project Path="src/Services/Auth/Auth.Application/Auth.Application.csproj" />
+    <Project Path="src/Services/Auth/Auth.Contracts/Auth.Contracts.csproj" />
     <Project Path="src/Services/Auth/Auth.Domain/Auth.Domain.csproj" />
     <Project Path="src/Services/Auth/Auth.Infrastructure/Auth.Infrastructure.csproj" />
     <Project Path="src/Services/Auth/Auth.Migrator/Auth.Migrator.csproj" />

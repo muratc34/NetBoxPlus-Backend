@@ -1,4 +1,5 @@
 using Auth.API.Security;
+using Auth.API.Sessions;
 using Auth.API.WellKnown;
 using Auth.Application;
 using Auth.Infrastructure;
@@ -30,8 +31,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapWellKnownEndpoints();
+app.MapSessionEndpoints();
 
-// Sign-in, token and admin endpoints come in the next steps of phase 1.
+// Admin endpoints for users and roles come with the next step of phase 1.
 app.MapDefaultEndpoints();
 
 app.Run();

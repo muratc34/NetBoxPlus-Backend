@@ -223,6 +223,10 @@ Yeni bir servis Sample'ın yapısını birebir izler:
   string interpolation yok; token/şifre/kart/e-posta loglanmaz. Hassas parametreler
   `[PersonalData]` / `[SecretData]` ile işaretlenir (projede `Microsoft.Extensions.Telemetry.Abstractions`
   doğrudan referanslı olmalı).
+- **Auth endpoint'leri:** `/register`, `/sign-in`, `/admin/sign-in`, `/refresh`, `/sign-out`, `/me`,
+  `/me/password`. Giriş hatası her durumda `User.InvalidCredentials` (hesabın varlığı ve kilidi
+  belli olmaz); bilinmeyen e-postada da bir hash doğrulanır. Tekrar kullanılan refresh token ailenin
+  tamamını iptal eder.
 - **JWT:** ES256, `typ: at+jwt`, 15 dk; servisler Auth'un JWKS'ini `Authority` üzerinden bulur,
   başka algoritma veya tip kabul edilmez. Claim adları olduğu gibi (`sub`, `role`, `permission`).
   İmza anahtarları `Auth:Tokens` altında, asla loglanmaz; rotasyon adımları ARCHITECTURE §12.3.1.

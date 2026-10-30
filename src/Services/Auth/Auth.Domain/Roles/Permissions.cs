@@ -17,6 +17,9 @@ public static partial class Permissions
         public const string UsersWrite = "auth:users:write";
         public const string RolesRead = "auth:roles:read";
         public const string RolesWrite = "auth:roles:write";
+
+        /// <summary>Opening an admin session; without it an account cannot sign in to the admin panel.</summary>
+        public const string AdminSignIn = "auth:admin:sign-in";
     }
 
     public static class Sample

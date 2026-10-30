@@ -29,4 +29,16 @@ public static class UserErrors
         "The account is temporarily locked after too many failed sign-in attempts.");
 
     public static readonly Error NotFound = Error.NotFound("User.NotFound", "The user was not found.");
+
+    public static readonly Error EmailTaken = Error.Conflict("User.EmailTaken", "An account with this e-mail address already exists.");
+
+    /// <summary>
+    /// The only sign-in failure a caller sees: an unknown e-mail, a wrong password, a locked or a
+    /// disabled account all look the same, so the response does not tell whether an account exists.
+    /// </summary>
+    public static readonly Error InvalidCredentials = Error.Unauthorized(
+        "User.InvalidCredentials",
+        "The e-mail address or password is incorrect, or the account is temporarily locked.");
+
+    public static readonly Error PasswordIncorrect = Error.Validation("User.PasswordIncorrect", "The current password is incorrect.");
 }
