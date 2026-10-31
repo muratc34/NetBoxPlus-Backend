@@ -23,6 +23,19 @@ public sealed class AuthDbContext(DbContextOptions<AuthDbContext> options)
 
     IQueryable<Role> IAuthReadModel.Roles => Roles.AsNoTracking();
 
+    // SQL rather than LINQ: the address is stored through a value conversion, which LINQ cannot
+    // search inside. Stored addresses are lower case, so the fragment is lowered too.
+    IQueryable<User> IAuthReadModel.UsersWithEmailContaining(string fragment)
+    {
+        var pattern = "%" + EscapeLike(fragment.Trim().ToLowerInvariant()) + "%";
+        return Users.FromSql($"SELECT * FROM \"Users\" WHERE \"Email\" LIKE {pattern} ESCAPE '!'").AsNoTracking();
+    }
+
     protected override void ConfigureModel(ModelBuilder modelBuilder)
         => modelBuilder.ApplyConfigurationsFromAssembly(typeof(AuthDbContext).Assembly);
+
+    private static string EscapeLike(string value)
+        => value.Replace("!", "!!", StringComparison.Ordinal)
+            .Replace("%", "!%", StringComparison.Ordinal)
+            .Replace("_", "!_", StringComparison.Ordinal);
 }

@@ -98,7 +98,9 @@ dotnet run --project src/Gateway/Gateway --launch-profile Gateway
 ```
 
 `secrets`, `deploy/.env`'deki değerleri servisin User Secrets'ına (`netboxplus-<servis>`) yazar.
-Auth için bir kez token imza anahtarı da üretir (`deploy/tools/NewSigningKey.cs`). Servisler
+Auth için bir kez token imza anahtarı da üretir (`deploy/tools/NewSigningKey.cs`). Auth'un
+Migrator'ı migration'dan sonra ilk admin'i seed eder (`Auth:Seed:AdminEmail`/`AdminPassword`;
+lokalde `deploy/.env`'deki `AUTH_ADMIN_EMAIL`/`AUTH_ADMIN_PASSWORD`, `secrets` yazar). Servisler
 token'ı Auth'un JWKS'i ile doğruladığı için korumalı bir endpoint'i denerken Auth da çalışmalı.
 Migration eklemek: `dotnet tool restore` ve
 `dotnet ef migrations add <Ad> --project src/Services/<S>/<S>.Infrastructure --output-dir Persistence/Migrations`.
@@ -135,6 +137,9 @@ Yeni bir servis Sample'ın yapısını birebir izler:
   varsa, `<s>-admin` (`/admin/<s>/{**remainder}`, `PathPattern: /admin/{**remainder}`,
   `RouteGroup: admin`); cluster adresi base'de compose adı, `appsettings.Development.json`'da
   `localhost` portu. Portlar: gateway 5100, Sample 5101, Feed 5102, Auth 5103; sıradaki servis 5104.
+- Admin yazma command'ları `IAuditedCommand` implement eder (`AuditTargetId` explicit, JSON'a
+  girmesin) ve secret taşımaz; liste endpoint'leri `Shared.Application.Paging` (`page`,
+  `pageSize`, en fazla 100).
 - Servisin permission'ları önce `src/Services/Auth/Auth.Domain/Roles/Permissions.cs`'te kendi
   iç içe sınıfına eklenir (`<servis>:<kaynak>:<eylem>`, küçük harf); servis aynı string'i
   `RequirePermission` ile kontrol eder. Katalogda olmayan permission bir role atanamaz.
@@ -227,6 +232,11 @@ Yeni bir servis Sample'ın yapısını birebir izler:
   `/me/password`. Giriş hatası her durumda `User.InvalidCredentials` (hesabın varlığı ve kilidi
   belli olmaz); bilinmeyen e-postada da bir hash doğrulanır. Tekrar kullanılan refresh token ailenin
   tamamını iptal eder.
+- **Admin (Auth):** `/admin/users`, `/admin/roles`, `/admin/permissions`. Bir rolü oluşturan,
+  değiştiren, silen, atayan veya kaldıran o rolün permission'larının hepsine sahip olmalı;
+  `Administrator` sistem rolüdür (tüm permission'lar, API'den değişmez, seed katalogla eşitler).
+- **Audit:** `IAuditedCommand` işaretli başarılı command'lar aynı transaction'da
+  `AuditLogEntries`'e yazılır (`AuditBehavior`, tablo `ServiceDbContext`'te).
 - **JWT:** ES256, `typ: at+jwt`, 15 dk; servisler Auth'un JWKS'ini `Authority` üzerinden bulur,
   başka algoritma veya tip kabul edilmez. Claim adları olduğu gibi (`sub`, `role`, `permission`).
   İmza anahtarları `Auth:Tokens` altında, asla loglanmaz; rotasyon adımları ARCHITECTURE §12.3.1.

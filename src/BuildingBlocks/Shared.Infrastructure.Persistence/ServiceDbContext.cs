@@ -1,19 +1,22 @@
 using Microsoft.EntityFrameworkCore;
 using Shared.Domain;
+using Shared.Infrastructure.Persistence.Auditing;
 using Shared.Infrastructure.Persistence.Inbox;
 using Shared.Infrastructure.Persistence.Outbox;
 
 namespace Shared.Infrastructure.Persistence;
 
 /// <summary>
-/// Base of every service's DbContext. Adds the outbox and inbox tables and keeps domain events out
-/// of the model. Services put their own mapping in <see cref="ConfigureModel"/>.
+/// Base of every service's DbContext. Adds the outbox, inbox and audit log tables and keeps
+/// domain events out of the model. Services put their own mapping in <see cref="ConfigureModel"/>.
 /// </summary>
 public abstract class ServiceDbContext(DbContextOptions options) : DbContext(options)
 {
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
+
+    public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
 
     /// <summary>The service's own model: entity configurations, schema, conventions.</summary>
     protected abstract void ConfigureModel(ModelBuilder modelBuilder);
@@ -26,6 +29,7 @@ public abstract class ServiceDbContext(DbContextOptions options) : DbContext(opt
 
         modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration());
         modelBuilder.ApplyConfiguration(new InboxMessageConfiguration());
+        modelBuilder.ApplyConfiguration(new AuditLogEntryConfiguration());
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes()
                      .Where(type => typeof(AggregateRoot).IsAssignableFrom(type.ClrType))

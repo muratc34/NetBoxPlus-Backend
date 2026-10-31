@@ -98,4 +98,39 @@ public sealed class RoleTests
 
         Assert.Equal("MODERATOR", role.NormalizedName);
     }
+
+    [Fact]
+    public void CreateAdministrator_IsTheSystemRoleWithEveryPermission()
+    {
+        var role = Role.CreateAdministrator();
+
+        Assert.True(role.IsSystem);
+        Assert.Equal(Role.AdministratorName, role.Name);
+        Assert.Equal(Permissions.All.Order(StringComparer.Ordinal), role.Permissions);
+    }
+
+    [Fact]
+    public void SystemRole_CannotBeRenamedOrChanged()
+    {
+        var role = Role.CreateAdministrator();
+
+        Assert.Equal(RoleErrors.SystemRole, role.Rename("Owner").Error);
+        Assert.Equal(RoleErrors.SystemRole, role.SetPermissions([Permissions.Auth.UsersRead]).Error);
+        Assert.Equal(Role.AdministratorName, role.Name);
+        Assert.Equal(Permissions.All.Count, role.Permissions.Count);
+    }
+
+    [Fact]
+    public void SyncSystemPermissions_WhenInStep_ChangesNothing()
+    {
+        Assert.False(Role.CreateAdministrator().SyncSystemPermissions());
+    }
+
+    [Fact]
+    public void SyncSystemPermissions_OnAnOrdinaryRole_Throws()
+    {
+        var role = Role.Create("Editor", []).Value;
+
+        Assert.Throws<InvalidOperationException>(() => role.SyncSystemPermissions());
+    }
 }

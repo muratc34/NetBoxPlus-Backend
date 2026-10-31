@@ -9,4 +9,10 @@ public interface IAuthReadModel
     IQueryable<User> Users { get; }
 
     IQueryable<Role> Roles { get; }
+
+    /// <summary>
+    /// Users whose e-mail address contains <paramref name="fragment"/>, ignoring case; the
+    /// fragment is matched literally, so <c>%</c> and <c>_</c> are not wildcards.
+    /// </summary>
+    IQueryable<User> UsersWithEmailContaining(string fragment);
 }

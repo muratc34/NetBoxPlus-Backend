@@ -1,3 +1,4 @@
+using Shared.Application.Auditing;
 using Shared.Application.Cqrs;
 using Shared.Application.Events;
 using Shared.Application.Messaging;
@@ -199,4 +200,42 @@ internal sealed class InnerBehavior<TRequest, TResponse>(CallLog log)
 
     public Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
         => _inner.Handle(request, next, cancellationToken);
+}
+
+internal sealed record RenameItemCommand(Guid ItemId, string Name) : ICommand, IAuditedCommand
+{
+    Guid? IAuditedCommand.AuditTargetId => ItemId;
+}
+
+internal sealed class RenameItemHandler(CallLog log) : ICommandHandler<RenameItemCommand>
+{
+    public Task<Result> Handle(RenameItemCommand command, CancellationToken cancellationToken)
+    {
+        log.Add("handler");
+        return Task.FromResult(Result.Success());
+    }
+}
+
+internal sealed record RegisterItemCommand(string Name) : ICommand<Guid>, IAuditedCommand
+{
+    Guid? IAuditedCommand.AuditTargetId => null;
+}
+
+internal sealed class RegisterItemHandler : ICommandHandler<RegisterItemCommand, Guid>
+{
+    public static readonly Guid RegisteredId = Guid.CreateVersion7();
+
+    public Task<Result<Guid>> Handle(RegisterItemCommand command, CancellationToken cancellationToken)
+        => Task.FromResult(Result.Success(RegisteredId));
+}
+
+internal sealed record RejectedAuditedCommand(Guid ItemId) : ICommand, IAuditedCommand
+{
+    Guid? IAuditedCommand.AuditTargetId => ItemId;
+}
+
+internal sealed class RejectedAuditedHandler : ICommandHandler<RejectedAuditedCommand>
+{
+    public Task<Result> Handle(RejectedAuditedCommand command, CancellationToken cancellationToken)
+        => Task.FromResult(Result.Failure(FailingHandler.Conflict));
 }

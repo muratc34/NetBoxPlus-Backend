@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Shared.Infrastructure.Persistence.Auditing;
 using Shared.Infrastructure.Persistence.Inbox;
 using Shared.Infrastructure.Persistence.Outbox;
 
@@ -33,5 +34,22 @@ internal sealed class InboxMessageConfiguration : IEntityTypeConfiguration<Inbox
         builder.HasKey(message => new { message.MessageId, message.Consumer }).HasName(PrimaryKeyName);
 
         builder.Property(message => message.Consumer).HasMaxLength(500);
+    }
+}
+
+internal sealed class AuditLogEntryConfiguration : IEntityTypeConfiguration<AuditLogEntry>
+{
+    public void Configure(EntityTypeBuilder<AuditLogEntry> builder)
+    {
+        builder.ToTable("AuditLogEntries");
+        builder.HasKey(entry => entry.Id);
+
+        builder.Property(entry => entry.Action).HasMaxLength(200).IsRequired();
+        builder.Property(entry => entry.Details).HasColumnType("jsonb").IsRequired();
+        builder.Property(entry => entry.TraceId).HasMaxLength(32);
+
+        // "What happened to this record" and "what did this person do", newest first.
+        builder.HasIndex(entry => new { entry.TargetId, entry.OccurredAt });
+        builder.HasIndex(entry => new { entry.ActorId, entry.OccurredAt });
     }
 }

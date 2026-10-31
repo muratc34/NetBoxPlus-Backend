@@ -71,15 +71,31 @@ function New-Secret {
 }
 
 function Initialize-EnvFile {
-    if (Test-Path $envFile) { return }
-
     # -cmatch, not -match: case-insensitive matching follows the current culture, and under tr-TR
     # "I" does not match [A-Z] (its lower case is the dotless i, U+0131), so keys like RABBITMQ_* were skipped.
-    $lines = Get-Content $envExample | ForEach-Object {
-        if ($_ -cmatch '^\s*([A-Z0-9_]+)=generate\s*$') { "$($Matches[1])=$(New-Secret)" } else { $_ }
+    if (-not (Test-Path $envFile)) {
+        $lines = Get-Content $envExample | ForEach-Object {
+            if ($_ -cmatch '^\s*([A-Z0-9_]+)=generate\s*$') { "$($Matches[1])=$(New-Secret)" } else { $_ }
+        }
+        Set-Content -Path $envFile -Value $lines -Encoding Ascii
+        Write-Host "Created $envFile with random passwords."
+        return
     }
-    Set-Content -Path $envFile -Value $lines -Encoding Ascii
-    Write-Host "Created $envFile with random passwords."
+
+    # Settings added to the example after deploy/.env was created are appended; existing values stay.
+    $existing = Read-EnvFile
+    $added = @()
+    foreach ($line in Get-Content $envExample) {
+        if ($line -cmatch '^\s*([A-Z0-9_]+)=(.*)$' -and -not $existing.ContainsKey($Matches[1])) {
+            $value = $Matches[2].Trim()
+            if ($value -ceq 'generate') { $value = New-Secret }
+            $added += "$($Matches[1])=$value"
+        }
+    }
+    if ($added.Count -gt 0) {
+        Add-Content -Path $envFile -Value $added -Encoding Ascii
+        Write-Host "Added $($added.Count) new setting(s) to $envFile."
+    }
 }
 
 function Read-EnvFile {
@@ -104,6 +120,13 @@ function Set-ServiceSecrets {
         }
         Write-Host "User secrets set for $name (id $id)."
     }
+
+    # Read by Auth.Migrator, which creates the account and gives it the administrator role.
+    foreach ($secret in @(@('Auth:Seed:AdminEmail', $values['AUTH_ADMIN_EMAIL']), @('Auth:Seed:AdminPassword', $values['AUTH_ADMIN_PASSWORD']))) {
+        & dotnet user-secrets set $secret[0] $secret[1] --id 'netboxplus-auth' | Out-Null
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    }
+    Write-Host "Administrator $($values['AUTH_ADMIN_EMAIL']) set for auth; the password is AUTH_ADMIN_PASSWORD in $envFile."
 
     Set-AuthSigningKey
 }

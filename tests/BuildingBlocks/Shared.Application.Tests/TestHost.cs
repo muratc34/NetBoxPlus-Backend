@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Shared.Application.Auditing;
 
 namespace Shared.Application.Tests;
 
@@ -18,6 +19,9 @@ internal static class TestHost
         services.AddScoped<CallLog>();
         services.AddScoped<FakeUnitOfWork>();
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<FakeUnitOfWork>());
+        services.AddScoped<FakeAuditLog>();
+        services.AddScoped<IAuditLog>(sp => sp.GetRequiredService<FakeAuditLog>());
+        services.AddSingleton<ICurrentUser>(FakeCurrentUser.Instance);
 
         services.AddCqrs(typeof(TestHost).Assembly);
         configure?.Invoke(services);
@@ -43,4 +47,25 @@ internal sealed class FakeUnitOfWork : IUnitOfWork
         SaveCount++;
         return Task.CompletedTask;
     }
+}
+
+/// <summary>Keeps entries in memory and notes whether the unit of work had saved when each arrived.</summary>
+internal sealed class FakeAuditLog(FakeUnitOfWork unitOfWork) : IAuditLog
+{
+    public List<(AuditEntry Entry, int SavesBefore)> Entries { get; } = [];
+
+    public void Add(AuditEntry entry) => Entries.Add((entry, unitOfWork.SaveCount));
+}
+
+internal sealed class FakeCurrentUser : ICurrentUser
+{
+    public static readonly FakeCurrentUser Instance = new();
+
+    public static readonly Guid UserId = Guid.CreateVersion7();
+
+    public bool IsAuthenticated => true;
+
+    public Guid? Id => UserId;
+
+    public bool HasPermission(string permission) => false;
 }

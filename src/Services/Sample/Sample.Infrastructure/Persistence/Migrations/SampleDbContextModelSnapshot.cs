@@ -62,6 +62,43 @@ namespace Sample.Infrastructure.Persistence.Migrations
                     b.ToTable("Notes", (string)null);
                 });
 
+            modelBuilder.Entity("Shared.Infrastructure.Persistence.Auditing.AuditLogEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid?>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Details")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("TargetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TraceId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorId", "OccurredAt");
+
+                    b.HasIndex("TargetId", "OccurredAt");
+
+                    b.ToTable("AuditLogEntries", (string)null);
+                });
+
             modelBuilder.Entity("Shared.Infrastructure.Persistence.Inbox.InboxMessage", b =>
                 {
                     b.Property<Guid>("MessageId")

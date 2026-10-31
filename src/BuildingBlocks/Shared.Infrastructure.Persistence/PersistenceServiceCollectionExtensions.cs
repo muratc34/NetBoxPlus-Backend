@@ -6,7 +6,9 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Infrastructure;
 using OpenTelemetry.Trace;
 using Shared.Application;
 using Shared.Application.Events;
+using Shared.Application.Auditing;
 using Shared.Application.Messaging;
+using Shared.Infrastructure.Persistence.Auditing;
 using Shared.Infrastructure.Persistence.Inbox;
 using Shared.Infrastructure.Persistence.Interceptors;
 using Shared.Infrastructure.Persistence.Outbox;
@@ -21,7 +23,7 @@ public static class PersistenceServiceCollectionExtensions
     /// <summary>
     /// Registers <typeparamref name="TContext"/> on PostgreSQL with the shared interceptors
     /// (domain events, soft delete, auditing — in that order), the unit of work, the outbox
-    /// publisher and processor, the inbox, a readiness health check and Npgsql tracing.
+    /// publisher and processor, the inbox, the audit log, a readiness health check and Npgsql tracing.
     /// </summary>
     /// <remarks>Requires <c>AddCqrs</c> for the domain event dispatcher.</remarks>
     public static IServiceCollection AddPersistence<TContext>(
@@ -49,6 +51,7 @@ public static class PersistenceServiceCollectionExtensions
         services.TryAddScoped<IUnitOfWork, EfUnitOfWork<TContext>>();
         services.TryAddScoped<IIntegrationEventPublisher, OutboxIntegrationEventPublisher<TContext>>();
         services.TryAddScoped<IInbox, EfInbox<TContext>>();
+        services.TryAddScoped<IAuditLog, EfAuditLog<TContext>>();
 
         services.AddOptions<OutboxOptions>()
             .BindConfiguration(OutboxOptions.SectionName)

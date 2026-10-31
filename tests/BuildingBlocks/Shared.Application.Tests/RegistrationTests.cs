@@ -50,7 +50,7 @@ public sealed class RegistrationTests
             .Select(d => d.ImplementationType!.Name)
             .ToList();
 
-        Assert.Equal(["LoggingBehavior`2", "ValidationBehavior`2", "TransactionBehavior`2"], behaviors);
+        Assert.Equal(["LoggingBehavior`2", "ValidationBehavior`2", "TransactionBehavior`2", "AuditBehavior`2"], behaviors);
     }
 
     [Fact]

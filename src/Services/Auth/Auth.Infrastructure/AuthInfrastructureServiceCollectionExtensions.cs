@@ -37,8 +37,11 @@ public static class AuthInfrastructureServiceCollectionExtensions
         return services;
     }
 
-    /// <summary>The database, repositories and password hashing; the integration tests use it on its own.</summary>
-    internal static IServiceCollection AddAuthPersistence(this IServiceCollection services, string connectionString)
+    /// <summary>
+    /// The database, repositories and password hashing, without token signing or messaging: what the
+    /// migrator needs to seed the administrator. The integration tests use it on its own too.
+    /// </summary>
+    public static IServiceCollection AddAuthPersistence(this IServiceCollection services, string connectionString)
     {
         services.AddPersistence<AuthDbContext>(connectionString);
         services.AddScoped<IAuthReadModel>(provider => provider.GetRequiredService<AuthDbContext>());

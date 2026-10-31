@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Shared.Domain;
+using Shared.Infrastructure.Persistence.Auditing;
 using Shared.Infrastructure.Persistence.Inbox;
 using Shared.Infrastructure.Persistence.Outbox;
 
@@ -36,6 +37,16 @@ public sealed class ModelTests
 
         Assert.Equal([nameof(InboxMessage.MessageId), nameof(InboxMessage.Consumer)], key.Properties.Select(p => p.Name));
         Assert.Equal(InboxMessageConfiguration.PrimaryKeyName, key.GetName());
+    }
+
+    [Fact]
+    public void AuditLog_IsMappedWithJsonbDetails()
+    {
+        using var context = CreateContext();
+        var audit = context.Model.FindEntityType(typeof(AuditLogEntry))!;
+
+        Assert.Equal("AuditLogEntries", audit.GetTableName());
+        Assert.Equal("jsonb", audit.FindProperty(nameof(AuditLogEntry.Details))!.GetColumnType());
     }
 
     [Fact]

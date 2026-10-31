@@ -8,6 +8,9 @@ internal sealed class RoleRepository(AuthDbContext context) : IRoleRepository
     public Task<Role?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
         => context.Roles.FirstOrDefaultAsync(role => role.Id == id, cancellationToken);
 
+    public Task<Role?> GetSystemRoleAsync(CancellationToken cancellationToken)
+        => context.Roles.FirstOrDefaultAsync(role => role.IsSystem, cancellationToken);
+
     public Task<bool> ExistsByNameAsync(string name, CancellationToken cancellationToken)
     {
         var normalized = Role.Normalize(name);

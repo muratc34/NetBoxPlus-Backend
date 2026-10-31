@@ -28,14 +28,15 @@ public static class CqrsServiceCollectionExtensions
     ];
 
     /// <summary>
-    /// Registers the dispatcher, the standard pipeline (logging, validation, transaction — in that
-    /// order, outermost first) and every handler, validator, domain event handler and integration
+    /// Registers the dispatcher, the standard pipeline (logging, validation, transaction, audit — in
+    /// that order, outermost first) and every handler, validator, domain event handler and integration
     /// event handler found in the given assemblies. All of them are scoped. The handled integration
     /// event types are recorded in <see cref="IntegrationEventSubscriptions"/>.
     /// </summary>
     /// <remarks>
-    /// The transaction behavior needs an <see cref="IUnitOfWork"/>, which the persistence layer
-    /// registers. Additional behaviors registered afterwards run inside the standard ones.
+    /// The transaction behavior needs an <see cref="IUnitOfWork"/> and the audit behavior an
+    /// <see cref="Auditing.IAuditLog"/> and an <see cref="ICurrentUser"/>; the persistence and API layers
+    /// register them. Additional behaviors registered afterwards run inside the standard ones.
     /// </remarks>
     public static IServiceCollection AddCqrs(this IServiceCollection services, params Assembly[] assemblies)
     {
@@ -54,6 +55,9 @@ public static class CqrsServiceCollectionExtensions
         services.TryAddEnumerable(ServiceDescriptor.Scoped(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>)));
         services.TryAddEnumerable(ServiceDescriptor.Scoped(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>)));
         services.TryAddEnumerable(ServiceDescriptor.Scoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>)));
+
+        // Inside the transaction, so that the entry is saved with the change. Applies to audited commands only.
+        services.TryAddEnumerable(ServiceDescriptor.Scoped(typeof(IPipelineBehavior<,>), typeof(AuditBehavior<,>)));
 
         AddHandlers(services, assemblies.Distinct().SelectMany(assembly => assembly.GetTypes()));
 

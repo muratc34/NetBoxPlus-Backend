@@ -5,6 +5,9 @@ public interface IRoleRepository
 {
     Task<Role?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
+    /// <summary>The <see cref="Role.IsSystem"/> administrator role, once the seed has created it.</summary>
+    Task<Role?> GetSystemRoleAsync(CancellationToken cancellationToken);
+
     Task<bool> ExistsByNameAsync(string name, CancellationToken cancellationToken);
 
     void Add(Role role);

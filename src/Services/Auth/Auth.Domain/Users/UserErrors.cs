@@ -41,4 +41,8 @@ public static class UserErrors
         "The e-mail address or password is incorrect, or the account is temporarily locked.");
 
     public static readonly Error PasswordIncorrect = Error.Validation("User.PasswordIncorrect", "The current password is incorrect.");
+
+    public static readonly Error CannotModifySelf = Error.Conflict(
+        "User.CannotModifySelf",
+        "You cannot disable your own account or remove your own roles.");
 }

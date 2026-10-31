@@ -9,6 +9,9 @@ public sealed class Role : AggregateRoot, IAuditableEntity
 {
     public const int NameMaxLength = 64;
 
+    /// <summary>The name of the system role that the seed creates; see <see cref="IsSystem"/>.</summary>
+    public const string AdministratorName = "Administrator";
+
     private List<string> _permissions = [];
 
     private Role(Guid id, string name, List<string> permissions)
@@ -30,6 +33,13 @@ public sealed class Role : AggregateRoot, IAuditableEntity
     public string NormalizedName { get; private set; } = string.Empty;
 
     public IReadOnlyCollection<string> Permissions => _permissions.AsReadOnly();
+
+    /// <summary>
+    /// The administrator role: it always holds every permission in the catalog and cannot be
+    /// renamed, changed or deleted through the API. Only the seed creates it and keeps it in step
+    /// with the catalog, so administrators cannot lock themselves out by editing roles.
+    /// </summary>
+    public bool IsSystem { get; private set; }
 
     public DateTimeOffset CreatedAt { get; private set; }
 
@@ -54,8 +64,38 @@ public sealed class Role : AggregateRoot, IAuditableEntity
         return new Role(Guid.CreateVersion7(), checkedName.Value, checkedPermissions.Value);
     }
 
+    /// <summary>The <see cref="IsSystem"/> administrator role, holding every permission in the catalog.</summary>
+    public static Role CreateAdministrator()
+        => new(Guid.CreateVersion7(), AdministratorName, [.. Roles.Permissions.All.Order(StringComparer.Ordinal)]) { IsSystem = true };
+
+    /// <summary>
+    /// Gives the system role every permission in the catalog, including ones added since the last
+    /// run. Returns whether anything changed.
+    /// </summary>
+    public bool SyncSystemPermissions()
+    {
+        if (!IsSystem)
+        {
+            throw new InvalidOperationException("Only the system role follows the permission catalog.");
+        }
+
+        List<string> all = [.. Roles.Permissions.All.Order(StringComparer.Ordinal)];
+        if (_permissions.SequenceEqual(all, StringComparer.Ordinal))
+        {
+            return false;
+        }
+
+        _permissions = all;
+        return true;
+    }
+
     public Result Rename(string? name)
     {
+        if (IsSystem)
+        {
+            return RoleErrors.SystemRole;
+        }
+
         var checkedName = CheckName(name);
         if (checkedName.IsFailure)
         {
@@ -71,6 +111,11 @@ public sealed class Role : AggregateRoot, IAuditableEntity
     public Result SetPermissions(IEnumerable<string> permissions)
     {
         ArgumentNullException.ThrowIfNull(permissions);
+
+        if (IsSystem)
+        {
+            return RoleErrors.SystemRole;
+        }
 
         var checkedPermissions = CheckPermissions(permissions);
         if (checkedPermissions.IsFailure)
