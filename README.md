@@ -95,6 +95,13 @@ request starts a new trace at the gateway, so a call shows up in the Aspire dash
 trace from the gateway down to the database, the message broker and the consuming service: a
 `POST /sample/notes` is followed by the note appearing in `GET /feed/items`, in the same trace.
 
+Browsers sign in through the gateway itself (`POST /session/sign-in`, `/session/register`,
+`GET /session`, `POST /session/sign-out`; the admin panel uses `/admin/session/...`). The tokens
+stay in Valkey, encrypted; the browser only gets an httpOnly `__Host-` cookie, and every changing
+request with that cookie must echo the `X-CSRF-Token` from `GET /session`. The gateway adds the
+bearer token when it forwards the request and refreshes it shortly before it expires. Running
+sessions locally needs Valkey (`./deploy/dev.ps1 up`, `secrets`) and the auth service.
+
 ## License
 
 [MIT](LICENSE)

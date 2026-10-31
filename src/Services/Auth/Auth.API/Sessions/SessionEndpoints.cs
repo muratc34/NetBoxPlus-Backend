@@ -49,8 +49,9 @@ internal static class SessionEndpoints
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status401Unauthorized);
 
-        // Under /admin so that it is reachable through the gateway's admin routes only.
-        sessions.MapPost("/admin/sign-in", ([FromBody] SignInRequest request, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
+        // Not under /admin: the gateway exposes the admin paths, and this one returns tokens, which
+        // only the gateway itself may receive (it opens the admin panel's session with them).
+        sessions.MapPost("/sign-in/admin", ([FromBody] SignInRequest request, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
                 => SignInAsync(request, SessionKind.Admin, dispatcher, cancellationToken))
             .WithName("AdminSignIn")
             .WithSummary("Opens an admin session; requires the auth:admin:sign-in permission.")

@@ -13,16 +13,19 @@ internal static partial class RateLimitingServiceCollectionExtensions
 {
     public const string ExceededCode = "RateLimit.Exceeded";
 
+    /// <summary>For endpoints that take a password: sign-in, registration, password change.</summary>
+    public const string CredentialsPolicy = "credentials";
+
     /// <summary>
-    /// One fixed-window policy per route group, named after the group and partitioned by client IP
-    /// address. A rejected request gets <c>429</c> problem details and a <c>Retry-After</c> header.
+    /// One fixed-window policy per route group, named after the group, and a stricter one for
+    /// endpoints that take a password; all partitioned by client IP address. A rejected request gets <c>429</c> problem details and a <c>Retry-After</c> header.
     /// </summary>
     public static IServiceCollection AddGatewayRateLimiting(this IServiceCollection services)
     {
         services.AddOptions<GatewayRateLimitOptions>()
             .BindConfiguration(GatewayRateLimitOptions.SectionName)
             .Validate(
-                options => options.Public.IsValid && options.Admin.IsValid,
+                options => options.Public.IsValid && options.Admin.IsValid && options.Credentials.IsValid,
                 $"{GatewayRateLimitOptions.SectionName}: every limit needs a positive PermitLimit and Window.")
             .ValidateOnStart();
 
@@ -36,6 +39,7 @@ internal static partial class RateLimitingServiceCollectionExtensions
         {
             rateLimiter.AddPolicy(RouteGroups.Public, context => Partition(context, gateway.Value.Public));
             rateLimiter.AddPolicy(RouteGroups.Admin, context => Partition(context, gateway.Value.Admin));
+            rateLimiter.AddPolicy(CredentialsPolicy, context => Partition(context, gateway.Value.Credentials));
         });
 
         return services;

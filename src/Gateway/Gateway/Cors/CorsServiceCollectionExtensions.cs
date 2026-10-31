@@ -7,7 +7,7 @@ namespace Gateway.Cors;
 internal static class CorsServiceCollectionExtensions
 {
     private static readonly string[] AllowedMethods = ["GET", "POST", "PUT", "PATCH", "DELETE"];
-    private static readonly string[] AllowedHeaders = ["Content-Type", "Authorization", "Idempotency-Key"];
+    private static readonly string[] AllowedHeaders = ["Content-Type", "Authorization", "Idempotency-Key", "X-CSRF-Token"];
     private static readonly string[] ExposedHeaders = ["Location", "Retry-After"];
 
     /// <summary>One CORS policy per route group, named after the group.</summary>

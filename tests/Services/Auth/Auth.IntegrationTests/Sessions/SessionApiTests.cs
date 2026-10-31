@@ -292,8 +292,8 @@ public sealed class SessionApiTests(AuthApiFixture api)
         await RegisterAsync(client, admin);
         await GrantAsync(admin, Permissions.Auth.AdminSignIn);
 
-        var denied = await client.PostAsJsonAsync("/admin/sign-in", new SignInRequest(customer, Password), Cancellation);
-        var allowed = await client.PostAsJsonAsync("/admin/sign-in", new SignInRequest(admin, Password), Cancellation);
+        var denied = await client.PostAsJsonAsync("/sign-in/admin", new SignInRequest(customer, Password), Cancellation);
+        var allowed = await client.PostAsJsonAsync("/sign-in/admin", new SignInRequest(admin, Password), Cancellation);
         var pair = await allowed.Content.ReadFromJsonAsync<TokenPair>(Cancellation);
 
         Assert.Equal(HttpStatusCode.Unauthorized, denied.StatusCode);
@@ -311,7 +311,7 @@ public sealed class SessionApiTests(AuthApiFixture api)
         var email = NewEmail();
         await RegisterAsync(client, email);
         var roleId = await GrantAsync(email, Permissions.Auth.AdminSignIn);
-        var pair = await (await client.PostAsJsonAsync("/admin/sign-in", new SignInRequest(email, Password), Cancellation))
+        var pair = await (await client.PostAsJsonAsync("/sign-in/admin", new SignInRequest(email, Password), Cancellation))
             .Content.ReadFromJsonAsync<TokenPair>(Cancellation);
 
         await using (var scope = api.CreateScope())

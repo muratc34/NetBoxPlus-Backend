@@ -12,6 +12,12 @@ public sealed class GatewayRateLimitOptions
 
     /// <summary>Stricter than <see cref="Public"/>: the admin panel makes far fewer calls.</summary>
     public FixedWindowLimit Admin { get; set; } = new() { PermitLimit = 30, Window = TimeSpan.FromSeconds(10) };
+
+    /// <summary>
+    /// Sign-in, registration and password change: a slow trickle per client against password
+    /// guessing across accounts. Each account also locks itself after repeated failures.
+    /// </summary>
+    public FixedWindowLimit Credentials { get; set; } = new() { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) };
 }
 
 /// <summary>At most <see cref="PermitLimit"/> requests per <see cref="Window"/>.</summary>

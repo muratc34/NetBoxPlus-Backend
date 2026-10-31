@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Gateway.Cors;
 using Gateway.RateLimiting;
 using Gateway.Routing;
+using Gateway.Sessions;
 using Gateway.Tracing;
 using OpenTelemetry;
 using OpenTelemetry.Context.Propagation;
@@ -14,8 +15,8 @@ internal static class GatewayExtensions
     public const string ReverseProxySectionName = "ReverseProxy";
 
     /// <summary>
-    /// The reverse proxy with its routes from the <c>ReverseProxy</c> section, the per-group CORS and
-    /// rate limiter policies, and the trust boundary for trace context.
+    /// The reverse proxy with its routes from the <c>ReverseProxy</c> section, browser sessions, the
+    /// per-group CORS and rate limiter policies, and the trust boundary for trace context.
     /// </summary>
     public static WebApplicationBuilder AddGateway(this WebApplicationBuilder builder)
     {
@@ -23,6 +24,7 @@ internal static class GatewayExtensions
 
         builder.Services.AddGatewayCors();
         builder.Services.AddGatewayRateLimiting();
+        builder.Services.AddGatewaySessions(builder.Configuration);
 
         // ASP.NET Core reads the incoming trace context through this propagator.
         builder.Services.AddSingleton<DistributedContextPropagator, UntrustedTraceContextPropagator>();
@@ -66,9 +68,12 @@ internal static class GatewayExtensions
     {
         ArgumentNullException.ThrowIfNull(endpoints);
 
+        endpoints.MapSessionEndpoints();
+
         endpoints.MapReverseProxy(proxy =>
         {
             proxy.Use(PublicRouteGuard.InvokeAsync);
+            proxy.Use(SessionProxy.InvokeAsync);
             proxy.UseSessionAffinity();
             proxy.UseLoadBalancing();
             proxy.UsePassiveHealthChecks();

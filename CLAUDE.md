@@ -91,7 +91,8 @@ dotnet run --project src/Services/Sample/Sample.API --launch-profile Sample.API
 ```
 
 Feed ve Auth da aynı şekilde (`<S>.Migrator`, `<S>.API`). Gateway (`http://localhost:5100`;
-Development'ta Sample'a `localhost:5101`, Feed'e `localhost:5102` üzerinden gider):
+Development'ta Sample'a `localhost:5101`, Feed'e `localhost:5102`, Auth'a `localhost:5103` üzerinden
+gider; tarayıcı oturumları için Valkey ve Auth çalışmalı):
 
 ```powershell
 dotnet run --project src/Gateway/Gateway --launch-profile Gateway
@@ -162,6 +163,12 @@ Yeni bir servis Sample'ın yapısını birebir izler:
 - Public route'tan servisin `/admin` yollarına erişim 404'tür; servisin döndüğü `Location`
   gateway yoluna çevrilir. Servisler gateway'i bilmez, kendi yollarını döner.
 - İstemcinin trace header'ları devam ettirilmez; trace gateway'de başlar.
+- **Tarayıcı oturumu** (`src/Gateway/Gateway/Sessions`): gateway'in kendi endpoint'leri
+  `/session/...` ve `/admin/session/...`; token'lar Valkey'de şifreli, tarayıcıya sadece
+  `__Host-nbp-session` / `__Host-nbp-admin` cookie'si gider. Route grubu kendi cookie'sini okur,
+  servise `Authorization: Bearer` ekler, `Cookie` ve `X-CSRF-Token`'ı servise iletmez. Cookie'li
+  değiştiren istek `X-CSRF-Token` ister. Refresh oturum başına tek (Valkey kilidi) ve asla tekrar
+  denenmez. Ayarlar `ConnectionStrings:Valkey`, `Session`, `RateLimiting:Credentials`.
 
 ## Çalışma kuralları
 
@@ -228,8 +235,8 @@ Yeni bir servis Sample'ın yapısını birebir izler:
   string interpolation yok; token/şifre/kart/e-posta loglanmaz. Hassas parametreler
   `[PersonalData]` / `[SecretData]` ile işaretlenir (projede `Microsoft.Extensions.Telemetry.Abstractions`
   doğrudan referanslı olmalı).
-- **Auth endpoint'leri:** `/register`, `/sign-in`, `/admin/sign-in`, `/refresh`, `/sign-out`, `/me`,
-  `/me/password`. Giriş hatası her durumda `User.InvalidCredentials` (hesabın varlığı ve kilidi
+- **Auth endpoint'leri:** `/register`, `/sign-in`, `/sign-in/admin`, `/refresh`, `/sign-out`, `/me`,
+  `/me/password` — token dönenler gateway'den proxy'lenmez, onları sadece gateway çağırır. Giriş hatası her durumda `User.InvalidCredentials` (hesabın varlığı ve kilidi
   belli olmaz); bilinmeyen e-postada da bir hash doğrulanır. Tekrar kullanılan refresh token ailenin
   tamamını iptal eder.
 - **Admin (Auth):** `/admin/users`, `/admin/roles`, `/admin/permissions`. Bir rolü oluşturan,

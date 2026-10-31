@@ -10,7 +10,7 @@
 .EXAMPLE
     ./deploy/dev.ps1 up            # Postgres, RabbitMQ, Valkey, Aspire dashboard
     ./deploy/dev.ps1 up -Search    # ... plus Elasticsearch
-    ./deploy/dev.ps1 secrets       # connection settings (and a token signing key) for running services from the IDE
+    ./deploy/dev.ps1 secrets       # connection settings (and a token signing key) for running services and the gateway from the IDE
     ./deploy/dev.ps1 status
     ./deploy/dev.ps1 down          # stop, keep data
     ./deploy/dev.ps1 reset -Force  # stop and DELETE all local data
@@ -127,6 +127,12 @@ function Set-ServiceSecrets {
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
     Write-Host "Administrator $($values['AUTH_ADMIN_EMAIL']) set for auth; the password is AUTH_ADMIN_PASSWORD in $envFile."
+
+    # The gateway keeps browser sessions in Valkey.
+    $valkey = "localhost:6379,password=$($values['VALKEY_PASSWORD'])"
+    & dotnet user-secrets set 'ConnectionStrings:Valkey' $valkey --id 'netboxplus-gateway' | Out-Null
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    Write-Host 'User secrets set for gateway (id netboxplus-gateway).'
 
     Set-AuthSigningKey
 }
