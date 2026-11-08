@@ -1,0 +1,145 @@
+using Shared.Domain;
+
+namespace Catalog.Domain.Content;
+
+/// <summary>
+/// What movies and series have in common: their description, genres, credits and whether customers
+/// can see them. Deletion is soft: watch history will refer to these ids after the content is gone.
+/// </summary>
+public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeletableEntity
+{
+    private readonly List<ContentGenre> _genres = [];
+    private readonly List<Credit> _credits = [];
+
+    protected ContentItem(Guid id, ContentInfo info)
+        : base(id)
+    {
+        Info = info;
+    }
+
+    /// <summary>Used by EF Core when materializing.</summary>
+    protected ContentItem()
+    {
+    }
+
+    public ContentInfo Info { get; private set; } = null!;
+
+    public PublicationStatus Status { get; private set; }
+
+    public DateTimeOffset? PublishedAt { get; private set; }
+
+    public bool IsPublished => Status == PublicationStatus.Published;
+
+    public IReadOnlyCollection<ContentGenre> Genres => _genres.AsReadOnly();
+
+    public IReadOnlyCollection<Credit> Credits => _credits.AsReadOnly();
+
+    public DateTimeOffset CreatedAt { get; private set; }
+
+    public DateTimeOffset? ModifiedAt { get; private set; }
+
+    public bool IsDeleted { get; private set; }
+
+    public DateTimeOffset? DeletedAt { get; private set; }
+
+    public void Describe(ContentInfo info)
+    {
+        ArgumentNullException.ThrowIfNull(info);
+        Info = info;
+    }
+
+    /// <summary>Replaces the genres. Published content cannot be left without one.</summary>
+    public Result SetGenres(IEnumerable<Guid> genreIds)
+    {
+        ArgumentNullException.ThrowIfNull(genreIds);
+
+        var wanted = genreIds.Distinct().ToList();
+        if (wanted.Count == 0 && IsPublished)
+        {
+            return ContentErrors.GenreRequired;
+        }
+
+        _genres.RemoveAll(genre => !wanted.Contains(genre.GenreId));
+        foreach (var genreId in wanted.Where(id => !_genres.Exists(genre => genre.GenreId == id)))
+        {
+            _genres.Add(new ContentGenre(genreId));
+        }
+
+        return Result.Success();
+    }
+
+    /// <summary>Replaces the credits; a person may hold several roles, but each role once.</summary>
+    public Result SetCredits(IReadOnlyCollection<CreditInput> credits)
+    {
+        ArgumentNullException.ThrowIfNull(credits);
+
+        if (credits.DistinctBy(credit => (credit.PersonId, credit.Role)).Count() != credits.Count)
+        {
+            return ContentErrors.CreditDuplicate;
+        }
+
+        if (credits.Any(credit => !Enum.IsDefined(credit.Role)))
+        {
+            return ContentErrors.CreditRoleInvalid;
+        }
+
+        var names = credits.Select(credit => string.IsNullOrWhiteSpace(credit.CharacterName) ? null : credit.CharacterName.Trim()).ToList();
+        if (names.Any(name => name?.Length > Credit.CharacterNameMaxLength))
+        {
+            return ContentErrors.CharacterNameTooLong;
+        }
+
+        _credits.RemoveAll(existing => !credits.Any(credit => credit.PersonId == existing.PersonId && credit.Role == existing.Role));
+
+        foreach (var (credit, name) in credits.Zip(names))
+        {
+            var existing = _credits.Find(item => item.PersonId == credit.PersonId && item.Role == credit.Role);
+            if (existing is null)
+            {
+                _credits.Add(new Credit(credit.PersonId, credit.Role, name, credit.Order));
+            }
+            else
+            {
+                existing.Update(name, credit.Order);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    /// <summary>Makes the content visible to customers; publishing it again changes nothing.</summary>
+    public Result Publish(DateTimeOffset now)
+    {
+        if (IsPublished)
+        {
+            return Result.Success();
+        }
+
+        if (_genres.Count == 0)
+        {
+            return ContentErrors.GenreRequired;
+        }
+
+        var ready = CheckReadyToPublish();
+        if (ready.IsFailure)
+        {
+            return ready;
+        }
+
+        Status = PublicationStatus.Published;
+        PublishedAt = now;
+        return Result.Success();
+    }
+
+    public void Unpublish()
+    {
+        Status = PublicationStatus.Draft;
+        PublishedAt = null;
+    }
+
+    /// <summary>Whether the content may be deleted; the repository's removal is then a soft delete.</summary>
+    public Result CanDelete() => IsPublished ? ContentErrors.MustBeUnpublished : Result.Success();
+
+    /// <summary>Rules of the specific kind of content, on top of the shared ones.</summary>
+    protected virtual Result CheckReadyToPublish() => Result.Success();
+}

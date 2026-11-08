@@ -1,0 +1,198 @@
+using Catalog.Domain.Content;
+using Shared.Domain;
+
+namespace Catalog.Domain.Shows;
+
+/// <summary>A series with its seasons and episodes, which change only through this aggregate.</summary>
+public sealed class Series : ContentItem
+{
+    private readonly List<Season> _seasons = [];
+
+    private Series(Guid id, ContentInfo info)
+        : base(id, info)
+    {
+    }
+
+    /// <summary>Used by EF Core when materializing.</summary>
+    private Series()
+    {
+    }
+
+    public IReadOnlyCollection<Season> Seasons => _seasons.AsReadOnly();
+
+    public static Series Create(ContentInfo info)
+    {
+        ArgumentNullException.ThrowIfNull(info);
+        return new Series(Guid.CreateVersion7(), info);
+    }
+
+    public Result<Season> AddSeason(int number, string? title)
+    {
+        var checkedNumber = Season.CheckNumber(number);
+        if (checkedNumber.IsFailure)
+        {
+            return checkedNumber.Error;
+        }
+
+        var checkedTitle = Season.CheckTitle(title);
+        if (checkedTitle.IsFailure)
+        {
+            return checkedTitle.Error;
+        }
+
+        if (_seasons.Exists(season => season.Number == number))
+        {
+            return SeriesErrors.SeasonNumberTaken;
+        }
+
+        var added = new Season(Guid.CreateVersion7(), number, checkedTitle.Value);
+        _seasons.Add(added);
+        return added;
+    }
+
+    public Result ChangeSeason(Guid seasonId, int number, string? title)
+    {
+        if (FindSeason(seasonId) is not { } season)
+        {
+            return SeriesErrors.SeasonNotFound;
+        }
+
+        var checkedNumber = Season.CheckNumber(number);
+        if (checkedNumber.IsFailure)
+        {
+            return checkedNumber;
+        }
+
+        var checkedTitle = Season.CheckTitle(title);
+        if (checkedTitle.IsFailure)
+        {
+            return checkedTitle.Error;
+        }
+
+        if (_seasons.Exists(other => other.Id != seasonId && other.Number == number))
+        {
+            return SeriesErrors.SeasonNumberTaken;
+        }
+
+        season.Change(number, checkedTitle.Value);
+        return Result.Success();
+    }
+
+    public Result RemoveSeason(Guid seasonId)
+    {
+        if (FindSeason(seasonId) is not { } season)
+        {
+            return SeriesErrors.SeasonNotFound;
+        }
+
+        if (season.Episodes.Any(episode => episode.IsPublished))
+        {
+            return SeriesErrors.SeasonHasPublishedEpisodes;
+        }
+
+        _seasons.Remove(season);
+        return Result.Success();
+    }
+
+    public Result<Episode> AddEpisode(Guid seasonId, EpisodeDetails details)
+    {
+        ArgumentNullException.ThrowIfNull(details);
+
+        if (FindSeason(seasonId) is not { } season)
+        {
+            return SeriesErrors.SeasonNotFound;
+        }
+
+        if (season.HasEpisodeNumber(details.Number))
+        {
+            return SeriesErrors.EpisodeNumberTaken;
+        }
+
+        var episode = new Episode(Guid.CreateVersion7(), details);
+        season.Add(episode);
+        return episode;
+    }
+
+    public Result ChangeEpisode(Guid episodeId, EpisodeDetails details)
+    {
+        ArgumentNullException.ThrowIfNull(details);
+
+        if (Find(episodeId) is not (var season, var episode))
+        {
+            return SeriesErrors.EpisodeNotFound;
+        }
+
+        if (season.Episodes.Any(other => other.Id != episodeId && other.Number == details.Number))
+        {
+            return SeriesErrors.EpisodeNumberTaken;
+        }
+
+        episode.Change(details);
+        return Result.Success();
+    }
+
+    public Result RemoveEpisode(Guid episodeId)
+    {
+        if (Find(episodeId) is not (var season, var episode))
+        {
+            return SeriesErrors.EpisodeNotFound;
+        }
+
+        if (episode.IsPublished)
+        {
+            return SeriesErrors.EpisodeIsPublished;
+        }
+
+        season.Remove(episode);
+        return Result.Success();
+    }
+
+    public Result PublishEpisode(Guid episodeId, DateTimeOffset now)
+    {
+        if (Find(episodeId) is not (_, var episode))
+        {
+            return SeriesErrors.EpisodeNotFound;
+        }
+
+        episode.Publish(now);
+        return Result.Success();
+    }
+
+    /// <summary>Hides the episode; a published series must keep at least one.</summary>
+    public Result UnpublishEpisode(Guid episodeId)
+    {
+        if (Find(episodeId) is not (_, var episode))
+        {
+            return SeriesErrors.EpisodeNotFound;
+        }
+
+        if (IsPublished && episode.IsPublished && PublishedEpisodes().Count() == 1)
+        {
+            return SeriesErrors.PublishedEpisodeRequired;
+        }
+
+        episode.Unpublish();
+        return Result.Success();
+    }
+
+    protected override Result CheckReadyToPublish()
+        => PublishedEpisodes().Any() ? Result.Success() : SeriesErrors.PublishedEpisodeRequired;
+
+    private IEnumerable<Episode> PublishedEpisodes()
+        => _seasons.SelectMany(season => season.Episodes).Where(episode => episode.IsPublished);
+
+    private Season? FindSeason(Guid seasonId) => _seasons.Find(season => season.Id == seasonId);
+
+    private (Season Season, Episode Episode)? Find(Guid episodeId)
+    {
+        foreach (var season in _seasons)
+        {
+            if (season.Episodes.FirstOrDefault(episode => episode.Id == episodeId) is { } episode)
+            {
+                return (season, episode);
+            }
+        }
+
+        return null;
+    }
+}

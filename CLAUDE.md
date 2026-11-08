@@ -5,9 +5,9 @@ mikroservisler, servis başına Clean Architecture, ortak kod `src/BuildingBlock
 Her geliştirmeden sonra bu dosya ve ilgili doküman güncellenir.
 
 - Kararlar ve gerekçeleri: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- Aktif faz ve iş dökümü: [docs/PHASE-1.md](docs/PHASE-1.md) (Faz 0 bitti: [docs/PHASE-0.md](docs/PHASE-0.md))
+- Aktif faz ve iş dökümü: [docs/PHASE-2.md](docs/PHASE-2.md) (bitenler: [docs/PHASE-0.md](docs/PHASE-0.md), [docs/PHASE-1.md](docs/PHASE-1.md))
 
-Bu iki doküman **sadece lokalde** durur, repoya commit edilmez (`.gitignore`'da `/docs/*.md`).
+Bu dokümanlar **sadece lokalde** durur, repoya commit edilmez (`.gitignore`'da `/docs/*.md`).
 GitHub'da yokturlar; commit'lenen hiçbir dosya (README dahil) onlara link vermez.
 
 Kod yazmadan önce ilgili ARCHITECTURE bölümünü oku. Orada karara bağlanmış bir konuyu yeniden
@@ -91,7 +91,7 @@ dotnet run --project src/Services/Auth/Auth.API --launch-profile Auth.API
 ```
 
 Diğer servisler de aynı şekilde (`<S>.Migrator`, `<S>.API`). Gateway (`http://localhost:5100`;
-Development'ta Auth'a `localhost:5103` üzerinden gider; tarayıcı oturumları için Valkey ve Auth çalışmalı):
+Development'ta Auth'a `localhost:5103`, Catalog'a `localhost:5104` üzerinden gider; tarayıcı oturumları için Valkey ve Auth çalışmalı):
 
 ```powershell
 dotnet run --project src/Gateway/Gateway --launch-profile Gateway
@@ -121,7 +121,8 @@ Migrator'daki seed):
 - Infrastructure: `<S>DbContext : ServiceDbContext, I<S>ReadModel`, `ConnectionStrings:Database`,
   configuration'lar `IEntityTypeConfiguration`, tek değerli value object'ler `ComplexProperty`
   (üzerinde index veya arama gerekiyorsa `HasConversion`, ör. Auth'taki `EmailAddress`),
-  soft delete için `HasQueryFilter`, design-time factory.
+  soft delete için `HasQueryFilter`, design-time factory. Domain'in ürettiği id'lerde `ValueGeneratedNever`,
+  string ile verilen gölge FK'da zorunluysa `IsRequired()` (varsayılan nullable).
 - API: `Program.cs` Auth'taki sırayla; endpoint'ler `MapGroup` ile, `[FromServices] IDispatcher`,
   `Produces`/`ProducesProblem` metadata'sı (OpenAPI'den TypeScript client üretilecek). OpenAPI
   dokümanı build'de `docs/openapi/<servis>.json`'a yazılır ve commit'lenir; build sırasında
@@ -137,7 +138,7 @@ Migrator'daki seed):
   (`/<s>/{**remainder}`, `PathRemovePrefix: /<s>`, `RouteGroup: public`) ve, admin endpoint'i
   varsa, `<s>-admin` (`/admin/<s>/{**remainder}`, `PathPattern: /admin/{**remainder}`,
   `RouteGroup: admin`); cluster adresi base'de compose adı, `appsettings.Development.json`'da
-  `localhost` portu. Portlar: gateway 5100, Auth 5103; sıradaki servis 5104.
+  `localhost` portu. Portlar: gateway 5100, Auth 5103, Catalog 5104; sıradaki servis 5105.
 - Admin yazma command'ları `IAuditedCommand` implement eder (`AuditTargetId` explicit, JSON'a
   girmesin) ve secret taşımaz; liste endpoint'leri `Shared.Application.Paging` (`page`,
   `pageSize`, en fazla 100).

@@ -4,6 +4,8 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Services/Auth/Auth.API/Auth.API.csproj" />
     <ProjectReference Include="../../src/Services/Auth/Auth.Migrator/Auth.Migrator.csproj" />
+    <ProjectReference Include="../../src/Services/Catalog/Catalog.API/Catalog.API.csproj" />
+    <ProjectReference Include="../../src/Services/Catalog/Catalog.Migrator/Catalog.Migrator.csproj" />
     <ProjectReference Include="../../src/Gateway/Gateway/Gateway.csproj" />
   </ItemGroup>
 

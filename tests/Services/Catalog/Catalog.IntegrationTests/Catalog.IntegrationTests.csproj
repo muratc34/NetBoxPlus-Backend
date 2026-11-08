@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../../../../src/Services/Catalog/Catalog.API/Catalog.API.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Testcontainers.PostgreSql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../../../TestSupport/DockerAvailability.cs" Link="TestSupport/DockerAvailability.cs" />
+  </ItemGroup>
+
+</Project>

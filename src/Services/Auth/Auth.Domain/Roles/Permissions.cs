@@ -22,6 +22,22 @@ public static partial class Permissions
         public const string AdminSignIn = "auth:admin:sign-in";
     }
 
+    public static class Catalog
+    {
+        public const string MoviesRead = "catalog:movies:read";
+        public const string MoviesWrite = "catalog:movies:write";
+        public const string MoviesPublish = "catalog:movies:publish";
+        public const string MoviesDelete = "catalog:movies:delete";
+        public const string SeriesRead = "catalog:series:read";
+        public const string SeriesWrite = "catalog:series:write";
+        public const string SeriesPublish = "catalog:series:publish";
+        public const string SeriesDelete = "catalog:series:delete";
+        public const string PeopleRead = "catalog:people:read";
+        public const string PeopleWrite = "catalog:people:write";
+        public const string GenresRead = "catalog:genres:read";
+        public const string GenresWrite = "catalog:genres:write";
+    }
+
     /// <summary>Every constant declared above, collected once.</summary>
     public static IReadOnlySet<string> All { get; } = typeof(Permissions)
         .GetNestedTypes()

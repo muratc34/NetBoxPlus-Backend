@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Catalog service use cases.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Catalog.Domain/Catalog.Domain.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/Shared.Application/Shared.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Core package only, for async LINQ in query handlers; no database provider. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+  </ItemGroup>
+
+</Project>

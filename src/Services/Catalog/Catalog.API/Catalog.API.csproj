@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <Description>Catalog service HTTP API: movies, series, people and genres.</Description>
+    <UserSecretsId>netboxplus-catalog</UserSecretsId>
+    <!-- The OpenAPI document is generated at build time and committed, so API changes show in diffs. -->
+    <OpenApiGenerateDocuments>true</OpenApiGenerateDocuments>
+    <OpenApiDocumentsDirectory>$(MSBuildThisFileDirectory)../../../../docs/openapi</OpenApiDocumentsDirectory>
+    <OpenApiGenerateDocumentsOptions>--file-name catalog</OpenApiGenerateDocumentsOptions>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Catalog.Infrastructure/Catalog.Infrastructure.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/Shared.Infrastructure.API/Shared.Infrastructure.API.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.Extensions.ApiDescription.Server" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Catalog.IntegrationTests" />
+  </ItemGroup>
+
+</Project>

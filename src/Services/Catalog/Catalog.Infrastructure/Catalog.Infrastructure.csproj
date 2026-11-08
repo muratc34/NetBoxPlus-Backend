@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Catalog service persistence and messaging.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Catalog.Application/Catalog.Application.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/Shared.Infrastructure.Persistence/Shared.Infrastructure.Persistence.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/Shared.Infrastructure.Messaging/Shared.Infrastructure.Messaging.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Catalog.IntegrationTests" />
+  </ItemGroup>
+
+</Project>
