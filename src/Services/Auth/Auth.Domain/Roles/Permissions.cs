@@ -22,11 +22,6 @@ public static partial class Permissions
         public const string AdminSignIn = "auth:admin:sign-in";
     }
 
-    public static class Sample
-    {
-        public const string NotesDelete = "sample:notes:delete";
-    }
-
     /// <summary>Every constant declared above, collected once.</summary>
     public static IReadOnlySet<string> All { get; } = typeof(Permissions)
         .GetNestedTypes()

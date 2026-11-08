@@ -19,21 +19,6 @@
     <Project Path="src/Services/Auth/Auth.Infrastructure/Auth.Infrastructure.csproj" />
     <Project Path="src/Services/Auth/Auth.Migrator/Auth.Migrator.csproj" />
   </Folder>
-  <Folder Name="/src/Services/Feed/">
-    <Project Path="src/Services/Feed/Feed.API/Feed.API.csproj" />
-    <Project Path="src/Services/Feed/Feed.Application/Feed.Application.csproj" />
-    <Project Path="src/Services/Feed/Feed.Domain/Feed.Domain.csproj" />
-    <Project Path="src/Services/Feed/Feed.Infrastructure/Feed.Infrastructure.csproj" />
-    <Project Path="src/Services/Feed/Feed.Migrator/Feed.Migrator.csproj" />
-  </Folder>
-  <Folder Name="/src/Services/Sample/">
-    <Project Path="src/Services/Sample/Sample.API/Sample.API.csproj" />
-    <Project Path="src/Services/Sample/Sample.Application/Sample.Application.csproj" />
-    <Project Path="src/Services/Sample/Sample.Contracts/Sample.Contracts.csproj" />
-    <Project Path="src/Services/Sample/Sample.Domain/Sample.Domain.csproj" />
-    <Project Path="src/Services/Sample/Sample.Infrastructure/Sample.Infrastructure.csproj" />
-    <Project Path="src/Services/Sample/Sample.Migrator/Sample.Migrator.csproj" />
-  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Architecture.Tests/Architecture.Tests.csproj" />
   </Folder>
@@ -51,15 +36,5 @@
   <Folder Name="/tests/Services/Auth/">
     <Project Path="tests/Services/Auth/Auth.Domain.Tests/Auth.Domain.Tests.csproj" />
     <Project Path="tests/Services/Auth/Auth.IntegrationTests/Auth.IntegrationTests.csproj" />
-  </Folder>
-  <Folder Name="/tests/Services/Feed/">
-    <Project Path="tests/Services/Feed/Feed.Application.Tests/Feed.Application.Tests.csproj" />
-    <Project Path="tests/Services/Feed/Feed.Domain.Tests/Feed.Domain.Tests.csproj" />
-    <Project Path="tests/Services/Feed/Feed.IntegrationTests/Feed.IntegrationTests.csproj" />
-  </Folder>
-  <Folder Name="/tests/Services/Sample/">
-    <Project Path="tests/Services/Sample/Sample.Application.Tests/Sample.Application.Tests.csproj" />
-    <Project Path="tests/Services/Sample/Sample.Domain.Tests/Sample.Domain.Tests.csproj" />
-    <Project Path="tests/Services/Sample/Sample.IntegrationTests/Sample.IntegrationTests.csproj" />
   </Folder>
 </Solution>

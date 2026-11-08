@@ -49,7 +49,7 @@ internal sealed class RouteGroupConfigFilter : IProxyConfigFilter
 
         if (!RoutePrefixes.TryParse(route, out _))
         {
-            throw Invalid(route, "must match literal segments followed by one catch-all, such as '/sample/{**remainder}'.");
+            throw Invalid(route, "must match literal segments followed by one catch-all, such as '/catalog/{**remainder}'.");
         }
 
         return new(route with { CorsPolicy = group, RateLimiterPolicy = group });

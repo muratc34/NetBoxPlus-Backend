@@ -25,7 +25,7 @@ public sealed class ProjectReferenceTests
     [Fact]
     public void ServiceProjects_AreFound()
     {
-        Assert.Contains("src/Services/Sample/Sample.Domain/Sample.Domain.csproj", ServiceProjects().Select(row => row.Data));
+        Assert.Contains("src/Services/Auth/Auth.Domain/Auth.Domain.csproj", ServiceProjects().Select(row => row.Data));
     }
 
     [Theory]

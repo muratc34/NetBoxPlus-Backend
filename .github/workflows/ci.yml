@@ -86,10 +86,6 @@ jobs:
         include:
           - name: gateway
             dockerfile: src/Gateway/Gateway/Dockerfile
-          - name: sample-api
-            dockerfile: src/Services/Sample/Sample.API/Dockerfile
-          - name: feed-api
-            dockerfile: src/Services/Feed/Feed.API/Dockerfile
           - name: auth-api
             dockerfile: src/Services/Auth/Auth.API/Dockerfile
     steps:

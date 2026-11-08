@@ -15,7 +15,7 @@ namespace Auth.IntegrationTests.Tokens;
 /// </summary>
 internal sealed class ResourceServer : IAsyncDisposable
 {
-    public const string Permission = "sample:notes:delete";
+    public const string Permission = "auth:users:write";
 
     private readonly WebApplication _app;
     private readonly SwitchableHandler _backchannel;

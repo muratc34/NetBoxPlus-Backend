@@ -8,7 +8,7 @@ public sealed class PermissionsTests
     public void Catalog_CollectsEveryDeclaredConstant()
     {
         Assert.Contains(Permissions.Auth.UsersRead, Permissions.All);
-        Assert.Contains(Permissions.Sample.NotesDelete, Permissions.All);
+        Assert.Contains(Permissions.Auth.UsersWrite, Permissions.All);
     }
 
     [Fact]
@@ -39,11 +39,11 @@ public sealed class RoleTests
     {
         var role = Role.Create(
             "  Content editor ",
-            [Permissions.Auth.UsersRead, Permissions.Sample.NotesDelete, Permissions.Auth.UsersRead]).Value;
+            [Permissions.Auth.UsersRead, Permissions.Auth.UsersWrite, Permissions.Auth.UsersRead]).Value;
 
         Assert.Equal("Content editor", role.Name);
         Assert.Equal("CONTENT EDITOR", role.NormalizedName);
-        Assert.Equal([Permissions.Auth.UsersRead, Permissions.Sample.NotesDelete], role.Permissions);
+        Assert.Equal([Permissions.Auth.UsersRead, Permissions.Auth.UsersWrite], role.Permissions);
     }
 
     [Fact]

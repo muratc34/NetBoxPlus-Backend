@@ -7,8 +7,8 @@ namespace Gateway.Routing;
 /// How a route maps paths, by the group conventions: the route matches
 /// <c>{GatewayPrefix}/{**catch-all}</c> and the service sees <c>{ServicePrefix}/{catch-all}</c>.
 /// <list type="bullet">
-/// <item>public: <c>/sample/notes/1</c> → <c>/notes/1</c> (service prefix empty)</item>
-/// <item>admin: <c>/admin/sample/notes/1</c> → <c>/admin/notes/1</c></item>
+/// <item>public: <c>/catalog/movies/1</c> → <c>/movies/1</c> (service prefix empty)</item>
+/// <item>admin: <c>/admin/catalog/movies/1</c> → <c>/admin/movies/1</c></item>
 /// </list>
 /// </summary>
 internal sealed partial record RoutePrefixes(string GatewayPrefix, string ServicePrefix)
@@ -51,7 +51,7 @@ internal sealed partial record RoutePrefixes(string GatewayPrefix, string Servic
             : null;
     }
 
-    // Literal segments followed by a single catch-all: "/admin/sample/{**remainder}".
+    // Literal segments followed by a single catch-all: "/admin/catalog/{**remainder}".
     [GeneratedRegex(@"^(?<prefix>(/[A-Za-z0-9._~-]+)+)/\{\*\*[A-Za-z][A-Za-z0-9]*\}$")]
     private static partial Regex PathPattern();
 }

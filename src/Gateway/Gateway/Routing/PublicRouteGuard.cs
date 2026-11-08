@@ -3,8 +3,8 @@ using Yarp.ReverseProxy.Model;
 namespace Gateway.Routing;
 
 /// <summary>
-/// A public route forwards <c>/sample/{**remainder}</c> as <c>/{remainder}</c>, so
-/// <c>/sample/admin/notes</c> would reach the service's admin endpoint without passing through the
+/// A public route forwards <c>/catalog/{**remainder}</c> as <c>/{remainder}</c>, so
+/// <c>/catalog/admin/movies</c> would reach the service's admin endpoint without passing through the
 /// admin route's policies. This step answers such requests with 404 before they are forwarded.
 /// Services still authorize their admin endpoints themselves; this only keeps the two groups apart.
 /// </summary>

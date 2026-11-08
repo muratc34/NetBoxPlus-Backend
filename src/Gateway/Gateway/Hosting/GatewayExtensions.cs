@@ -45,7 +45,7 @@ internal static class GatewayExtensions
                     context.AddRequestHeaderRemove(header);
                 }
 
-                // Services return paths of their own ("/notes/1"); the client needs the gateway's.
+                // Services return paths of their own ("/movies/1"); the client needs the gateway's.
                 if (RoutePrefixes.TryParse(context.Route, out var prefixes))
                 {
                     context.AddResponseTransform(transform =>

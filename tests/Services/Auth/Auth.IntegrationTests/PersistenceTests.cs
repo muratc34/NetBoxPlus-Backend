@@ -62,13 +62,13 @@ public sealed class PersistenceTests(AuthDatabaseFixture database)
     public async Task Permissions_RoundTrip()
     {
         await using var services = await database.CreateServicesAsync();
-        var role = Role.Create("Editor", [Permissions.Sample.NotesDelete, Permissions.Auth.UsersRead]).Value;
+        var role = Role.Create("Editor", [Permissions.Auth.UsersWrite, Permissions.Auth.UsersRead]).Value;
         await SaveAsync(services, context => context.Add(role));
 
         await using var scope = services.CreateAsyncScope();
         var found = await scope.ServiceProvider.GetRequiredService<IRoleRepository>().GetByIdAsync(role.Id, Cancellation);
 
-        Assert.Equal([Permissions.Auth.UsersRead, Permissions.Sample.NotesDelete], found!.Permissions);
+        Assert.Equal([Permissions.Auth.UsersRead, Permissions.Auth.UsersWrite], found!.Permissions);
     }
 
     [Fact]

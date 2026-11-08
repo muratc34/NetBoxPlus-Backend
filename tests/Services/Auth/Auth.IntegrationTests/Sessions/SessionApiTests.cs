@@ -210,7 +210,7 @@ public sealed class SessionApiTests(AuthApiFixture api)
         using var client = api.CreateClient();
         var email = NewEmail();
         var id = await RegisterAsync(client, email);
-        await GrantAsync(email, Permissions.Auth.UsersRead, Permissions.Sample.NotesDelete);
+        await GrantAsync(email, Permissions.Auth.UsersRead, Permissions.Auth.UsersWrite);
         var pair = await SignInAsync(client, email);
 
         var me = await GetMeAsync(client, pair.AccessToken);
@@ -218,7 +218,7 @@ public sealed class SessionApiTests(AuthApiFixture api)
         Assert.Equal(id, me.Id);
         Assert.Equal(email, me.Email);
         Assert.Single(me.Roles);
-        Assert.Equal([Permissions.Auth.UsersRead, Permissions.Sample.NotesDelete], me.Permissions);
+        Assert.Equal([Permissions.Auth.UsersRead, Permissions.Auth.UsersWrite], me.Permissions);
         Assert.Equal(me.Permissions, new JsonWebToken(pair.AccessToken).Claims.Where(claim => claim.Type == "permission").Select(claim => claim.Value));
     }
 
@@ -238,11 +238,11 @@ public sealed class SessionApiTests(AuthApiFixture api)
         await RegisterAsync(client, email);
         var before = await SignInAsync(client, email);
 
-        await GrantAsync(email, Permissions.Sample.NotesDelete);
+        await GrantAsync(email, Permissions.Auth.UsersWrite);
         var after = await (await RefreshRawAsync(client, before.RefreshToken)).Content.ReadFromJsonAsync<TokenPair>(Cancellation);
 
         Assert.DoesNotContain(new JsonWebToken(before.AccessToken).Claims, claim => claim.Type == "permission");
-        Assert.Contains(new JsonWebToken(after!.AccessToken).Claims, claim => claim is { Type: "permission", Value: Permissions.Sample.NotesDelete });
+        Assert.Contains(new JsonWebToken(after!.AccessToken).Claims, claim => claim is { Type: "permission", Value: Permissions.Auth.UsersWrite });
     }
 
     [Fact]

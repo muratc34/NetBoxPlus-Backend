@@ -82,17 +82,16 @@ Lokal bağımlılıklar (Postgres, RabbitMQ, Valkey, Aspire dashboard; `-Search`
 - `NETBOXPLUS_DATABASES`'e eklenen database sadece boş volume'da oluşur: ekledikten sonra
   `./deploy/dev.ps1 reset -Force` (lokal veri silinir), sonra `up` ve `secrets`.
 
-Bir servisi lokalde çalıştırmak (örnek: Sample):
+Bir servisi lokalde çalıştırmak (örnek: Auth):
 
 ```powershell
 ./deploy/dev.ps1 secrets
-dotnet run --project src/Services/Sample/Sample.Migrator
-dotnet run --project src/Services/Sample/Sample.API --launch-profile Sample.API
+dotnet run --project src/Services/Auth/Auth.Migrator
+dotnet run --project src/Services/Auth/Auth.API --launch-profile Auth.API
 ```
 
-Feed ve Auth da aynı şekilde (`<S>.Migrator`, `<S>.API`). Gateway (`http://localhost:5100`;
-Development'ta Sample'a `localhost:5101`, Feed'e `localhost:5102`, Auth'a `localhost:5103` üzerinden
-gider; tarayıcı oturumları için Valkey ve Auth çalışmalı):
+Diğer servisler de aynı şekilde (`<S>.Migrator`, `<S>.API`). Gateway (`http://localhost:5100`;
+Development'ta Auth'a `localhost:5103` üzerinden gider; tarayıcı oturumları için Valkey ve Auth çalışmalı):
 
 ```powershell
 dotnet run --project src/Gateway/Gateway --launch-profile Gateway
@@ -106,38 +105,39 @@ token'ı Auth'un JWKS'i ile doğruladığı için korumalı bir endpoint'i dener
 Migration eklemek: `dotnet tool restore` ve
 `dotnet ef migrations add <Ad> --project src/Services/<S>/<S>.Infrastructure --output-dir Persistence/Migrations`.
 
-## Yeni servis — referans: `src/Services/Sample`
+## Yeni servis — referans: `src/Services/Auth`
 
-Yeni bir servis Sample'ın yapısını birebir izler:
+Yeni bir servis Auth'un yapısını izler (Auth'a özel olanlar hariç: kendi token'ını üretip doğrulaması,
+Migrator'daki seed):
 
 - Projeler `<S>.Domain`, `.Application`, `.Infrastructure`, `.API`, `.Contracts`, `.Migrator`;
   `.Contracts` sadece servis event yayınlıyorsa açılır. Testler `tests/Services/<S>/`. API ve
   Migrator aynı `UserSecretsId`'yi kullanır: `netboxplus-<servis>`.
 - Domain: aggregate `AggregateRoot`'tan türer; value object'ler `Create` ile `Result` döner;
   hatalar `<Aggregate>Errors` static sınıfında; repository arayüzü domain'de.
-- Application: use case başına bir dosya (`Notes/CreateNote/CreateNote.cs`: command + validator +
+- Application: use case başına bir dosya (`Roles/CreateRole/CreateRole.cs`: command + validator +
   handler); handler'lar `internal sealed`. Query'ler servisin okuma arayüzünden
   (`I<S>ReadModel`) projection yapar. Integration event'ler bir domain event handler'ından yayınlanır.
 - Infrastructure: `<S>DbContext : ServiceDbContext, I<S>ReadModel`, `ConnectionStrings:Database`,
   configuration'lar `IEntityTypeConfiguration`, tek değerli value object'ler `ComplexProperty`
   (üzerinde index veya arama gerekiyorsa `HasConversion`, ör. Auth'taki `EmailAddress`),
   soft delete için `HasQueryFilter`, design-time factory.
-- API: `Program.cs` Sample'daki sırayla; endpoint'ler `MapGroup` ile, `[FromServices] IDispatcher`,
+- API: `Program.cs` Auth'taki sırayla; endpoint'ler `MapGroup` ile, `[FromServices] IDispatcher`,
   `Produces`/`ProducesProblem` metadata'sı (OpenAPI'den TypeScript client üretilecek). OpenAPI
   dokümanı build'de `docs/openapi/<servis>.json`'a yazılır ve commit'lenir; build sırasında
   altyapı kaydı `BuildTimeOpenApi.IsGeneratingDocument` ile atlanır.
   `appsettings.Development.json`: `Authentication:Schemes:Bearer:Authority` = `http://localhost:5103`
   ve `RequireHttpsMetadata: false`; Authority yoksa servis başlamaz. Test fixture'ı token'ı kendi
   ES256 anahtarıyla ve `typ: at+jwt` ile imzalar, anahtarı `PostConfigure<JwtBearerOptions>` ile
-  verir (`SampleApiFixture`).
-- Dockerfile Sample'daki gibi (chiseled, non-root). Yeni servis `deploy/dev.ps1`'deki `$services`
+  verir (örnek: `tests/Services/Auth/Auth.IntegrationTests/Tokens/ResourceServer.cs`).
+- Dockerfile Auth'takiler gibi (chiseled, non-root). Yeni servis `deploy/dev.ps1`'deki `$services`
   listesine, `deploy/compose.yaml`'daki `NETBOXPLUS_DATABASES`'e, `tests/Architecture.Tests`
   csproj'una ve `.github/workflows/ci.yml`'deki `image` matrix'ine eklenir.
 - Gateway'e iki route eklenir (`src/Gateway/Gateway/appsettings.json`): `<s>-public`
   (`/<s>/{**remainder}`, `PathRemovePrefix: /<s>`, `RouteGroup: public`) ve, admin endpoint'i
   varsa, `<s>-admin` (`/admin/<s>/{**remainder}`, `PathPattern: /admin/{**remainder}`,
   `RouteGroup: admin`); cluster adresi base'de compose adı, `appsettings.Development.json`'da
-  `localhost` portu. Portlar: gateway 5100, Sample 5101, Feed 5102, Auth 5103; sıradaki servis 5104.
+  `localhost` portu. Portlar: gateway 5100, Auth 5103; sıradaki servis 5104 (5101-5102 silinen örnek servislerindi).
 - Admin yazma command'ları `IAuditedCommand` implement eder (`AuditTargetId` explicit, JSON'a
   girmesin) ve secret taşımaz; liste endpoint'leri `Shared.Application.Paging` (`page`,
   `pageSize`, en fazla 100).
@@ -145,7 +145,8 @@ Yeni bir servis Sample'ın yapısını birebir izler:
   iç içe sınıfına eklenir (`<servis>:<kaynak>:<eylem>`, küçük harf); servis aynı string'i
   `RequirePermission` ile kontrol eder. Katalogda olmayan permission bir role atanamaz.
 
-**Başka bir servisin event'ini tüketmek — referans: `src/Services/Feed`**
+**Başka bir servisin event'ini tüketmek** — henüz tüketen servis yok; ilk gerçek tüketici referans
+olur. O zamana kadar örnek git geçmişinde: `git show 8321acd:src/Services/Feed/Feed.Application/...`.
 
 - `<S>.Application` diğer servisin sadece `*.Contracts` projesini referans alır.
 - `IIntegrationEventHandler<TEvent>` event'i bir command'a çevirip `dispatcher.Send` ile gönderir;

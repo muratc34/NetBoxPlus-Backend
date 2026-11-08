@@ -24,7 +24,7 @@ public sealed partial class ServiceDependencyTests
     [Fact]
     public void ServiceProjects_AreFound()
     {
-        Assert.Contains("Sample.Domain", DiscoverServiceAssemblies().Keys);
+        Assert.Contains("Auth.Domain", DiscoverServiceAssemblies().Keys);
     }
 
     [Theory]

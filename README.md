@@ -1,4 +1,4 @@
-# NetBoxPlus Backend — v2
+# NetBoxPlus Backend â€” v2
 
 A video streaming and subscription platform backend, rewritten on .NET 10 as a set of
 independently deployable services in a single repository.
@@ -8,7 +8,7 @@ independently deployable services in a single repository.
 
 ## Architecture at a glance
 
-- **Services:** Auth, Catalog, Billing, Streaming — each with its own database and a
+- **Services:** Auth, Catalog, Billing, Streaming â€” each with its own database and a
   Domain / Application / Infrastructure / API split
 - **CQRS** with an in-house dispatcher and pipeline behaviors; handlers return `Result`
 - **Messaging:** RabbitMQ with a transactional outbox and an idempotent inbox
@@ -51,7 +51,7 @@ lives there.
 
 | Dependency | Address | Notes |
 |---|---|---|
-| PostgreSQL 18 | `localhost:5432` | Databases `auth`, `catalog`, `billing`, `streaming`, `sample`, `feed`, each owned by a role of the same name that can connect only to it |
+| PostgreSQL 18 | `localhost:5432` | Databases `auth`, `catalog`, `billing`, `streaming`, each owned by a role of the same name that can connect only to it |
 | RabbitMQ 4 | `localhost:5672`, UI http://localhost:15672 | |
 | Valkey 9 | `localhost:6379` | Password-protected |
 | Elasticsearch 9 | http://localhost:9200 | Only with `-Search`; security disabled locally |
@@ -62,23 +62,18 @@ volume; after changing the list, run `reset -Force`.
 
 ### Running a service
 
-`src/Services/Sample` is the reference service every other service follows. To run it:
+`src/Services/Auth` is the reference service every other service follows. To run it:
 
 ```powershell
 ./deploy/dev.ps1 up
 ./deploy/dev.ps1 secrets   # writes connection settings, the auth signing key and the first admin into user secrets
-dotnet run --project src/Services/Sample/Sample.Migrator
-dotnet run --project src/Services/Sample/Sample.API --launch-profile Sample.API
+dotnet run --project src/Services/Auth/Auth.Migrator
+dotnet run --project src/Services/Auth/Auth.API --launch-profile Auth.API
 ```
 
-The API listens on http://localhost:5101 (`POST /notes`, `GET /notes/{id}`; the OpenAPI document is
+The API listens on http://localhost:5103 (the OpenAPI document is
 at `/openapi/v1.json` in development and committed under `docs/openapi/`). Logs and traces appear
 in the Aspire dashboard.
-
-`src/Services/Feed` is the reference for consuming another service's events: it reacts to the
-sample service's `NoteCreated` and keeps a feed of new notes (`GET /items`, on
-http://localhost:5102). Run it the same way with `Feed.Migrator` and `Feed.API`. Each message
-reaches it once, even when the broker delivers it again.
 
 ### Gateway
 
@@ -89,11 +84,10 @@ dotnet run --project src/Gateway/Gateway --launch-profile Gateway
 ```
 
 It listens on http://localhost:5100. Public routes are `/{service}/...` (for example
-`POST /sample/notes`), admin routes `/admin/{service}/...`. Each group has its own CORS origins
+`GET /catalog/movies`), admin routes `/admin/{service}/...`. Each group has its own CORS origins
 and rate limits; requests over the limit get `429` problem details with `Retry-After`. Every
 request starts a new trace at the gateway, so a call shows up in the Aspire dashboard as one
-trace from the gateway down to the database, the message broker and the consuming service: a
-`POST /sample/notes` is followed by the note appearing in `GET /feed/items`, in the same trace.
+trace from the gateway down to the database and the message broker.
 
 Browsers sign in through the gateway itself (`POST /session/sign-in`, `/session/register`,
 `GET /session`, `POST /session/sign-out`; the admin panel uses `/admin/session/...`). The tokens
