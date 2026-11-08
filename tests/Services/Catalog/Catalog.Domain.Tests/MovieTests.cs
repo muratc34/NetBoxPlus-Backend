@@ -138,6 +138,41 @@ public sealed class MovieTests
         Assert.Empty(movie.Credits);
     }
 
+    [Fact]
+    public void Version_GrowsWithEveryChange_ButNotWithARefusedOne()
+    {
+        var movie = TestContent.Movie();
+        var versions = new List<int> { movie.Version };
+
+        movie.Describe(TestContent.Info("Other"));
+        versions.Add(movie.Version);
+        movie.ChangeRuntime(90);
+        versions.Add(movie.Version);
+        movie.SetGenres([Guid.CreateVersion7()]);
+        versions.Add(movie.Version);
+        movie.SetCredits([]);
+        versions.Add(movie.Version);
+        movie.Publish(TestContent.Now);
+        versions.Add(movie.Version);
+        movie.Publish(TestContent.Now);
+        Assert.Equal(versions[^1], movie.Version);
+        movie.Unpublish();
+        versions.Add(movie.Version);
+
+        Assert.Equal(versions.Count, versions.Distinct().Count());
+        Assert.True(movie.ChangeRuntime(0).IsFailure);
+        Assert.Equal(versions[^1], movie.Version);
+    }
+
+    [Fact]
+    public void CheckVersion_RefusesAStaleCopy()
+    {
+        var movie = TestContent.Movie();
+
+        Assert.True(movie.CheckVersion(movie.Version).IsSuccess);
+        Assert.Equal(ContentErrors.VersionConflict, movie.CheckVersion(movie.Version + 1).Error);
+    }
+
     private static Movie Published()
     {
         var movie = TestContent.Movie();

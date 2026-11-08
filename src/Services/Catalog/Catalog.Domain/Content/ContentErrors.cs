@@ -44,6 +44,14 @@ public static class ContentErrors
         "Content.GenreRequired",
         "Published content needs at least one genre.");
 
+    public static readonly Error UnknownGenre = Error.Validation("Content.UnknownGenre", "One of the genres does not exist.");
+
+    public static readonly Error UnknownPerson = Error.Validation("Content.UnknownPerson", "One of the credited people does not exist.");
+
+    public static readonly Error VersionConflict = Error.Conflict(
+        "Content.VersionConflict",
+        "Someone else changed this since it was loaded. Reload and try again.");
+
     public static readonly Error MustBeUnpublished = Error.Conflict(
         "Content.MustBeUnpublished",
         "Published content must be unpublished first.");

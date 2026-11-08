@@ -56,6 +56,21 @@ public sealed class SessionApiTests(AuthApiFixture api)
     }
 
     [Fact]
+    public async Task ConcurrentRegistrations_OfOneAddress_CreateOneAccount_AndTheRestConflict()
+    {
+        using var client = api.CreateClient();
+        var email = NewEmail();
+
+        var responses = await Task.WhenAll(Enumerable.Range(0, 8)
+            .Select(_ => client.PostAsJsonAsync("/register", new RegisterRequest(email, Password), Cancellation)));
+
+        Assert.Single(responses, response => response.StatusCode == HttpStatusCode.Created);
+        Assert.All(
+            responses.Where(response => response.StatusCode != HttpStatusCode.Created),
+            response => Assert.Equal(HttpStatusCode.Conflict, response.StatusCode));
+    }
+
+    [Fact]
     public async Task Register_WithInvalidInput_ReportsEachField()
     {
         using var client = api.CreateClient();

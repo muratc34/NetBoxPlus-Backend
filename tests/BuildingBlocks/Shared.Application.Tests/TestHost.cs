@@ -42,8 +42,16 @@ internal sealed class FakeUnitOfWork : IUnitOfWork
 {
     public int SaveCount { get; private set; }
 
+    /// <summary>Makes the save lose a race with another write.</summary>
+    public bool Conflicts { get; set; }
+
     public Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {
+        if (Conflicts)
+        {
+            throw new DataConflictException(new InvalidOperationException("Lost the race."));
+        }
+
         SaveCount++;
         return Task.CompletedTask;
     }

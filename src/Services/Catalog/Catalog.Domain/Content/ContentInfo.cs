@@ -32,44 +32,56 @@ public sealed record ContentInfo
 
     public static Result<ContentInfo> Create(string? title, string? originalTitle, string? synopsis, int releaseYear, AgeRating ageRating)
     {
+        var problem = Check(title, originalTitle, synopsis, releaseYear, ageRating).FirstOrDefault();
+        if (problem.Error is not null)
+        {
+            return problem.Error;
+        }
+
+        return new ContentInfo(
+            title!.Trim(),
+            string.IsNullOrWhiteSpace(originalTitle) ? null : originalTitle.Trim(),
+            synopsis!.Trim(),
+            releaseYear,
+            ageRating);
+    }
+
+    /// <summary>Every problem with the values, with the field it belongs to.</summary>
+    public static IEnumerable<(string Field, Error Error)> Check(string? title, string? originalTitle, string? synopsis, int releaseYear, AgeRating ageRating)
+    {
         var trimmedTitle = title?.Trim();
         if (string.IsNullOrEmpty(trimmedTitle))
         {
-            return ContentErrors.TitleRequired;
+            yield return (nameof(Title), ContentErrors.TitleRequired);
+        }
+        else if (trimmedTitle.Length > TitleMaxLength)
+        {
+            yield return (nameof(Title), ContentErrors.TitleTooLong);
         }
 
-        if (trimmedTitle.Length > TitleMaxLength)
+        if (originalTitle?.Trim().Length > TitleMaxLength)
         {
-            return ContentErrors.TitleTooLong;
-        }
-
-        var trimmedOriginal = string.IsNullOrWhiteSpace(originalTitle) ? null : originalTitle.Trim();
-        if (trimmedOriginal?.Length > TitleMaxLength)
-        {
-            return ContentErrors.OriginalTitleTooLong;
+            yield return (nameof(OriginalTitle), ContentErrors.OriginalTitleTooLong);
         }
 
         var trimmedSynopsis = synopsis?.Trim();
         if (string.IsNullOrEmpty(trimmedSynopsis))
         {
-            return ContentErrors.SynopsisRequired;
+            yield return (nameof(Synopsis), ContentErrors.SynopsisRequired);
         }
-
-        if (trimmedSynopsis.Length > SynopsisMaxLength)
+        else if (trimmedSynopsis.Length > SynopsisMaxLength)
         {
-            return ContentErrors.SynopsisTooLong;
+            yield return (nameof(Synopsis), ContentErrors.SynopsisTooLong);
         }
 
         if (releaseYear is < MinReleaseYear or > MaxReleaseYear)
         {
-            return ContentErrors.ReleaseYearOutOfRange;
+            yield return (nameof(ReleaseYear), ContentErrors.ReleaseYearOutOfRange);
         }
 
         if (!Enum.IsDefined(ageRating))
         {
-            return ContentErrors.AgeRatingInvalid;
+            yield return (nameof(AgeRating), ContentErrors.AgeRatingInvalid);
         }
-
-        return new ContentInfo(trimmedTitle, trimmedOriginal, trimmedSynopsis, releaseYear, ageRating);
     }
 }

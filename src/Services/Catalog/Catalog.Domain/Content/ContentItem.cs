@@ -28,6 +28,13 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
 
     public DateTimeOffset? PublishedAt { get; private set; }
 
+    /// <summary>
+    /// Grows with every change to the aggregate, its genres, credits, seasons and episodes included.
+    /// An editor sends back the version they loaded, so that they cannot overwrite someone else's
+    /// change without seeing it.
+    /// </summary>
+    public int Version { get; private set; }
+
     public bool IsPublished => Status == PublicationStatus.Published;
 
     public IReadOnlyCollection<ContentGenre> Genres => _genres.AsReadOnly();
@@ -46,6 +53,7 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
     {
         ArgumentNullException.ThrowIfNull(info);
         Info = info;
+        Version++;
     }
 
     /// <summary>Replaces the genres. Published content cannot be left without one.</summary>
@@ -65,6 +73,7 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
             _genres.Add(new ContentGenre(genreId));
         }
 
+        Version++;
         return Result.Success();
     }
 
@@ -104,6 +113,7 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
             }
         }
 
+        Version++;
         return Result.Success();
     }
 
@@ -128,17 +138,28 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
 
         Status = PublicationStatus.Published;
         PublishedAt = now;
+        Version++;
         return Result.Success();
     }
 
     public void Unpublish()
     {
-        Status = PublicationStatus.Draft;
-        PublishedAt = null;
+        if (IsPublished)
+        {
+            Status = PublicationStatus.Draft;
+            PublishedAt = null;
+            Version++;
+        }
     }
+
+    /// <summary>Fails when the editor's copy is older than what is stored.</summary>
+    public Result CheckVersion(int version) => version == Version ? Result.Success() : ContentErrors.VersionConflict;
 
     /// <summary>Whether the content may be deleted; the repository's removal is then a soft delete.</summary>
     public Result CanDelete() => IsPublished ? ContentErrors.MustBeUnpublished : Result.Success();
+
+    /// <summary>For changes a derived aggregate makes to its own parts.</summary>
+    protected void MarkChanged() => Version++;
 
     /// <summary>Rules of the specific kind of content, on top of the shared ones.</summary>
     protected virtual Result CheckReadyToPublish() => Result.Success();

@@ -51,6 +51,21 @@ public sealed class TransactionBehaviorTests
     }
 
     [Fact]
+    public async Task SaveThatLosesARace_IsAConflict_NotAnException()
+    {
+        using var provider = TestHost.Build();
+        using var scope = provider.CreateScope();
+        UnitOfWork(scope).Conflicts = true;
+
+        var plain = await Dispatcher(scope).Send(new PingCommand(), TestContext.Current.CancellationToken);
+        var withResponse = await Dispatcher(scope).Send(new CreateItemCommand("Book", 1), TestContext.Current.CancellationToken);
+
+        Assert.Equal("Data.Conflict", plain.Error.Code);
+        Assert.Equal(Shared.Domain.ErrorType.Conflict, plain.Error.Type);
+        Assert.Equal("Data.Conflict", withResponse.Error.Code);
+    }
+
+    [Fact]
     public async Task Query_IsNeverSaved()
     {
         using var provider = TestHost.Build();

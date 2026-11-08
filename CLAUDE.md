@@ -243,6 +243,8 @@ Migrator'daki seed):
 - **Admin (Auth):** `/admin/users`, `/admin/roles`, `/admin/permissions`. Bir rolü oluşturan,
   değiştiren, silen, atayan veya kaldıran o rolün permission'larının hepsine sahip olmalı;
   `Administrator` sistem rolüdür (tüm permission'lar, API'den değişmez, seed katalogla eşitler).
+- **Eş zamanlı yazma:** kaydetmede yarışı kaybeden command (concurrency, unique, FK) 409 `Data.Conflict` alır. Düzenlenen
+  aggregate'ler `Version` taşır; istemci yüklediği değeri geri gönderir (ör. Catalog `ContentItem`).
 - **Audit:** `IAuditedCommand` işaretli başarılı command'lar aynı transaction'da
   `AuditLogEntries`'e yazılır (`AuditBehavior`, tablo `ServiceDbContext`'te).
 - **JWT:** ES256, `typ: at+jwt`, 15 dk; servisler Auth'un JWKS'ini `Authority` üzerinden bulur,

@@ -1,0 +1,39 @@
+using Catalog.Application.Abstractions;
+using Catalog.Domain.Content;
+using Microsoft.EntityFrameworkCore;
+
+namespace Catalog.Application.Content;
+
+/// <summary>Finds the names behind the genre and person ids of loaded content, in one query each.</summary>
+internal sealed class ContentReader(ICatalogReadModel readModel)
+{
+    public async Task<ContentNames> LoadNamesAsync(IEnumerable<ContentItem> items, CancellationToken cancellationToken)
+    {
+        var loaded = items.ToList();
+
+        var genreIds = loaded.SelectMany(item => item.Genres).Select(genre => genre.GenreId).Distinct().ToList();
+        var genres = await readModel.Genres
+            .Where(genre => genreIds.Contains(genre.Id))
+            .ToDictionaryAsync(genre => genre.Id, genre => genre.Name, cancellationToken)
+            .ConfigureAwait(false);
+
+        var personIds = loaded.SelectMany(item => item.Credits).Select(credit => credit.PersonId).Distinct().ToList();
+        var people = await readModel.People
+            .Where(person => personIds.Contains(person.Id))
+            .ToDictionaryAsync(person => person.Id, person => person.Name, cancellationToken)
+            .ConfigureAwait(false);
+
+        return new ContentNames(genres, people);
+    }
+}
+
+internal sealed record ContentNames(IReadOnlyDictionary<Guid, string> Genres, IReadOnlyDictionary<Guid, string> People)
+{
+    public IReadOnlyList<GenreReference> GenresOf(ContentItem item)
+        => [.. item.Genres.Select(genre => new GenreReference(genre.GenreId, Genres[genre.GenreId])).OrderBy(genre => genre.Name, StringComparer.Ordinal)];
+
+    public IReadOnlyList<CreditResponse> CreditsOf(ContentItem item)
+        => [.. item.Credits
+            .OrderBy(credit => credit.Order)
+            .Select(credit => new CreditResponse(credit.PersonId, People[credit.PersonId], credit.Role, credit.CharacterName, credit.Order))];
+}

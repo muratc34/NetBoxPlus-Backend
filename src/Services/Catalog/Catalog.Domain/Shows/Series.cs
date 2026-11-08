@@ -47,6 +47,7 @@ public sealed class Series : ContentItem
 
         var added = new Season(Guid.CreateVersion7(), number, checkedTitle.Value);
         _seasons.Add(added);
+        MarkChanged();
         return added;
     }
 
@@ -75,6 +76,7 @@ public sealed class Series : ContentItem
         }
 
         season.Change(number, checkedTitle.Value);
+        MarkChanged();
         return Result.Success();
     }
 
@@ -91,6 +93,7 @@ public sealed class Series : ContentItem
         }
 
         _seasons.Remove(season);
+        MarkChanged();
         return Result.Success();
     }
 
@@ -110,6 +113,7 @@ public sealed class Series : ContentItem
 
         var episode = new Episode(Guid.CreateVersion7(), details);
         season.Add(episode);
+        MarkChanged();
         return episode;
     }
 
@@ -128,6 +132,7 @@ public sealed class Series : ContentItem
         }
 
         episode.Change(details);
+        MarkChanged();
         return Result.Success();
     }
 
@@ -144,6 +149,7 @@ public sealed class Series : ContentItem
         }
 
         season.Remove(episode);
+        MarkChanged();
         return Result.Success();
     }
 
@@ -155,6 +161,7 @@ public sealed class Series : ContentItem
         }
 
         episode.Publish(now);
+        MarkChanged();
         return Result.Success();
     }
 
@@ -172,6 +179,7 @@ public sealed class Series : ContentItem
         }
 
         episode.Unpublish();
+        MarkChanged();
         return Result.Success();
     }
 

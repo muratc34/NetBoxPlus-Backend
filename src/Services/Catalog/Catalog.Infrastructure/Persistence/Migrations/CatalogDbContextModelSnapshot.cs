@@ -80,6 +80,10 @@ namespace Catalog.Infrastructure.Persistence.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
                     b.ComplexProperty(typeof(Dictionary<string, object>), "Info", "Catalog.Domain.Movies.Movie.Info#ContentInfo", b1 =>
                         {
                             b1.IsRequired();
@@ -231,6 +235,10 @@ namespace Catalog.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
 
                     b.ComplexProperty(typeof(Dictionary<string, object>), "Info", "Catalog.Domain.Shows.Series.Info#ContentInfo", b1 =>
                         {

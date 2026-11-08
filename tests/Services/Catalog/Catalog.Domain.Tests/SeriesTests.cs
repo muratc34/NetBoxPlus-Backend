@@ -151,6 +151,22 @@ public sealed class SeriesTests
     }
 
     [Fact]
+    public void ChangesToSeasonsAndEpisodes_RaiseTheVersionOfTheSeries()
+    {
+        var (series, season) = TestContent.SeriesWithSeason();
+        var before = series.Version;
+
+        var episode = series.AddEpisode(season.Id, TestContent.Details()).Value;
+        var afterAdd = series.Version;
+        series.ChangeEpisode(episode.Id, TestContent.Details(2));
+        var afterChange = series.Version;
+        series.PublishEpisode(episode.Id, TestContent.Now);
+        var afterPublish = series.Version;
+
+        Assert.True(before < afterAdd && afterAdd < afterChange && afterChange < afterPublish);
+    }
+
+    [Fact]
     public void UnknownEpisode_IsReportedByEveryOperation()
     {
         var (series, _) = TestContent.SeriesWithSeason();

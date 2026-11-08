@@ -28,6 +28,7 @@ internal static class ContentItemMapping
 
         builder.Property(content => content.Status).HasConversion<string>().HasMaxLength(16);
         builder.Ignore(content => content.IsPublished);
+        builder.Property(content => content.Version).IsConcurrencyToken();
 
         // Customer lists show what is published, newest first.
         builder.HasIndex(content => new { content.Status, content.PublishedAt });

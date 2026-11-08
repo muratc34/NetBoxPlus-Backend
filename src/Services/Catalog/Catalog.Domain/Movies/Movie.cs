@@ -35,6 +35,7 @@ public sealed class Movie : ContentItem
         }
 
         RuntimeMinutes = runtimeMinutes;
+        MarkChanged();
         return Result.Success();
     }
 }
