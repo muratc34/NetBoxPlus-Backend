@@ -3,6 +3,8 @@ using Catalog.Application.Browse.GetPublishedGenres;
 using Catalog.Application.Browse.GetPublishedMovie;
 using Catalog.Application.Browse.GetPublishedSeries;
 using Catalog.Application.Browse.GetTitles;
+using Catalog.Application.Browse.Search;
+using Catalog.Application.Browse.Suggest;
 using Catalog.Application.Content;
 using Catalog.Domain.Content;
 using Microsoft.AspNetCore.Mvc;
@@ -27,6 +29,20 @@ internal static class BrowseEndpoints
             .WithSummary("Lists published movies and series, most recently published first.")
             .Produces<Page<TitleSummary>>()
             .ProducesValidationProblem();
+
+        browse.MapGet("/search", SearchAsync)
+            .WithName("SearchTitles")
+            .WithSummary("Searches published movies and series, best match first.")
+            .Produces<Page<SearchHit>>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+        browse.MapGet("/search/suggest", SuggestAsync)
+            .WithName("SuggestTitles")
+            .WithSummary("Suggests titles for what has been typed so far.")
+            .Produces<IReadOnlyList<SearchHit>>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
         browse.MapGet("/movies/{id:guid}", GetMovieAsync)
             .WithName("GetPublishedMovie")
@@ -68,6 +84,24 @@ internal static class BrowseEndpoints
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = PageLimits.DefaultPageSize)
         => (await dispatcher.Query(new GetTitlesQuery(lang ?? Languages.Default, kind, genreId, personId, page, pageSize), cancellationToken)).ToHttpResult();
+
+    private static async Task<IResult> SearchAsync(
+        [FromServices] IDispatcher dispatcher,
+        CancellationToken cancellationToken,
+        [FromQuery] string? q = null,
+        [FromQuery] string? lang = null,
+        [FromQuery] TitleKind? kind = null,
+        [FromQuery] Guid? genreId = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = PageLimits.DefaultPageSize)
+        => (await dispatcher.Query(new SearchTitlesQuery(q, lang ?? Languages.Default, kind, genreId, page, pageSize), cancellationToken)).ToHttpResult();
+
+    private static async Task<IResult> SuggestAsync(
+        [FromServices] IDispatcher dispatcher,
+        CancellationToken cancellationToken,
+        [FromQuery] string? q = null,
+        [FromQuery] string? lang = null)
+        => (await dispatcher.Query(new SuggestTitlesQuery(q, lang ?? Languages.Default), cancellationToken)).ToHttpResult();
 
     private static async Task<IResult> GetMovieAsync(Guid id, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken, [FromQuery] string? lang = null)
         => (await dispatcher.Query(new GetPublishedMovieQuery(id, lang ?? Languages.Default), cancellationToken)).ToHttpResult();

@@ -3,6 +3,9 @@ using Shared.Domain;
 
 namespace Catalog.Domain.Genres;
 
+/// <summary>A genre's names changed; content listing them has to follow.</summary>
+public sealed record GenreChangedDomainEvent(Guid GenreId) : IDomainEvent;
+
 /// <summary>A genre's name in one language. Part of the <see cref="Genre"/> aggregate.</summary>
 public sealed class GenreTranslation
 {
@@ -102,6 +105,7 @@ public sealed class Genre : AggregateRoot, IAuditableEntity
             }
         }
 
+        RaiseDomainEvent(new GenreChangedDomainEvent(Id));
         return Result.Success();
     }
 

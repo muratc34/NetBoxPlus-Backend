@@ -24,6 +24,7 @@ internal static class ErrorMapping
         ErrorType.Forbidden => StatusCodes.Status403Forbidden,
         ErrorType.NotFound => StatusCodes.Status404NotFound,
         ErrorType.Conflict => StatusCodes.Status409Conflict,
+        ErrorType.Unavailable => StatusCodes.Status503ServiceUnavailable,
         ErrorType.Failure => StatusCodes.Status500InternalServerError,
         _ => throw new ArgumentOutOfRangeException(nameof(type), type, "A successful result has no HTTP error."),
     };

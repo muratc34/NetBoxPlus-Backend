@@ -18,6 +18,8 @@ public sealed class Movie : ContentItem
 
     public int RuntimeMinutes { get; private set; }
 
+    public override ContentKind Kind => ContentKind.Movie;
+
     public static Result<Movie> Create(ContentInfo info, IReadOnlyDictionary<string, ContentText> texts, int runtimeMinutes)
     {
         ArgumentNullException.ThrowIfNull(info);

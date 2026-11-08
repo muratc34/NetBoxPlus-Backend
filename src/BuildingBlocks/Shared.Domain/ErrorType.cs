@@ -14,4 +14,5 @@ public enum ErrorType
     Forbidden,
     NotFound,
     Conflict,
+    Unavailable,
 }

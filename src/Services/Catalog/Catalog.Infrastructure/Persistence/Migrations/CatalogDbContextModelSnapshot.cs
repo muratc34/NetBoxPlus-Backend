@@ -281,6 +281,27 @@ namespace Catalog.Infrastructure.Persistence.Migrations
                     b.ToTable("Series", (string)null);
                 });
 
+            modelBuilder.Entity("Catalog.Infrastructure.Search.SearchIndexEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ContentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTimeOffset>("RequestedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SearchIndexQueue", (string)null);
+                });
+
             modelBuilder.Entity("Shared.Infrastructure.Persistence.Auditing.AuditLogEntry", b =>
                 {
                     b.Property<Guid>("Id")

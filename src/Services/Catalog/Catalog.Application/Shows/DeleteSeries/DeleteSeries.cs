@@ -27,6 +27,7 @@ internal sealed class DeleteSeriesHandler(ISeriesRepository repository) : IComma
             return allowed;
         }
 
+        series.AnnounceRemoval();
         repository.Remove(series);
         return Result.Success();
     }

@@ -3,6 +3,9 @@ using Shared.Domain;
 
 namespace Catalog.Domain.People;
 
+/// <summary>A person changed; content crediting them has to follow.</summary>
+public sealed record PersonChangedDomainEvent(Guid PersonId) : IDomainEvent;
+
 /// <summary>A person's biography in one language. Part of the <see cref="Person"/> aggregate.</summary>
 public sealed class PersonTranslation
 {
@@ -105,6 +108,7 @@ public sealed class Person : AggregateRoot, IAuditableEntity
             }
         }
 
+        RaiseDomainEvent(new PersonChangedDomainEvent(Id));
         return Result.Success();
     }
 

@@ -38,6 +38,8 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
 
     public bool IsPublished => Status == PublicationStatus.Published;
 
+    public abstract ContentKind Kind { get; }
+
     /// <summary>Name of the stored poster; published content needs one.</summary>
     public string? PosterImage { get; private set; }
 
@@ -61,7 +63,7 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
     {
         ArgumentNullException.ThrowIfNull(info);
         Info = info;
-        Version++;
+        MarkChanged();
     }
 
     /// <summary>Replaces the texts; the default language must be among them.</summary>
@@ -76,7 +78,7 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
         }
 
         ContentTranslation.Apply(_translations, texts);
-        Version++;
+        MarkChanged();
         return Result.Success();
     }
 
@@ -100,7 +102,7 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
             _genres.Add(new ContentGenre(genreId));
         }
 
-        Version++;
+        MarkChanged();
         return Result.Success();
     }
 
@@ -140,7 +142,7 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
             }
         }
 
-        Version++;
+        MarkChanged();
         return Result.Success();
     }
 
@@ -191,7 +193,7 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
 
         Status = PublicationStatus.Published;
         PublishedAt = now;
-        Version++;
+        MarkChanged();
         return Result.Success();
     }
 
@@ -201,15 +203,27 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
         {
             Status = PublicationStatus.Draft;
             PublishedAt = null;
-            Version++;
+            MarkChanged();
         }
     }
 
     /// <summary>Fails when the editor's copy is older than what is stored.</summary>
     public Result CheckVersion(int version) => version == Version ? Result.Success() : ContentErrors.VersionConflict;
 
+    /// <summary>To be called when the content is deleted, which does not go through the aggregate.</summary>
+    public void AnnounceRemoval() => Announce();
+
     /// <summary>Whether the content may be deleted; the repository's removal is then a soft delete.</summary>
     public Result CanDelete() => IsPublished ? ContentErrors.MustBeUnpublished : Result.Success();
+
+    // Once per save is enough, however many changes it carries.
+    private void Announce()
+    {
+        if (!DomainEvents.OfType<ContentChangedDomainEvent>().Any())
+        {
+            RaiseDomainEvent(new ContentChangedDomainEvent(Id, Kind));
+        }
+    }
 
     private void Store(ContentImageSlot slot, string? imageName)
     {
@@ -222,11 +236,15 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
             BackdropImage = imageName;
         }
 
-        Version++;
+        MarkChanged();
     }
 
     /// <summary>For changes a derived aggregate makes to its own parts.</summary>
-    protected void MarkChanged() => Version++;
+    protected void MarkChanged()
+    {
+        Version++;
+        Announce();
+    }
 
     /// <summary>Rules of the specific kind of content, on top of the shared ones.</summary>
     protected virtual Result CheckReadyToPublish() => Result.Success();

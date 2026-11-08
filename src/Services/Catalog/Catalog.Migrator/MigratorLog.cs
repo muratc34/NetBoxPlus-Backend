@@ -15,4 +15,13 @@ internal static partial class MigratorLog
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Image storage is ready")]
     public static partial void ImagesReady(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The search index is ready")]
+    public static partial void SearchReady(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The search engine could not be reached; the index is created when it is back")]
+    public static partial void SearchUnreachable(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Rebuilt the search index with {Count} titles")]
+    public static partial void Reindexed(ILogger logger, int count);
 }

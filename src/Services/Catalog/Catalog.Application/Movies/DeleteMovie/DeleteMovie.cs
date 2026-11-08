@@ -27,6 +27,7 @@ internal sealed class DeleteMovieHandler(IMovieRepository repository) : ICommand
             return allowed;
         }
 
+        movie.AnnounceRemoval();
         repository.Remove(movie);
         return Result.Success();
     }

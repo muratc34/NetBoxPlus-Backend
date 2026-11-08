@@ -129,7 +129,7 @@ function Set-ServiceSecrets {
     Write-Host "Administrator $($values['AUTH_ADMIN_EMAIL']) set for auth; the password is AUTH_ADMIN_PASSWORD in $envFile."
 
     # Catalog images: the well-known settings of the local Azure Blob Storage emulator.
-    foreach ($secret in @(@('ConnectionStrings:Images', 'UseDevelopmentStorage=true'), @('Images:UploadOrigins:0', 'http://localhost:5174'))) {
+    foreach ($secret in @(@('ConnectionStrings:Images', 'UseDevelopmentStorage=true'), @('ConnectionStrings:Search', 'http://localhost:9200'), @('Images:UploadOrigins:0', 'http://localhost:5174'))) {
         & dotnet user-secrets set $secret[0] $secret[1] --id 'netboxplus-catalog' | Out-Null
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }

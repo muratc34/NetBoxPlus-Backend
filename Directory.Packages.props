@@ -40,6 +40,10 @@
     <PackageVersion Include="SixLabors.ImageSharp" Version="4.1.3" />
   </ItemGroup>
 
+  <ItemGroup Label="Search">
+    <PackageVersion Include="Elastic.Clients.Elasticsearch" Version="9.5.3" />
+  </ItemGroup>
+
   <ItemGroup Label="Cache">
     <!-- Valkey speaks the Redis protocol; the gateway keeps browser sessions there. -->
     <PackageVersion Include="StackExchange.Redis" Version="2.13.17" />

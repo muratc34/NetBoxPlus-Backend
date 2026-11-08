@@ -90,6 +90,9 @@ dotnet run --project src/Services/Auth/Auth.Migrator
 dotnet run --project src/Services/Auth/Auth.API --launch-profile Auth.API
 ```
 
+Catalog araması Elasticsearch ister: `./deploy/dev.ps1 up -Search`. Index'i veritabanından yeniden kurmak (kesintisiz):
+`dotnet run --project src/Services/Catalog/Catalog.Migrator -- reindex`.
+
 Diğer servisler de aynı şekilde (`<S>.Migrator`, `<S>.API`). Gateway (`http://localhost:5100`;
 Development'ta Auth'a `localhost:5103`, Catalog'a `localhost:5104` üzerinden gider; tarayıcı oturumları için Valkey ve Auth çalışmalı):
 
@@ -244,6 +247,7 @@ Migrator'daki seed):
   `Administrator` sistem rolüdür (tüm permission'lar, API'den değişmez, seed katalogla eşitler).
 - **Çoklu dil (Catalog):** diller `Languages` sınıfında (`tr` zorunlu ve varsayılan, `en`); çeviriler kayıt başına tabloda. Admin `translations`,
   müşteri `?lang=` kullanır; çeviri yoksa Türkçe döner, yanıttaki `language` metnin gerçek dilini söyler.
+- **Arama (Catalog):** Elasticsearch `ConnectionStrings:Search`, alias `catalog-titles`. Değişiklik `SearchIndexQueue`'ya aynı transaction'da yazılır, worker index'e taşır; arama `ISearchIndex` arkasında, Elasticsearch yoksa 503 `Search.Unavailable`, katalog okumaları etkilenmez. `HttpClient` değil transport ile düz JSON.
 - **Eş zamanlı yazma:** kaydetmede yarışı kaybeden command (concurrency, unique, FK) 409 `Data.Conflict` alır. Düzenlenen
   aggregate'ler `Version` taşır; istemci yüklediği değeri geri gönderir (ör. Catalog `ContentItem`).
 - **Audit:** `IAuditedCommand` işaretli başarılı command'lar aynı transaction'da

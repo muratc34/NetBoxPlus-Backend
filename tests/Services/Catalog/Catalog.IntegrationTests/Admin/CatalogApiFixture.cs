@@ -12,6 +12,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using NetBoxPlus.Testing;
+using DotNet.Testcontainers.Builders;
+using DotNet.Testcontainers.Containers;
 using Testcontainers.Azurite;
 using Testcontainers.PostgreSql;
 
@@ -28,7 +30,10 @@ public sealed class CatalogApiFixture : IAsyncLifetime
     private readonly ECDsa _signingKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
     private PostgreSqlContainer? _postgres;
     private AzuriteContainer? _azurite;
+    private IContainer? _elasticsearch;
     private CatalogApiFactory? _factory;
+    private string _images = string.Empty;
+    private string _database = string.Empty;
 
     public bool IsAvailable { get; private set; }
 
@@ -42,7 +47,14 @@ public sealed class CatalogApiFixture : IAsyncLifetime
             _azurite = new AzuriteBuilder("mcr.microsoft.com/azure-storage/azurite:3.37.0")
                 .WithCommand("--skipApiVersionCheck")
                 .Build();
-            await Task.WhenAll(_postgres.StartAsync(), _azurite.StartAsync());
+            _elasticsearch = new ContainerBuilder("elasticsearch:9.5.5")
+                .WithEnvironment("discovery.type", "single-node")
+                .WithEnvironment("xpack.security.enabled", "false")
+                .WithEnvironment("ES_JAVA_OPTS", "-Xms512m -Xmx512m")
+                .WithPortBinding(9200, assignRandomHostPort: true)
+                .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(request => request.ForPort(9200).ForPath("/_cluster/health")))
+                .Build();
+            await Task.WhenAll(_postgres.StartAsync(), _azurite.StartAsync(), _elasticsearch.StartAsync());
         }
         catch (Exception exception) when (DockerAvailability.CanSkip(exception))
         {
@@ -51,7 +63,9 @@ public sealed class CatalogApiFixture : IAsyncLifetime
         }
 
         await ImageStorageSetup.EnsureAsync(_azurite.GetConnectionString(), []);
-        _factory = new CatalogApiFactory(_postgres.GetConnectionString(), _azurite.GetConnectionString(), _signingKey);
+        _images = _azurite.GetConnectionString();
+        _database = _postgres.GetConnectionString();
+        _factory = new CatalogApiFactory(_database, _images, $"http://127.0.0.1:{_elasticsearch.GetMappedPublicPort(9200)}", _signingKey);
 
         await using var scope = _factory.Services.CreateAsyncScope();
         await scope.ServiceProvider.GetRequiredService<CatalogDbContext>().Database.MigrateAsync();
@@ -77,6 +91,13 @@ public sealed class CatalogApiFixture : IAsyncLifetime
 
     public AsyncServiceScope CreateScope() => _factory!.Services.CreateAsyncScope();
 
+    /// <summary>The same API with a search engine that nothing answers at.</summary>
+    public HttpClient CreateClientWithoutSearch()
+    {
+        Assert.SkipUnless(IsAvailable, SkipReason);
+        return new CatalogApiFactory(_database, _images, "http://127.0.0.1:1", _signingKey).CreateClient();
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_factory is not null)
@@ -92,6 +113,11 @@ public sealed class CatalogApiFixture : IAsyncLifetime
         if (_azurite is not null)
         {
             await _azurite.DisposeAsync();
+        }
+
+        if (_elasticsearch is not null)
+        {
+            await _elasticsearch.DisposeAsync();
         }
 
         _signingKey.Dispose();
@@ -111,7 +137,7 @@ public sealed class CatalogApiFixture : IAsyncLifetime
         SigningCredentials = new SigningCredentials(new ECDsaSecurityKey(_signingKey), SecurityAlgorithms.EcdsaSha256),
     });
 
-    private sealed class CatalogApiFactory(string database, string images, ECDsa signingKey) : WebApplicationFactory<Program>
+    private sealed class CatalogApiFactory(string database, string images, string search, ECDsa signingKey) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -119,13 +145,15 @@ public sealed class CatalogApiFixture : IAsyncLifetime
             builder.UseEnvironment("Testing");
             builder.UseSetting("ConnectionStrings:Database", database);
             builder.UseSetting("ConnectionStrings:Images", images);
+            builder.UseSetting("ConnectionStrings:Search", search);
             builder.UseSetting("Messaging:ConnectionString", "amqp://localhost:1/");
 
             builder.ConfigureTestServices(services =>
             {
                 var workers = services
                     .Where(service => service.ServiceType == typeof(IHostedService)
-                        && service.ImplementationType?.Namespace?.StartsWith("Shared.Infrastructure.", StringComparison.Ordinal) == true)
+                        && (service.ImplementationType?.Namespace?.StartsWith("Shared.Infrastructure.", StringComparison.Ordinal) == true
+                            || service.ImplementationType == typeof(Catalog.Infrastructure.Search.SearchIndexingService)))
                     .ToList();
                 foreach (var worker in workers)
                 {

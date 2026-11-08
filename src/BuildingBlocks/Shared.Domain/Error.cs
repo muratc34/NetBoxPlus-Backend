@@ -56,4 +56,7 @@ public record Error
     public static Error NotFound(string code, string message) => new(code, message, ErrorType.NotFound);
 
     public static Error Conflict(string code, string message) => new(code, message, ErrorType.Conflict);
+
+    /// <summary>A dependency is down; trying again later can work.</summary>
+    public static Error Unavailable(string code, string message) => new(code, message, ErrorType.Unavailable);
 }

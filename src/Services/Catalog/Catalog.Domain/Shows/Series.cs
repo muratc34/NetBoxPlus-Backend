@@ -20,6 +20,8 @@ public sealed class Series : ContentItem
 
     public IReadOnlyCollection<Season> Seasons => _seasons.AsReadOnly();
 
+    public override ContentKind Kind => ContentKind.Series;
+
     public static Result<Series> Create(ContentInfo info, IReadOnlyDictionary<string, ContentText> texts)
     {
         ArgumentNullException.ThrowIfNull(info);
