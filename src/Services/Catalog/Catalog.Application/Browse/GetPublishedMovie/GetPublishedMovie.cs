@@ -19,6 +19,8 @@ public sealed record PublishedMovie(
     int ReleaseYear,
     AgeRating AgeRating,
     int RuntimeMinutes,
+    Uri? PosterUrl,
+    Uri? BackdropUrl,
     IReadOnlyList<GenreReference> Genres,
     IReadOnlyList<CreditResponse> Credits);
 
@@ -44,6 +46,8 @@ internal sealed class GetPublishedMovieHandler(ICatalogReadModel readModel, Cont
             movie.Info.ReleaseYear,
             movie.Info.AgeRating,
             movie.RuntimeMinutes,
+            names.ImageAddress(movie.PosterImage),
+            names.ImageAddress(movie.BackdropImage),
             names.GenresOf(movie),
             names.CreditsOf(movie));
     }

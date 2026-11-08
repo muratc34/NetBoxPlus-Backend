@@ -10,7 +10,7 @@ namespace Catalog.Application.People.GetPeople;
 /// <summary>People by name.</summary>
 public sealed record GetPeopleQuery(string? Search, int PageNumber, int PageSize) : IQuery<Page<PersonResponse>>;
 
-public sealed record PersonResponse(Guid Id, string Name, string? Biography);
+public sealed record PersonResponse(Guid Id, string Name, string? Biography, Uri? PhotoUrl);
 
 internal sealed class GetPeopleValidator : IValidator<GetPeopleQuery>
 {
@@ -23,7 +23,7 @@ internal sealed class GetPeopleValidator : IValidator<GetPeopleQuery>
     }
 }
 
-internal sealed class GetPeopleHandler(ICatalogReadModel readModel) : IQueryHandler<GetPeopleQuery, Page<PersonResponse>>
+internal sealed class GetPeopleHandler(ICatalogReadModel readModel, IImageStorage storage) : IQueryHandler<GetPeopleQuery, Page<PersonResponse>>
 {
     public async Task<Result<Page<PersonResponse>>> Handle(GetPeopleQuery query, CancellationToken cancellationToken)
     {
@@ -35,10 +35,13 @@ internal sealed class GetPeopleHandler(ICatalogReadModel readModel) : IQueryHand
             .ThenBy(person => person.Id)
             .Skip(PageLimits.Offset(query.PageNumber, query.PageSize))
             .Take(query.PageSize)
-            .Select(person => new PersonResponse(person.Id, person.Name, person.Biography))
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        return new Page<PersonResponse>(items, query.PageNumber, query.PageSize, totalCount);
+        var responses = items
+            .Select(person => new PersonResponse(person.Id, person.Name, person.Biography, person.PhotoImage is { } photo ? storage.PublicAddress(photo) : null))
+            .ToList();
+
+        return new Page<PersonResponse>(responses, query.PageNumber, query.PageSize, totalCount);
     }
 }

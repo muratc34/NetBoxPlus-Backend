@@ -24,6 +24,7 @@ public sealed record TitleSummary(
     string Title,
     int ReleaseYear,
     AgeRating AgeRating,
+    Uri? PosterUrl,
     IReadOnlyList<GenreReference> Genres);
 
 internal sealed class GetTitlesValidator : IValidator<GetTitlesQuery>
@@ -80,7 +81,7 @@ internal sealed class GetTitlesHandler(ICatalogReadModel readModel, ContentReade
         var items = page
             .Where(title => content.ContainsKey(title.Id))
             .Select(title => (title.Kind, Item: content[title.Id]))
-            .Select(title => new TitleSummary(title.Item.Id, title.Kind, title.Item.Info.Title, title.Item.Info.ReleaseYear, title.Item.Info.AgeRating, names.GenresOf(title.Item)))
+            .Select(title => new TitleSummary(title.Item.Id, title.Kind, title.Item.Info.Title, title.Item.Info.ReleaseYear, title.Item.Info.AgeRating, names.ImageAddress(title.Item.PosterImage), names.GenresOf(title.Item)))
             .ToList();
 
         return new Page<TitleSummary>(items, query.PageNumber, query.PageSize, totalCount);

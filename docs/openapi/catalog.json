@@ -2501,6 +2501,553 @@
           }
         }
       }
+    },
+    "/admin/images/uploads": {
+      "post": {
+        "tags": [
+          "Images"
+        ],
+        "summary": "Starts an upload and returns the address to PUT the file to.",
+        "operationId": "RequestImageUpload",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageUploadTicket"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/movies/{id}/images/{slot}": {
+      "put": {
+        "tags": [
+          "Images"
+        ],
+        "summary": "Checks an uploaded file and puts it to use, replacing what was there.",
+        "operationId": "AttachMovieImage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "slot",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^(poster|backdrop)$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachImageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Images"
+        ],
+        "summary": "Removes an image. A published title must keep its poster.",
+        "operationId": "RemoveMovieImage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "slot",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^(poster|backdrop)$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/series/{id}/images/{slot}": {
+      "put": {
+        "tags": [
+          "Images"
+        ],
+        "summary": "Checks an uploaded file and puts it to use, replacing what was there.",
+        "operationId": "AttachSeriesImage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "slot",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^(poster|backdrop)$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachImageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Images"
+        ],
+        "summary": "Removes an image. A published title must keep its poster.",
+        "operationId": "RemoveSeriesImage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "slot",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^(poster|backdrop)$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/people/{id}/photo": {
+      "put": {
+        "tags": [
+          "Images"
+        ],
+        "summary": "Checks an uploaded file and puts it to use, replacing what was there.",
+        "operationId": "AttachPersonPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachPhotoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Images"
+        ],
+        "summary": "Removes an image. A published title must keep its poster.",
+        "operationId": "RemovePersonPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2513,6 +3060,39 @@
           "Age16",
           "Age18"
         ]
+      },
+      "AttachImageRequest": {
+        "required": [
+          "uploadId",
+          "version"
+        ],
+        "type": "object",
+        "properties": {
+          "uploadId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "AttachPhotoRequest": {
+        "required": [
+          "uploadId"
+        ],
+        "type": "object",
+        "properties": {
+          "uploadId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
       },
       "CreatedResponse": {
         "required": [
@@ -2802,6 +3382,37 @@
           }
         }
       },
+      "ImageUploadTicket": {
+        "required": [
+          "uploadId",
+          "uploadAddress",
+          "expiresAt",
+          "maxBytes"
+        ],
+        "type": "object",
+        "properties": {
+          "uploadId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "uploadAddress": {
+            "type": "string",
+            "format": "uri"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "maxBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          }
+        }
+      },
       "MovieDetails": {
         "required": [
           "id",
@@ -2814,6 +3425,8 @@
           "status",
           "publishedAt",
           "version",
+          "posterUrl",
+          "backdropUrl",
           "genres",
           "credits",
           "createdAt",
@@ -2873,6 +3486,20 @@
               "string"
             ],
             "format": "int32"
+          },
+          "posterUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
+          },
+          "backdropUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
           },
           "genres": {
             "type": "array",
@@ -2988,6 +3615,7 @@
           "runtimeMinutes",
           "status",
           "publishedAt",
+          "posterUrl",
           "genres"
         ],
         "type": "object",
@@ -3027,6 +3655,13 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "posterUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
           },
           "genres": {
             "type": "array",
@@ -3225,7 +3860,8 @@
         "required": [
           "id",
           "name",
-          "biography"
+          "biography",
+          "photoUrl"
         ],
         "type": "object",
         "properties": {
@@ -3241,6 +3877,13 @@
               "null",
               "string"
             ]
+          },
+          "photoUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
           }
         }
       },
@@ -3292,7 +3935,8 @@
         "required": [
           "id",
           "name",
-          "biography"
+          "biography",
+          "photoUrl"
         ],
         "type": "object",
         "properties": {
@@ -3308,6 +3952,13 @@
               "null",
               "string"
             ]
+          },
+          "photoUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
           }
         }
       },
@@ -3358,6 +4009,8 @@
           "releaseYear",
           "ageRating",
           "runtimeMinutes",
+          "posterUrl",
+          "backdropUrl",
           "genres",
           "credits"
         ],
@@ -3397,6 +4050,20 @@
               "string"
             ],
             "format": "int32"
+          },
+          "posterUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
+          },
+          "backdropUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
           },
           "genres": {
             "type": "array",
@@ -3455,6 +4122,8 @@
           "synopsis",
           "releaseYear",
           "ageRating",
+          "posterUrl",
+          "backdropUrl",
           "genres",
           "credits",
           "seasons"
@@ -3487,6 +4156,20 @@
           },
           "ageRating": {
             "$ref": "#/components/schemas/AgeRating"
+          },
+          "posterUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
+          },
+          "backdropUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
           },
           "genres": {
             "type": "array",
@@ -3586,6 +4269,8 @@
           "status",
           "publishedAt",
           "version",
+          "posterUrl",
+          "backdropUrl",
           "genres",
           "credits",
           "seasons",
@@ -3638,6 +4323,20 @@
               "string"
             ],
             "format": "int32"
+          },
+          "posterUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
+          },
+          "backdropUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
           },
           "genres": {
             "type": "array",
@@ -3751,6 +4450,7 @@
           "publishedAt",
           "seasonCount",
           "episodeCount",
+          "posterUrl",
           "genres"
         ],
         "type": "object",
@@ -3799,6 +4499,13 @@
             ],
             "format": "int32"
           },
+          "posterUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
+          },
           "genres": {
             "type": "array",
             "items": {
@@ -3820,6 +4527,7 @@
           "title",
           "releaseYear",
           "ageRating",
+          "posterUrl",
           "genres"
         ],
         "type": "object",
@@ -3844,6 +4552,13 @@
           },
           "ageRating": {
             "$ref": "#/components/schemas/AgeRating"
+          },
+          "posterUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
           },
           "genres": {
             "type": "array",
@@ -3870,6 +4585,9 @@
     },
     {
       "name": "Browse"
+    },
+    {
+      "name": "Images"
     }
   ]
 }

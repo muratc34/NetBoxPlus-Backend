@@ -8,6 +8,7 @@ using Catalog.Application.Browse.GetPublishedMovie;
 using Catalog.Application.Browse.GetPublishedSeries;
 using Catalog.Application.Browse.GetTitles;
 using Catalog.Application.Content;
+using Catalog.Application.Movies.GetMovie;
 using Catalog.Application.Shows.GetSeries;
 using Catalog.IntegrationTests.Admin;
 using Shared.Application.Paging;
@@ -23,6 +24,7 @@ public sealed class BrowseApiTests(CatalogApiFixture api)
         "catalog:movies:read", "catalog:movies:write", "catalog:movies:publish", "catalog:movies:delete",
         "catalog:series:read", "catalog:series:write", "catalog:series:publish", "catalog:series:delete",
         "catalog:people:read", "catalog:people:write", "catalog:genres:read", "catalog:genres:write",
+        "catalog:images:upload",
     ];
 
     private static readonly JsonSerializerOptions Json = CreateJson();
@@ -191,6 +193,9 @@ public sealed class BrowseApiTests(CatalogApiFixture api)
         var movie = await PostOkAsync(admin, "/admin/movies", new { title, synopsis = "A journey.", releaseYear = 2024, ageRating = "Age13", runtimeMinutes = 120, genreIds = new[] { genre }, credits });
         if (publish)
         {
+            var upload = await TestImages.UploadAsync(admin, TestImages.Poster(), Json, Cancellation);
+            var version = (await ReadAsync<MovieDetails>(await admin.GetAsync($"/admin/movies/{movie}", Cancellation))).Version;
+            Assert.True((await admin.PutAsJsonAsync($"/admin/movies/{movie}/images/poster", new AttachImageRequest(upload, version), Json, Cancellation)).IsSuccessStatusCode);
             Assert.True((await admin.PostAsync($"/admin/movies/{movie}/publish", null, Cancellation)).IsSuccessStatusCode);
         }
 
@@ -205,6 +210,8 @@ public sealed class BrowseApiTests(CatalogApiFixture api)
         Assert.True((await admin.PostAsync($"/admin/series/{id}/episodes/{episode}/publish?version={await VersionAsync(admin, id)}", null, Cancellation)).IsSuccessStatusCode);
         if (publishSeries)
         {
+            var upload = await TestImages.UploadAsync(admin, TestImages.Poster(), Json, Cancellation);
+            Assert.True((await admin.PutAsJsonAsync($"/admin/series/{id}/images/poster", new AttachImageRequest(upload, await VersionAsync(admin, id)), Json, Cancellation)).IsSuccessStatusCode);
             Assert.True((await admin.PostAsync($"/admin/series/{id}/publish", null, Cancellation)).IsSuccessStatusCode);
         }
 

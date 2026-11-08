@@ -24,6 +24,9 @@ public sealed class Person : AggregateRoot, IAuditableEntity
 
     public string? Biography { get; private set; }
 
+    /// <summary>Name of the stored photo, when there is one.</summary>
+    public string? PhotoImage { get; private set; }
+
     public DateTimeOffset CreatedAt { get; private set; }
 
     public DateTimeOffset? ModifiedAt { get; private set; }
@@ -48,6 +51,8 @@ public sealed class Person : AggregateRoot, IAuditableEntity
         Biography = checkedValues.Value.Biography;
         return Result.Success();
     }
+
+    public void SetPhoto(string? imageName) => PhotoImage = imageName;
 
     private static Result<(string Name, string? Biography)> Check(string? name, string? biography)
     {

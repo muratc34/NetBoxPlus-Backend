@@ -23,6 +23,7 @@ public sealed class AdminApiTests(CatalogApiFixture api)
         "catalog:movies:read", "catalog:movies:write", "catalog:movies:publish", "catalog:movies:delete",
         "catalog:series:read", "catalog:series:write", "catalog:series:publish", "catalog:series:delete",
         "catalog:people:read", "catalog:people:write", "catalog:genres:read", "catalog:genres:write",
+        "catalog:images:upload",
     ];
 
     private static readonly JsonSerializerOptions Json = CreateJson();
@@ -44,6 +45,10 @@ public sealed class AdminApiTests(CatalogApiFixture api)
     [InlineData("POST", "/admin/people", "catalog:people:write")]
     [InlineData("GET", "/admin/genres", "catalog:genres:read")]
     [InlineData("POST", "/admin/genres", "catalog:genres:write")]
+    [InlineData("POST", "/admin/images/uploads", "catalog:images:upload")]
+    [InlineData("PUT", "/admin/movies/01a1bbcf-1a47-7189-a777-c599de32e2de/images/poster", "catalog:movies:write")]
+    [InlineData("PUT", "/admin/series/01a1bbcf-1a47-7189-a777-c599de32e2de/images/poster", "catalog:series:write")]
+    [InlineData("PUT", "/admin/people/01a1bbcf-1a47-7189-a777-c599de32e2de/photo", "catalog:people:write")]
     public async Task Endpoints_NeedATokenAndTheirPermission(string method, string path, string permission)
     {
         using var anonymous = api.CreateAnonymousClient();
@@ -72,6 +77,8 @@ public sealed class AdminApiTests(CatalogApiFixture api)
         var updated = await client.PutAsJsonAsync($"/admin/movies/{id}", Movie("Night Train 2", [genre], [new { personId = person, role = "Actor", characterName = "Hero", order = 1 }], loaded.Version), Json, Cancellation);
         Assert.Equal(HttpStatusCode.NoContent, updated.StatusCode);
 
+        Assert.Equal("Content.PosterRequired", await CodeAsync(await client.PostAsync($"/admin/movies/{id}/publish", null, Cancellation)));
+        await AttachMoviePosterAsync(client, id);
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync($"/admin/movies/{id}/publish", null, Cancellation)).StatusCode);
         var published = await GetMovieAsync(client, id);
         Assert.Equal("Night Train 2", published.Title);
@@ -87,7 +94,7 @@ public sealed class AdminApiTests(CatalogApiFixture api)
         Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/admin/movies/{id}", Cancellation)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/admin/movies/{id}", Cancellation)).StatusCode);
 
-        Assert.Equal(["CreateMovie", "UpdateMovie", "PublishMovie", "UnpublishMovie", "DeleteMovie"], (await AuditAsync(id)).Select(entry => entry.Action));
+        Assert.Equal(["CreateMovie", "UpdateMovie", "AttachMovieImage", "PublishMovie", "UnpublishMovie", "DeleteMovie"], (await AuditAsync(id)).Select(entry => entry.Action));
     }
 
     [Fact]
@@ -178,6 +185,9 @@ public sealed class AdminApiTests(CatalogApiFixture api)
         Assert.Equal("Series.PublishedEpisodeRequired", await CodeAsync(await client.PostAsync($"/admin/series/{id}/publish", null, Cancellation)));
 
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync($"/admin/series/{id}/episodes/{episode}/publish?version={await VersionAsync(client, id)}", null, Cancellation)).StatusCode);
+        Assert.Equal("Content.PosterRequired", await CodeAsync(await client.PostAsync($"/admin/series/{id}/publish", null, Cancellation)));
+        var poster = await TestImages.UploadAsync(client, TestImages.Poster(), Json, Cancellation);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync($"/admin/series/{id}/images/poster", new AttachImageRequest(poster, await VersionAsync(client, id)), Json, Cancellation)).StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync($"/admin/series/{id}/publish", null, Cancellation)).StatusCode);
 
         var series = await GetSeriesAsync(client, id);
@@ -188,7 +198,7 @@ public sealed class AdminApiTests(CatalogApiFixture api)
         Assert.Equal("Series.EpisodeIsPublished", await CodeAsync(await client.DeleteAsync($"/admin/series/{id}/episodes/{episode}?version={series.Version}", Cancellation)));
         Assert.Equal("Series.SeasonHasPublishedEpisodes", await CodeAsync(await client.DeleteAsync($"/admin/series/{id}/seasons/{season}?version={series.Version}", Cancellation)));
 
-        Assert.Equal(["CreateSeries", "AddSeason", "AddEpisode", "PublishEpisode", "PublishSeries"], (await AuditAsync(id)).Select(entry => entry.Action));
+        Assert.Equal(["CreateSeries", "AddSeason", "AddEpisode", "PublishEpisode", "AttachSeriesImage", "PublishSeries"], (await AuditAsync(id)).Select(entry => entry.Action));
     }
 
     [Fact]
@@ -220,6 +230,7 @@ public sealed class AdminApiTests(CatalogApiFixture api)
         var genre = await CreateGenreAsync(client);
         var first = await CreateMovieAsync(client, $"{marker} one", [genre]);
         await CreateMovieAsync(client, $"{marker} two");
+        await AttachMoviePosterAsync(client, first);
         await client.PostAsync($"/admin/movies/{first}/publish", null, Cancellation);
 
         var byText = await ReadAsync<Page<MovieSummary>>(await client.GetAsync($"/admin/movies?search={marker.ToUpperInvariant()}&pageSize=1", Cancellation));
@@ -315,7 +326,7 @@ public sealed class AdminApiTests(CatalogApiFixture api)
     }
 
     private static HttpRequestMessage Request(string method, string path)
-        => new(new HttpMethod(method), path) { Content = method == "POST" ? JsonContent.Create(new { }) : null };
+        => new(new HttpMethod(method), path) { Content = method is "POST" or "PUT" ? JsonContent.Create(new { }) : null };
 
     private static object Movie(string title, Guid[] genres, object[] credits, int version = 0)
         => new { title, synopsis = "A long journey.", releaseYear = 2024, ageRating = "Age13", runtimeMinutes = 120, genreIds = genres, credits, version };
@@ -331,6 +342,13 @@ public sealed class AdminApiTests(CatalogApiFixture api)
 
     private static async Task<Guid> CreateMovieAsync(HttpClient client, string title, params Guid[] genres)
         => (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync("/admin/movies", Movie(title, genres, []), Json, Cancellation))).Id;
+
+    private static async Task AttachMoviePosterAsync(HttpClient client, Guid id)
+    {
+        var upload = await TestImages.UploadAsync(client, TestImages.Poster(), Json, Cancellation);
+        var response = await client.PutAsJsonAsync($"/admin/movies/{id}/images/poster", new AttachImageRequest(upload, (await GetMovieAsync(client, id)).Version), Json, Cancellation);
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
 
     private static async Task<MovieDetails> GetMovieAsync(HttpClient client, Guid id)
         => await ReadAsync<MovieDetails>(await client.GetAsync($"/admin/movies/{id}", Cancellation));

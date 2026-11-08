@@ -66,7 +66,7 @@ paralel olarak her Dockerfile'ın image build'i (push yok). API değiştiyse bui
 `docs/openapi/*.json`'ı da commit'le. Action'lar commit SHA'sıyla sabit; Dependabot (actions + NuGet)
 haftalık PR'ları `v2`'ye açar.
 
-Lokal bağımlılıklar (Postgres, RabbitMQ, Valkey, Aspire dashboard; `-Search` ile Elasticsearch):
+Lokal bağımlılıklar (Postgres, RabbitMQ, Valkey, Azurite, Aspire dashboard; `-Search` ile Elasticsearch):
 
 ```powershell
 ./deploy/dev.ps1 up
@@ -183,8 +183,7 @@ Migrator'daki seed):
 - PHASE dosyasındaki bir kalem bittiğinde `[x]` olarak işaretle; yeni bir uygulama kararı alındıysa
   ARCHITECTURE'a taşı.
 - Yeni bir öneri kararla çelişiyorsa sessizce uygulama, açıkça sor.
-- **Commit'lerde Claude izi olmaz:** `Co-Authored-By` satırı eklenmez, mesajda Claude/AI geçmez.
-  Commit mesajı sadece değişikliği anlatır.
+- **Commit mesajı değişikliği anlatır.** Claude ile yapılan commit'lerde `Co-Authored-By` satırı eklenebilir.
 - **Commit'lenen md dosyaları sadece `CLAUDE.md` ve `README.md`.** Tasarım, faz, not gibi diğer
   tüm md dosyaları lokal kalır; yeni bir md dosyası açılırsa ignore edildiğinden emin ol.
 - **GitHub'da hiçbir şey silinmez** (repo, branch, tag, release, paket). Silme gerekiyorsa kullanıcıya
@@ -250,5 +249,5 @@ Migrator'daki seed):
 - **JWT:** ES256, `typ: at+jwt`, 15 dk; servisler Auth'un JWKS'ini `Authority` üzerinden bulur,
   başka algoritma veya tip kabul edilmez. Claim adları olduğu gibi (`sub`, `role`, `permission`).
   İmza anahtarları `Auth:Tokens` altında, asla loglanmaz; rotasyon adımları ARCHITECTURE §12.3.1.
-- **Lisans kontrolü:** MediatR, AutoMapper, MassTransit v9, FluentAssertions v8 gibi ticari lisansa
-  geçmiş paketler kullanılmaz. Yeni bir paket eklemeden önce lisansını kontrol et.
+- **Lisans kontrolü:** proje canlıya alınmayacak (portföy/bitirme projesi); açık kaynak veya ticari olmayan kullanımda
+  ücretsiz paketler serbest, bu kullanım için ödeme isteyenler değil. Yeni bir paket eklemeden önce lisansını kontrol et.

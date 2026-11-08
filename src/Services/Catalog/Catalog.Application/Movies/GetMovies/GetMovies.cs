@@ -20,6 +20,7 @@ public sealed record MovieSummary(
     int RuntimeMinutes,
     PublicationStatus Status,
     DateTimeOffset? PublishedAt,
+    Uri? PosterUrl,
     IReadOnlyList<GenreReference> Genres);
 
 internal sealed class GetMoviesValidator : IValidator<GetMoviesQuery>
@@ -68,6 +69,7 @@ internal sealed class GetMoviesHandler(ICatalogReadModel readModel, ContentReade
                 movie.RuntimeMinutes,
                 movie.Status,
                 movie.PublishedAt,
+                names.ImageAddress(movie.PosterImage),
                 names.GenresOf(movie)))
             .ToList();
 

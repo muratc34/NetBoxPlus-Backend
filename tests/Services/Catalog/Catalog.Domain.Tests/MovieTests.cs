@@ -152,6 +152,8 @@ public sealed class MovieTests
         versions.Add(movie.Version);
         movie.SetCredits([]);
         versions.Add(movie.Version);
+        movie.SetImage(ContentImageSlot.Poster, "poster.jpg");
+        versions.Add(movie.Version);
         movie.Publish(TestContent.Now);
         versions.Add(movie.Version);
         movie.Publish(TestContent.Now);
@@ -173,10 +175,48 @@ public sealed class MovieTests
         Assert.Equal(ContentErrors.VersionConflict, movie.CheckVersion(movie.Version + 1).Error);
     }
 
+    [Fact]
+    public void Publish_NeedsAPoster()
+    {
+        var movie = TestContent.Movie();
+        movie.SetGenres([Guid.CreateVersion7()]);
+
+        Assert.Equal(ContentErrors.PosterRequired, movie.Publish(TestContent.Now).Error);
+
+        movie.SetImage(ContentImageSlot.Poster, "poster.jpg");
+        Assert.True(movie.Publish(TestContent.Now).IsSuccess);
+    }
+
+    [Fact]
+    public void PublishedMovie_KeepsItsPoster_ButCanLoseItsBackdrop()
+    {
+        var movie = Published();
+        movie.SetImage(ContentImageSlot.Backdrop, "backdrop.jpg");
+
+        Assert.Equal(ContentErrors.PosterRequired, movie.RemoveImage(ContentImageSlot.Poster).Error);
+        Assert.Equal("poster.jpg", movie.PosterImage);
+        Assert.True(movie.RemoveImage(ContentImageSlot.Backdrop).IsSuccess);
+        Assert.Null(movie.BackdropImage);
+    }
+
+    [Fact]
+    public void ImageChanges_RaiseTheVersion()
+    {
+        var movie = TestContent.Movie();
+        var before = movie.Version;
+
+        movie.SetImage(ContentImageSlot.Backdrop, "backdrop.jpg");
+        var afterSet = movie.Version;
+        movie.RemoveImage(ContentImageSlot.Backdrop);
+
+        Assert.True(before < afterSet && afterSet < movie.Version);
+    }
+
     private static Movie Published()
     {
         var movie = TestContent.Movie();
         movie.SetGenres([Guid.CreateVersion7()]);
+        movie.SetImage(ContentImageSlot.Poster, "poster.jpg");
         movie.Publish(TestContent.Now);
         return movie;
     }

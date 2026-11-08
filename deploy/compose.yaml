@@ -56,6 +56,18 @@ services:
       <<: *healthcheck
       test: ["CMD-SHELL", "valkey-cli --no-auth-warning -a \"$$VALKEY_PASSWORD\" ping | grep -q PONG"]
 
+  # Azure Blob Storage emulator for catalog images.
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:3.37.0
+    command: ["azurite-blob", "--blobHost", "0.0.0.0", "--location", "/data", "--skipApiVersionCheck"]
+    ports:
+      - "127.0.0.1:10000:10000"
+    volumes:
+      - azurite-data:/data
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 10000"]
+
   # Search is needed from phase 2 on; start it with ./deploy/dev.ps1 up -Search.
   elasticsearch:
     image: elasticsearch:9.5.5
@@ -89,4 +101,5 @@ volumes:
   postgres-data:
   rabbitmq-data:
   valkey-data:
+  azurite-data:
   elasticsearch-data:

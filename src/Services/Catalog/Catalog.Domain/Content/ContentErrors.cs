@@ -52,6 +52,10 @@ public static class ContentErrors
         "Content.VersionConflict",
         "Someone else changed this since it was loaded. Reload and try again.");
 
+    public static readonly Error PosterRequired = Error.Conflict(
+        "Content.PosterRequired",
+        "Published content needs a poster.");
+
     public static readonly Error MustBeUnpublished = Error.Conflict(
         "Content.MustBeUnpublished",
         "Published content must be unpublished first.");

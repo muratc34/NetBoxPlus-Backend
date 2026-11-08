@@ -37,6 +37,11 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
 
     public bool IsPublished => Status == PublicationStatus.Published;
 
+    /// <summary>Name of the stored poster; published content needs one.</summary>
+    public string? PosterImage { get; private set; }
+
+    public string? BackdropImage { get; private set; }
+
     public IReadOnlyCollection<ContentGenre> Genres => _genres.AsReadOnly();
 
     public IReadOnlyCollection<Credit> Credits => _credits.AsReadOnly();
@@ -117,6 +122,27 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
         return Result.Success();
     }
 
+    /// <summary>The name of the image in that slot.</summary>
+    public string? ImageOf(ContentImageSlot slot) => slot == ContentImageSlot.Poster ? PosterImage : BackdropImage;
+
+    public void SetImage(ContentImageSlot slot, string imageName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(imageName);
+        Store(slot, imageName);
+    }
+
+    /// <summary>Empties the slot. Published content must keep its poster.</summary>
+    public Result RemoveImage(ContentImageSlot slot)
+    {
+        if (slot == ContentImageSlot.Poster && IsPublished)
+        {
+            return ContentErrors.PosterRequired;
+        }
+
+        Store(slot, null);
+        return Result.Success();
+    }
+
     /// <summary>Makes the content visible to customers; publishing it again changes nothing.</summary>
     public Result Publish(DateTimeOffset now)
     {
@@ -134,6 +160,11 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
         if (ready.IsFailure)
         {
             return ready;
+        }
+
+        if (PosterImage is null)
+        {
+            return ContentErrors.PosterRequired;
         }
 
         Status = PublicationStatus.Published;
@@ -157,6 +188,20 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
 
     /// <summary>Whether the content may be deleted; the repository's removal is then a soft delete.</summary>
     public Result CanDelete() => IsPublished ? ContentErrors.MustBeUnpublished : Result.Success();
+
+    private void Store(ContentImageSlot slot, string? imageName)
+    {
+        if (slot == ContentImageSlot.Poster)
+        {
+            PosterImage = imageName;
+        }
+        else
+        {
+            BackdropImage = imageName;
+        }
+
+        Version++;
+    }
 
     /// <summary>For changes a derived aggregate makes to its own parts.</summary>
     protected void MarkChanged() => Version++;

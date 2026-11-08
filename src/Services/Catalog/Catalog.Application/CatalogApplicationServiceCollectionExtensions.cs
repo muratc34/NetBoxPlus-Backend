@@ -1,4 +1,5 @@
 using Catalog.Application.Content;
+using Catalog.Application.Images;
 using Microsoft.Extensions.DependencyInjection;
 using Shared.Application;
 
@@ -12,6 +13,7 @@ public static class CatalogApplicationServiceCollectionExtensions
         services.AddCqrs(typeof(CatalogApplicationServiceCollectionExtensions).Assembly);
         services.AddScoped<ContentEditor>();
         services.AddScoped<ContentReader>();
+        services.AddScoped<ImageAttacher>();
         return services;
     }
 }

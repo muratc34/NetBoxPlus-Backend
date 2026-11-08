@@ -14,6 +14,7 @@ internal sealed class PersonConfiguration : IEntityTypeConfiguration<Person>
         builder.Property(person => person.Id).ValueGeneratedNever();
         builder.Property(person => person.Name).HasMaxLength(Person.NameMaxLength).IsRequired();
         builder.Property(person => person.Biography).HasMaxLength(Person.BiographyMaxLength);
+        builder.Property(person => person.PhotoImage).HasMaxLength(ImageFileConfiguration.NameMaxLength);
     }
 }
 

@@ -1,3 +1,5 @@
+using Catalog.Infrastructure;
+using Catalog.Infrastructure.Images;
 using Catalog.Infrastructure.Persistence;
 using Catalog.Migrator;
 using Microsoft.EntityFrameworkCore;
@@ -6,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-// Applies pending migrations and exits. Runs as its own step before the API starts, so schema changes
+// Applies pending migrations, prepares image storage and exits. Runs as its own step before the API starts, so schema changes
 // never race between API replicas and a deploy can fail before any traffic reaches the new version.
 var builder = Host.CreateApplicationBuilder(args);
 builder.Configuration.AddUserSecrets(typeof(MigratorLog).Assembly, optional: true);
@@ -27,9 +29,17 @@ var pending = (await context.Database.GetPendingMigrationsAsync()).ToList();
 if (pending.Count == 0)
 {
     MigratorLog.UpToDate(logger);
-    return;
+}
+else
+{
+    MigratorLog.Applying(logger, pending.Count, string.Join(", ", pending));
+    await context.Database.MigrateAsync();
+    MigratorLog.Applied(logger, pending.Count);
 }
 
-MigratorLog.Applying(logger, pending.Count, string.Join(", ", pending));
-await context.Database.MigrateAsync();
-MigratorLog.Applied(logger, pending.Count);
+var imagesConnectionString = builder.Configuration.GetConnectionString(CatalogInfrastructureServiceCollectionExtensions.ImagesConnectionStringName)
+    ?? throw new InvalidOperationException(
+        $"ConnectionStrings:{CatalogInfrastructureServiceCollectionExtensions.ImagesConnectionStringName} is not configured. Locally, run ./deploy/dev.ps1 secrets.");
+
+await ImageStorageSetup.EnsureAsync(imagesConnectionString, builder.Configuration.GetSection("Images:UploadOrigins").Get<string[]>() ?? []);
+MigratorLog.ImagesReady(logger);

@@ -18,6 +18,7 @@ internal static class CatalogPermissions
     public const string PeopleWrite = "catalog:people:write";
     public const string GenresRead = "catalog:genres:read";
     public const string GenresWrite = "catalog:genres:write";
+    public const string ImagesUpload = "catalog:images:upload";
 }
 
 public sealed record CreatedResponse(Guid Id);
@@ -58,3 +59,8 @@ public sealed record EpisodeRequest(int Number, string? Title, string? Synopsis,
 public sealed record PersonRequest(string? Name, string? Biography);
 
 public sealed record GenreRequest(string? Name);
+
+/// <param name="Version">The version that was loaded.</param>
+public sealed record AttachImageRequest(Guid UploadId, int Version);
+
+public sealed record AttachPhotoRequest(Guid UploadId);

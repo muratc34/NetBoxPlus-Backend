@@ -21,6 +21,7 @@ public sealed record SeriesSummary(
     DateTimeOffset? PublishedAt,
     int SeasonCount,
     int EpisodeCount,
+    Uri? PosterUrl,
     IReadOnlyList<GenreReference> Genres);
 
 internal sealed class GetSeriesListValidator : IValidator<GetSeriesListQuery>
@@ -70,6 +71,7 @@ internal sealed class GetSeriesListHandler(ICatalogReadModel readModel, ContentR
                 series.PublishedAt,
                 series.Seasons.Count,
                 series.Seasons.Sum(season => season.Episodes.Count),
+                names.ImageAddress(series.PosterImage),
                 names.GenresOf(series)))
             .ToList();
 

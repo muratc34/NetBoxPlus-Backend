@@ -12,4 +12,7 @@ internal static partial class MigratorLog
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Applied {Count} migrations")]
     public static partial void Applied(ILogger logger, int count);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Image storage is ready")]
+    public static partial void ImagesReady(ILogger logger);
 }

@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
+using Catalog.Infrastructure.Images;
 using Catalog.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
@@ -11,6 +12,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using NetBoxPlus.Testing;
+using Testcontainers.Azurite;
 using Testcontainers.PostgreSql;
 
 namespace Catalog.IntegrationTests.Admin;
@@ -25,6 +27,7 @@ public sealed class CatalogApiFixture : IAsyncLifetime
 
     private readonly ECDsa _signingKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
     private PostgreSqlContainer? _postgres;
+    private AzuriteContainer? _azurite;
     private CatalogApiFactory? _factory;
 
     public bool IsAvailable { get; private set; }
@@ -36,7 +39,10 @@ public sealed class CatalogApiFixture : IAsyncLifetime
         try
         {
             _postgres = new PostgreSqlBuilder("postgres:18.6-alpine").Build();
-            await _postgres.StartAsync();
+            _azurite = new AzuriteBuilder("mcr.microsoft.com/azure-storage/azurite:3.37.0")
+                .WithCommand("--skipApiVersionCheck")
+                .Build();
+            await Task.WhenAll(_postgres.StartAsync(), _azurite.StartAsync());
         }
         catch (Exception exception) when (DockerAvailability.CanSkip(exception))
         {
@@ -44,7 +50,8 @@ public sealed class CatalogApiFixture : IAsyncLifetime
             return;
         }
 
-        _factory = new CatalogApiFactory(_postgres.GetConnectionString(), _signingKey);
+        await ImageStorageSetup.EnsureAsync(_azurite.GetConnectionString(), []);
+        _factory = new CatalogApiFactory(_postgres.GetConnectionString(), _azurite.GetConnectionString(), _signingKey);
 
         await using var scope = _factory.Services.CreateAsyncScope();
         await scope.ServiceProvider.GetRequiredService<CatalogDbContext>().Database.MigrateAsync();
@@ -82,6 +89,11 @@ public sealed class CatalogApiFixture : IAsyncLifetime
             await _postgres.DisposeAsync();
         }
 
+        if (_azurite is not null)
+        {
+            await _azurite.DisposeAsync();
+        }
+
         _signingKey.Dispose();
     }
 
@@ -99,13 +111,14 @@ public sealed class CatalogApiFixture : IAsyncLifetime
         SigningCredentials = new SigningCredentials(new ECDsaSecurityKey(_signingKey), SecurityAlgorithms.EcdsaSha256),
     });
 
-    private sealed class CatalogApiFactory(string database, ECDsa signingKey) : WebApplicationFactory<Program>
+    private sealed class CatalogApiFactory(string database, string images, ECDsa signingKey) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             // Not "Development": that would load the developer's user secrets on top of these settings.
             builder.UseEnvironment("Testing");
             builder.UseSetting("ConnectionStrings:Database", database);
+            builder.UseSetting("ConnectionStrings:Images", images);
             builder.UseSetting("Messaging:ConnectionString", "amqp://localhost:1/");
 
             builder.ConfigureTestServices(services =>

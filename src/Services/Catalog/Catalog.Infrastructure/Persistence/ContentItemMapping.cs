@@ -29,6 +29,8 @@ internal static class ContentItemMapping
         builder.Property(content => content.Status).HasConversion<string>().HasMaxLength(16);
         builder.Ignore(content => content.IsPublished);
         builder.Property(content => content.Version).IsConcurrencyToken();
+        builder.Property(content => content.PosterImage).HasMaxLength(ImageFileConfiguration.NameMaxLength);
+        builder.Property(content => content.BackdropImage).HasMaxLength(ImageFileConfiguration.NameMaxLength);
 
         // Customer lists show what is published, newest first.
         builder.HasIndex(content => new { content.Status, content.PublishedAt });

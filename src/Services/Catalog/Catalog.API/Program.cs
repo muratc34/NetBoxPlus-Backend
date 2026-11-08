@@ -37,6 +37,7 @@ app.MapSeriesAdminEndpoints();
 app.MapPersonAdminEndpoints();
 app.MapGenreAdminEndpoints();
 app.MapBrowseEndpoints();
+app.MapImageAdminEndpoints();
 app.MapDefaultEndpoints();
 
 app.Run();

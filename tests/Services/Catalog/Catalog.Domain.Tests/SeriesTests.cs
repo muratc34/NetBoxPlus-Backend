@@ -182,6 +182,7 @@ public sealed class SeriesTests
     {
         var (series, season) = TestContent.SeriesWithSeason();
         series.SetGenres([Guid.CreateVersion7()]);
+        series.SetImage(ContentImageSlot.Poster, "poster.jpg");
         return (series, season);
     }
 

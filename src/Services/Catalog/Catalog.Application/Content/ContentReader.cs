@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Catalog.Application.Content;
 
 /// <summary>Finds the names behind the genre and person ids of loaded content, in one query each.</summary>
-internal sealed class ContentReader(ICatalogReadModel readModel)
+internal sealed class ContentReader(ICatalogReadModel readModel, IImageStorage storage)
 {
     public async Task<ContentNames> LoadNamesAsync(IEnumerable<ContentItem> items, CancellationToken cancellationToken)
     {
@@ -23,12 +23,14 @@ internal sealed class ContentReader(ICatalogReadModel readModel)
             .ToDictionaryAsync(person => person.Id, person => person.Name, cancellationToken)
             .ConfigureAwait(false);
 
-        return new ContentNames(genres, people);
+        return new ContentNames(genres, people, storage);
     }
 }
 
-internal sealed record ContentNames(IReadOnlyDictionary<Guid, string> Genres, IReadOnlyDictionary<Guid, string> People)
+internal sealed record ContentNames(IReadOnlyDictionary<Guid, string> Genres, IReadOnlyDictionary<Guid, string> People, IImageStorage Storage)
 {
+    public Uri? ImageAddress(string? name) => name is null ? null : Storage.PublicAddress(name);
+
     public IReadOnlyList<GenreReference> GenresOf(ContentItem item)
         => [.. item.Genres.Select(genre => new GenreReference(genre.GenreId, Genres[genre.GenreId])).OrderBy(genre => genre.Name, StringComparer.Ordinal)];
 

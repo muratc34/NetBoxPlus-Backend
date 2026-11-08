@@ -25,6 +25,7 @@ public sealed class PersistenceTests(CatalogDatabaseFixture database)
         var movie = NewMovie();
         movie.SetGenres([genre.Id]);
         movie.SetCredits([new CreditInput(person.Id, CreditRole.Actor, "Hero", 1)]);
+        movie.SetImage(ContentImageSlot.Poster, "poster.jpg");
         movie.Publish(Now);
         await SaveAsync(services, context => context.AddRange(genre, person, movie));
 

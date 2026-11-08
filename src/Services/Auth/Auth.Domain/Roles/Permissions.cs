@@ -36,6 +36,7 @@ public static partial class Permissions
         public const string PeopleWrite = "catalog:people:write";
         public const string GenresRead = "catalog:genres:read";
         public const string GenresWrite = "catalog:genres:write";
+        public const string ImagesUpload = "catalog:images:upload";
     }
 
     /// <summary>Every constant declared above, collected once.</summary>

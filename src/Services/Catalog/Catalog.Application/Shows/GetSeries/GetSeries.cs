@@ -21,6 +21,8 @@ public sealed record SeriesDetails(
     PublicationStatus Status,
     DateTimeOffset? PublishedAt,
     int Version,
+    Uri? PosterUrl,
+    Uri? BackdropUrl,
     IReadOnlyList<GenreReference> Genres,
     IReadOnlyList<CreditResponse> Credits,
     IReadOnlyList<SeasonDetails> Seasons,
@@ -55,6 +57,8 @@ internal sealed class GetSeriesHandler(ICatalogReadModel readModel, ContentReade
             series.Status,
             series.PublishedAt,
             series.Version,
+            names.ImageAddress(series.PosterImage),
+            names.ImageAddress(series.BackdropImage),
             names.GenresOf(series),
             names.CreditsOf(series),
             [.. series.Seasons.OrderBy(season => season.Number).Select(season => new SeasonDetails(

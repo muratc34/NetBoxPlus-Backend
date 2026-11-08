@@ -34,6 +34,12 @@
     <PackageVersion Include="RabbitMQ.Client" Version="7.2.2" />
   </ItemGroup>
 
+  <ItemGroup Label="Images">
+    <PackageVersion Include="Azure.Storage.Blobs" Version="12.30.1" />
+    <!-- Six Labors Community license; the assembly-scoped key is sixlabors.lic in Catalog.Infrastructure. -->
+    <PackageVersion Include="SixLabors.ImageSharp" Version="4.1.3" />
+  </ItemGroup>
+
   <ItemGroup Label="Cache">
     <!-- Valkey speaks the Redis protocol; the gateway keeps browser sessions there. -->
     <PackageVersion Include="StackExchange.Redis" Version="2.13.17" />
@@ -70,5 +76,6 @@
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />
     <PackageVersion Include="Testcontainers.RabbitMq" Version="4.16.0" />
     <PackageVersion Include="Testcontainers.Redis" Version="4.16.0" />
+    <PackageVersion Include="Testcontainers.Azurite" Version="4.16.0" />
   </ItemGroup>
 </Project>

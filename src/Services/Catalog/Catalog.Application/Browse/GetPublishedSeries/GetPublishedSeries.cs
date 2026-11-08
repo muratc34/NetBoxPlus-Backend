@@ -18,6 +18,8 @@ public sealed record PublishedSeries(
     string Synopsis,
     int ReleaseYear,
     AgeRating AgeRating,
+    Uri? PosterUrl,
+    Uri? BackdropUrl,
     IReadOnlyList<GenreReference> Genres,
     IReadOnlyList<CreditResponse> Credits,
     IReadOnlyList<PublishedSeason> Seasons);
@@ -60,6 +62,8 @@ internal sealed class GetPublishedSeriesHandler(ICatalogReadModel readModel, Con
             series.Info.Synopsis,
             series.Info.ReleaseYear,
             series.Info.AgeRating,
+            names.ImageAddress(series.PosterImage),
+            names.ImageAddress(series.BackdropImage),
             names.GenresOf(series),
             names.CreditsOf(series),
             seasons);
