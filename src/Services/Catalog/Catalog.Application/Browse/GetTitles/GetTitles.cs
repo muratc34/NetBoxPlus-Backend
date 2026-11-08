@@ -16,12 +16,14 @@ public enum TitleKind
 }
 
 /// <summary>Published movies and series in one list, most recently published first.</summary>
-public sealed record GetTitlesQuery(TitleKind? Kind, Guid? GenreId, Guid? PersonId, int PageNumber, int PageSize) : IQuery<Page<TitleSummary>>;
+/// <param name="Language">Texts come in this language, or in the default one where not translated.</param>
+public sealed record GetTitlesQuery(string Language, TitleKind? Kind, Guid? GenreId, Guid? PersonId, int PageNumber, int PageSize) : IQuery<Page<TitleSummary>>;
 
 public sealed record TitleSummary(
     Guid Id,
     TitleKind Kind,
     string Title,
+    string Language,
     int ReleaseYear,
     AgeRating AgeRating,
     Uri? PosterUrl,
@@ -31,6 +33,11 @@ internal sealed class GetTitlesValidator : IValidator<GetTitlesQuery>
 {
     public IEnumerable<ValidationFailure> Validate(GetTitlesQuery instance)
     {
+        foreach (var failure in LanguageValidation.Validate(instance.Language))
+        {
+            yield return failure;
+        }
+
         if (!PageLimits.IsValid(instance.PageNumber, instance.PageSize))
         {
             yield return new ValidationFailure("Page", PageLimits.OutOfRange.Code, PageLimits.OutOfRange.Message);
@@ -81,7 +88,8 @@ internal sealed class GetTitlesHandler(ICatalogReadModel readModel, ContentReade
         var items = page
             .Where(title => content.ContainsKey(title.Id))
             .Select(title => (title.Kind, Item: content[title.Id]))
-            .Select(title => new TitleSummary(title.Item.Id, title.Kind, title.Item.Info.Title, title.Item.Info.ReleaseYear, title.Item.Info.AgeRating, names.ImageAddress(title.Item.PosterImage), names.GenresOf(title.Item)))
+            .Select(title => (title.Kind, title.Item, Text: title.Item.TextFor(query.Language)))
+            .Select(title => new TitleSummary(title.Item.Id, title.Kind, title.Text.Title, title.Text.Language, title.Item.Info.ReleaseYear, title.Item.Info.AgeRating, names.ImageAddress(title.Item.PosterImage), names.GenresOf(title.Item, query.Language)))
             .ToList();
 
         return new Page<TitleSummary>(items, query.PageNumber, query.PageSize, totalCount);

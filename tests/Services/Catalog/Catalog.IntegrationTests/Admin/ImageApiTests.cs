@@ -223,7 +223,7 @@ public sealed class ImageApiTests(CatalogApiFixture api)
     public async Task Person_GetsAndLosesAPhoto()
     {
         using var client = api.CreateClient(Everything);
-        var person = await PostAsync(client, "/admin/people", new PersonRequest("Ada", null));
+        var person = await PostAsync(client, "/admin/people", TestRequests.Person("Ada", null));
         var upload = await TestImages.UploadAsync(client, TestImages.Png(200, 300), Json, Cancellation);
 
         Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync($"/admin/people/{person}/photo", new AttachPhotoRequest(upload), Json, Cancellation)).StatusCode);
@@ -281,11 +281,11 @@ public sealed class ImageApiTests(CatalogApiFixture api)
         => (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync(path, body, Json, Cancellation))).Id;
 
     private static async Task<Guid> MovieAsync(HttpClient client, params Guid[] genres)
-        => await PostAsync(client, "/admin/movies", new { title = "Night Train", synopsis = "A journey.", releaseYear = 2024, ageRating = "Age13", runtimeMinutes = 120, genreIds = genres });
+        => await PostAsync(client, "/admin/movies", new { translations = TestRequests.Text("Night Train", "A journey."), releaseYear = 2024, ageRating = "Age13", runtimeMinutes = 120, genreIds = genres });
 
     private static async Task<Guid> PublishedMovieAsync(HttpClient client)
     {
-        var genre = await PostAsync(client, "/admin/genres", new GenreRequest($"Genre {Guid.NewGuid():N}"));
+        var genre = await PostAsync(client, "/admin/genres", TestRequests.Genre($"Genre {Guid.NewGuid():N}"));
         var movie = await MovieAsync(client, genre);
         await AttachAsync(client, movie, "poster", await TestImages.UploadAsync(client, TestImages.Poster(), Json, Cancellation));
         Assert.True((await client.PostAsync($"/admin/movies/{movie}/publish", null, Cancellation)).IsSuccessStatusCode);

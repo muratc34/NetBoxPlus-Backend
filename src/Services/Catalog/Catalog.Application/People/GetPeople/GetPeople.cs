@@ -1,4 +1,5 @@
 using Catalog.Application.Abstractions;
+using Catalog.Domain.Content;
 using Microsoft.EntityFrameworkCore;
 using Shared.Application.Cqrs;
 using Shared.Application.Paging;
@@ -10,7 +11,7 @@ namespace Catalog.Application.People.GetPeople;
 /// <summary>People by name.</summary>
 public sealed record GetPeopleQuery(string? Search, int PageNumber, int PageSize) : IQuery<Page<PersonResponse>>;
 
-public sealed record PersonResponse(Guid Id, string Name, string? Biography, Uri? PhotoUrl);
+public sealed record PersonResponse(Guid Id, string Name, string? Biography, IReadOnlyDictionary<string, string> Translations, Uri? PhotoUrl);
 
 internal sealed class GetPeopleValidator : IValidator<GetPeopleQuery>
 {
@@ -39,7 +40,7 @@ internal sealed class GetPeopleHandler(ICatalogReadModel readModel, IImageStorag
             .ConfigureAwait(false);
 
         var responses = items
-            .Select(person => new PersonResponse(person.Id, person.Name, person.Biography, person.PhotoImage is { } photo ? storage.PublicAddress(photo) : null))
+            .Select(person => new PersonResponse(person.Id, person.Name, person.BiographyFor(Languages.Default)?.Biography, person.Translations.ToDictionary(item => item.Language, item => item.Biography), person.PhotoImage is { } photo ? storage.PublicAddress(photo) : null))
             .ToList();
 
         return new Page<PersonResponse>(responses, query.PageNumber, query.PageSize, totalCount);

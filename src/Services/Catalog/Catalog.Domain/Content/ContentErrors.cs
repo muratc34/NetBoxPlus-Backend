@@ -8,21 +8,27 @@ public static class ContentErrors
 
     public static readonly Error TitleTooLong = Error.Validation(
         "Content.TitleTooLong",
-        $"The title must be at most {ContentInfo.TitleMaxLength} characters.");
+        $"The title must be at most {ContentText.TitleMaxLength} characters.");
 
     public static readonly Error OriginalTitleTooLong = Error.Validation(
         "Content.OriginalTitleTooLong",
-        $"The original title must be at most {ContentInfo.TitleMaxLength} characters.");
+        $"The original title must be at most {ContentInfo.OriginalTitleMaxLength} characters.");
 
     public static readonly Error SynopsisRequired = Error.Validation("Content.SynopsisRequired", "The synopsis is required.");
 
     public static readonly Error SynopsisTooLong = Error.Validation(
         "Content.SynopsisTooLong",
-        $"The synopsis must be at most {ContentInfo.SynopsisMaxLength} characters.");
+        $"The synopsis must be at most {ContentText.SynopsisMaxLength} characters.");
 
     public static readonly Error ReleaseYearOutOfRange = Error.Validation(
         "Content.ReleaseYearOutOfRange",
         $"The release year must be between {ContentInfo.MinReleaseYear} and {ContentInfo.MaxReleaseYear}.");
+
+    public static readonly Error UnsupportedLanguage = Error.Validation("Content.UnsupportedLanguage", "One of the languages is not supported.");
+
+    public static readonly Error DefaultLanguageRequired = Error.Validation(
+        "Content.DefaultLanguageRequired",
+        $"The text is required in the default language ({Languages.Default}).");
 
     public static readonly Error AgeRatingInvalid = Error.Validation("Content.AgeRatingInvalid", "The age rating is not valid.");
 

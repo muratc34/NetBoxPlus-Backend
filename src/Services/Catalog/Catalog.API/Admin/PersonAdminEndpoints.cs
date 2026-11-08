@@ -81,13 +81,13 @@ internal static class PersonAdminEndpoints
 
     private static async Task<IResult> CreateAsync([FromBody] PersonRequest request, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
     {
-        var result = await dispatcher.Send(new CreatePersonCommand(request.Name, request.Biography), cancellationToken);
+        var result = await dispatcher.Send(new CreatePersonCommand(request.Name, request.Translations), cancellationToken);
 
         return result.ToHttpResult(id => TypedResults.Created($"/admin/people/{id}", new CreatedResponse(id)));
     }
 
     private static async Task<IResult> UpdateAsync(Guid id, [FromBody] PersonRequest request, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
-        => (await dispatcher.Send(new UpdatePersonCommand(id, request.Name, request.Biography), cancellationToken)).ToHttpResult();
+        => (await dispatcher.Send(new UpdatePersonCommand(id, request.Name, request.Translations), cancellationToken)).ToHttpResult();
 
     private static async Task<IResult> DeleteAsync(Guid id, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
         => (await dispatcher.Send(new DeletePersonCommand(id), cancellationToken)).ToHttpResult();

@@ -1,3 +1,4 @@
+using Catalog.Application.Content;
 using Catalog.Domain.Shows;
 using Shared.Application.Auditing;
 using Shared.Application.Cqrs;
@@ -7,7 +8,7 @@ namespace Catalog.Application.Shows.AddEpisode;
 
 /// <summary>Adds an episode, hidden until it is published.</summary>
 /// <param name="Version">The version of the series the editor loaded.</param>
-public sealed record AddEpisodeCommand(Guid SeriesId, Guid SeasonId, int Number, string? Title, string? Synopsis, int RuntimeMinutes, int Version) : ICommand<Guid>, IAuditedCommand
+public sealed record AddEpisodeCommand(Guid SeriesId, Guid SeasonId, int Number, IReadOnlyDictionary<string, ContentTextFields> Translations, int RuntimeMinutes, int Version) : ICommand<Guid>, IAuditedCommand
 {
     Guid? IAuditedCommand.AuditTargetId => SeriesId;
 }
@@ -28,7 +29,13 @@ internal sealed class AddEpisodeHandler(ISeriesRepository repository) : ICommand
             return version.Error;
         }
 
-        var details = EpisodeDetails.Create(command.Number, command.Title, command.Synopsis, command.RuntimeMinutes);
+        var texts = ContentTextFields.ToTexts(command.Translations);
+        if (texts.IsFailure)
+        {
+            return texts.Error;
+        }
+
+        var details = EpisodeDetails.Create(command.Number, texts.Value, command.RuntimeMinutes);
         if (details.IsFailure)
         {
             return details.Error;

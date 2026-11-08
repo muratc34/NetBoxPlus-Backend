@@ -9,7 +9,7 @@ public sealed class MovieTests
     [InlineData(0)]
     [InlineData(Runtime.MaxMinutes + 1)]
     public void Create_RejectsARuntimeOutOfRange(int minutes)
-        => Assert.Equal(ContentErrors.RuntimeOutOfRange, Movie.Create(TestContent.Info(), minutes).Error);
+        => Assert.Equal(ContentErrors.RuntimeOutOfRange, Movie.Create(TestContent.Info(), TestContent.Texts(), minutes).Error);
 
     [Fact]
     public void NewMovie_IsADraft()

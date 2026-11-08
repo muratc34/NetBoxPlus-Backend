@@ -40,7 +40,7 @@ internal sealed class CreateMovieHandler(IMovieRepository movies, ContentEditor 
             return references.Error;
         }
 
-        var movie = Movie.Create(command.Fields.ToInfo(), command.RuntimeMinutes);
+        var movie = Movie.Create(command.Fields.ToInfo(), command.Fields.ToTexts(), command.RuntimeMinutes);
         if (movie.IsFailure)
         {
             return movie.Error;

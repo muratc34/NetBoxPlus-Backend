@@ -4,16 +4,18 @@ using Catalog.Domain.Content;
 using Catalog.Domain.Movies;
 using Microsoft.EntityFrameworkCore;
 using Shared.Application.Cqrs;
+using Shared.Application.Validation;
 using Shared.Domain;
 
 namespace Catalog.Application.Browse.GetPublishedMovie;
 
 /// <summary>A published movie; anything else does not exist as far as customers can tell.</summary>
-public sealed record GetPublishedMovieQuery(Guid MovieId) : IQuery<PublishedMovie>;
+public sealed record GetPublishedMovieQuery(Guid MovieId, string Language) : IQuery<PublishedMovie>;
 
 public sealed record PublishedMovie(
     Guid Id,
     string Title,
+    string Language,
     string? OriginalTitle,
     string Synopsis,
     int ReleaseYear,
@@ -23,6 +25,11 @@ public sealed record PublishedMovie(
     Uri? BackdropUrl,
     IReadOnlyList<GenreReference> Genres,
     IReadOnlyList<CreditResponse> Credits);
+
+internal sealed class GetPublishedMovieValidator : IValidator<GetPublishedMovieQuery>
+{
+    public IEnumerable<ValidationFailure> Validate(GetPublishedMovieQuery instance) => LanguageValidation.Validate(instance.Language);
+}
 
 internal sealed class GetPublishedMovieHandler(ICatalogReadModel readModel, ContentReader reader) : IQueryHandler<GetPublishedMovieQuery, PublishedMovie>
 {
@@ -38,17 +45,19 @@ internal sealed class GetPublishedMovieHandler(ICatalogReadModel readModel, Cont
         }
 
         var names = await reader.LoadNamesAsync([movie], cancellationToken).ConfigureAwait(false);
+        var text = movie.TextFor(query.Language);
         return new PublishedMovie(
             movie.Id,
-            movie.Info.Title,
+            text.Title,
+            text.Language,
             movie.Info.OriginalTitle,
-            movie.Info.Synopsis,
+            text.Synopsis,
             movie.Info.ReleaseYear,
             movie.Info.AgeRating,
             movie.RuntimeMinutes,
             names.ImageAddress(movie.PosterImage),
             names.ImageAddress(movie.BackdropImage),
-            names.GenresOf(movie),
+            names.GenresOf(movie, query.Language),
             names.CreditsOf(movie));
     }
 }

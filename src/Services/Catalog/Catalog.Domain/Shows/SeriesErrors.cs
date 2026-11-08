@@ -28,18 +28,6 @@ public static class SeriesErrors
         "Series.EpisodeNumberOutOfRange",
         $"The episode number must be between 1 and {Episode.MaxNumber}.");
 
-    public static readonly Error EpisodeTitleRequired = Error.Validation("Series.EpisodeTitleRequired", "The episode title is required.");
-
-    public static readonly Error EpisodeTitleTooLong = Error.Validation(
-        "Series.EpisodeTitleTooLong",
-        $"The episode title must be at most {Episode.TitleMaxLength} characters.");
-
-    public static readonly Error EpisodeSynopsisRequired = Error.Validation("Series.EpisodeSynopsisRequired", "The episode synopsis is required.");
-
-    public static readonly Error EpisodeSynopsisTooLong = Error.Validation(
-        "Series.EpisodeSynopsisTooLong",
-        $"The episode synopsis must be at most {Episode.SynopsisMaxLength} characters.");
-
     public static readonly Error EpisodeNumberTaken = Error.Conflict("Series.EpisodeNumberTaken", "The season already has an episode with this number.");
 
     public static readonly Error EpisodeIsPublished = Error.Conflict(

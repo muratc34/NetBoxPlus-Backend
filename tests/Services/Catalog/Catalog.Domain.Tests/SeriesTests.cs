@@ -13,7 +13,7 @@ public sealed class SeriesTests
         Assert.Equal(SeriesErrors.SeasonNumberTaken, series.AddSeason(1, null).Error);
         Assert.Equal(SeriesErrors.SeasonNumberOutOfRange, series.AddSeason(0, null).Error);
         Assert.Equal(SeriesErrors.SeasonNumberOutOfRange, series.AddSeason(Season.MaxNumber + 1, null).Error);
-        Assert.Equal(SeriesErrors.SeasonTitleTooLong, series.AddSeason(2, new string('a', Season.TitleMaxLength + 1)).Error);
+        Assert.Equal(SeriesErrors.SeasonTitleTooLong, series.AddSeason(2, new Dictionary<string, string?> { ["tr"] = new string('a', Season.TitleMaxLength + 1) }).Error);
     }
 
     [Fact]
@@ -22,8 +22,8 @@ public sealed class SeriesTests
         var (series, first) = TestContent.SeriesWithSeason();
         series.AddSeason(2, null);
 
-        Assert.True(series.ChangeSeason(first.Id, 1, "Beginnings").IsSuccess);
-        Assert.Equal("Beginnings", first.Title);
+        Assert.True(series.ChangeSeason(first.Id, 1, new Dictionary<string, string?> { ["tr"] = "Beginnings" }).IsSuccess);
+        Assert.Equal("Beginnings", first.TitleFor("tr"));
         Assert.Equal(SeriesErrors.SeasonNumberTaken, series.ChangeSeason(first.Id, 2, null).Error);
         Assert.Equal(SeriesErrors.SeasonNotFound, series.ChangeSeason(Guid.CreateVersion7(), 3, null).Error);
     }
@@ -52,12 +52,26 @@ public sealed class SeriesTests
     }
 
     [Theory]
-    [InlineData(0, "Title", "Text", 45, "Series.EpisodeNumberOutOfRange")]
-    [InlineData(1, " ", "Text", 45, "Series.EpisodeTitleRequired")]
-    [InlineData(1, "Title", " ", 45, "Series.EpisodeSynopsisRequired")]
-    [InlineData(1, "Title", "Text", 0, "Content.RuntimeOutOfRange")]
-    public void EpisodeDetails_RejectsInvalidValues(int number, string title, string synopsis, int minutes, string code)
-        => Assert.Equal(code, EpisodeDetails.Create(number, title, synopsis, minutes).Error.Code);
+    [InlineData(0, 45, "Series.EpisodeNumberOutOfRange")]
+    [InlineData(1, 0, "Content.RuntimeOutOfRange")]
+    public void EpisodeDetails_RejectsInvalidValues(int number, int minutes, string code)
+        => Assert.Equal(code, EpisodeDetails.Create(number, TestContent.Texts(), minutes).Error.Code);
+
+    [Fact]
+    public void EpisodeDetails_NeedTheDefaultLanguage()
+        => Assert.Equal(ContentErrors.DefaultLanguageRequired, EpisodeDetails.Create(1, new Dictionary<string, ContentText>(), 45).Error);
+
+    [Fact]
+    public void SeasonTitles_AreOptional_AndFallBackToTheDefaultLanguage()
+    {
+        var (series, season) = TestContent.SeriesWithSeason();
+        Assert.Null(season.TitleFor("en"));
+
+        Assert.True(series.ChangeSeason(season.Id, 1, new Dictionary<string, string?> { ["tr"] = "Başlangıç", ["en"] = " " }).IsSuccess);
+
+        Assert.Equal("Başlangıç", season.TitleFor("en"));
+        Assert.Single(season.Translations);
+    }
 
     [Fact]
     public void Publish_NeedsAPublishedEpisode()

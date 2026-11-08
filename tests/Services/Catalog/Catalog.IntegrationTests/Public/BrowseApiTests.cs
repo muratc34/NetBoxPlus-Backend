@@ -86,8 +86,8 @@ public sealed class BrowseApiTests(CatalogApiFixture api)
         using var visitor = api.CreateAnonymousClient();
         var genre = await GenreAsync(admin);
         var series = await SeriesAsync(admin, genre, publishSeries: true);
-        await PostOkAsync(admin, $"/admin/series/{series.Id}/seasons/{series.Season}/episodes", new EpisodeRequest(2, "Hidden", "Not yet.", 45, await VersionAsync(admin, series.Id)));
-        await PostOkAsync(admin, $"/admin/series/{series.Id}/seasons", new SeasonRequest(2, "Empty", await VersionAsync(admin, series.Id)));
+        await PostOkAsync(admin, $"/admin/series/{series.Id}/seasons/{series.Season}/episodes", TestRequests.Episode(2, "Hidden", "Not yet.", 45, await VersionAsync(admin, series.Id)));
+        await PostOkAsync(admin, $"/admin/series/{series.Id}/seasons", TestRequests.Season(2, "Empty", await VersionAsync(admin, series.Id)));
 
         var details = await ReadAsync<PublishedSeries>(await visitor.GetAsync($"/series/{series.Id}", Cancellation));
 
@@ -174,6 +174,89 @@ public sealed class BrowseApiTests(CatalogApiFixture api)
         Assert.Equal(HttpStatusCode.NotFound, (await visitor.GetAsync($"/people/{uncredited}", Cancellation)).StatusCode);
     }
 
+    [Fact]
+    public async Task Texts_ComeInTheRequestedLanguage_AndFallBackToTurkish()
+    {
+        using var admin = api.CreateClient(Everything);
+        using var visitor = api.CreateAnonymousClient();
+        var genre = await PostOkAsync(admin, "/admin/genres", new GenreRequest(new Dictionary<string, string?> { ["tr"] = $"Komedi {Guid.NewGuid():N}", ["en"] = $"Comedy {Guid.NewGuid():N}" }));
+        var translated = await PostOkAsync(admin, "/admin/movies", new { translations = new Dictionary<string, ContentTextFields> { ["tr"] = new("Gece Treni", "Uzun yol."), ["en"] = new("Night Train", "Long road.") }, releaseYear = 2024, ageRating = "Age13", runtimeMinutes = 120, genreIds = new[] { genre } });
+        var turkishOnly = await PostOkAsync(admin, "/admin/movies", new { translations = TestRequests.Text("Sadece Türkçe", "Tek dil."), releaseYear = 2024, ageRating = "Age13", runtimeMinutes = 120, genreIds = new[] { genre } });
+        await PublishMovieAsync(admin, translated);
+        await PublishMovieAsync(admin, turkishOnly);
+
+        var english = await ReadAsync<PublishedMovie>(await visitor.GetAsync($"/movies/{translated}?lang=en", Cancellation));
+        var turkish = await ReadAsync<PublishedMovie>(await visitor.GetAsync($"/movies/{translated}", Cancellation));
+        var fallback = await ReadAsync<PublishedMovie>(await visitor.GetAsync($"/movies/{turkishOnly}?lang=en", Cancellation));
+        var titles = await ReadAsync<Page<TitleSummary>>(await visitor.GetAsync($"/titles?genreId={genre}&lang=en", Cancellation));
+
+        Assert.Equal(("Night Train", "Long road.", "en"), (english.Title, english.Synopsis, english.Language));
+        Assert.StartsWith("Comedy", Assert.Single(english.Genres).Name, StringComparison.Ordinal);
+        Assert.Equal(("Gece Treni", "tr"), (turkish.Title, turkish.Language));
+        Assert.StartsWith("Komedi", Assert.Single(turkish.Genres).Name, StringComparison.Ordinal);
+        Assert.Equal(("Sadece Türkçe", "tr"), (fallback.Title, fallback.Language));
+        Assert.Equal(["Sadece Türkçe", "Night Train"], titles.Items.Select(item => item.Title));
+        Assert.Equal(["tr", "en"], titles.Items.Select(item => item.Language));
+    }
+
+    [Theory]
+    [InlineData("/titles?lang=fr")]
+    [InlineData("/genres?lang=fr")]
+    [InlineData("/movies/01a1bbcf-1a47-7189-a777-c599de32e2de?lang=fr")]
+    [InlineData("/series/01a1bbcf-1a47-7189-a777-c599de32e2de?lang=fr")]
+    [InlineData("/people/01a1bbcf-1a47-7189-a777-c599de32e2de?lang=fr")]
+    public async Task UnsupportedLanguage_Is400(string path)
+    {
+        using var visitor = api.CreateAnonymousClient();
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await visitor.GetAsync(path, Cancellation)).StatusCode);
+    }
+
+    [Fact]
+    public async Task AdminDetails_ReturnEveryLanguage()
+    {
+        using var admin = api.CreateClient(Everything);
+        var movie = await PostOkAsync(admin, "/admin/movies", new { translations = new Dictionary<string, ContentTextFields> { ["tr"] = new("Gece Treni", "Uzun."), ["en"] = new("Night Train", "Long.") }, releaseYear = 2024, ageRating = "Age13", runtimeMinutes = 120 });
+
+        var details = await ReadAsync<MovieDetails>(await admin.GetAsync($"/admin/movies/{movie}", Cancellation));
+
+        Assert.Equal("Gece Treni", details.Title);
+        Assert.Equal("Night Train", details.Translations["en"].Title);
+    }
+
+    [Fact]
+    public async Task MissingDefaultLanguage_IsRefused()
+    {
+        using var admin = api.CreateClient(Everything);
+
+        var response = await admin.PostAsJsonAsync("/admin/movies", new { translations = new Dictionary<string, ContentTextFields> { ["en"] = new("Night Train", "Long.") }, releaseYear = 2024, ageRating = "Age13", runtimeMinutes = 120 }, Json, Cancellation);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("Content.DefaultLanguageRequired", await response.Content.ReadAsStringAsync(Cancellation), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GenreNames_AreUniquePerLanguage()
+    {
+        using var admin = api.CreateClient(Everything);
+        var shared = $"Drama {Guid.NewGuid():N}";
+        await PostOkAsync(admin, "/admin/genres", new GenreRequest(new Dictionary<string, string?> { ["tr"] = $"Dram {Guid.NewGuid():N}", ["en"] = shared }));
+
+        var sameLanguage = await admin.PostAsJsonAsync("/admin/genres", new GenreRequest(new Dictionary<string, string?> { ["tr"] = $"Başka {Guid.NewGuid():N}", ["en"] = shared.ToUpperInvariant() }), Json, Cancellation);
+        var otherLanguage = await admin.PostAsJsonAsync("/admin/genres", new GenreRequest(new Dictionary<string, string?> { ["tr"] = shared }), Json, Cancellation);
+
+        Assert.Equal(HttpStatusCode.Conflict, sameLanguage.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, otherLanguage.StatusCode);
+    }
+
+    private static async Task PublishMovieAsync(HttpClient admin, Guid movie)
+    {
+        var upload = await TestImages.UploadAsync(admin, TestImages.Poster(), Json, Cancellation);
+        var version = (await ReadAsync<MovieDetails>(await admin.GetAsync($"/admin/movies/{movie}", Cancellation))).Version;
+        Assert.True((await admin.PutAsJsonAsync($"/admin/movies/{movie}/images/poster", new AttachImageRequest(upload, version), Json, Cancellation)).IsSuccessStatusCode);
+        Assert.True((await admin.PostAsync($"/admin/movies/{movie}/publish", null, Cancellation)).IsSuccessStatusCode);
+    }
+
     private static JsonSerializerOptions CreateJson()
     {
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
@@ -182,15 +265,15 @@ public sealed class BrowseApiTests(CatalogApiFixture api)
     }
 
     private static async Task<Guid> GenreAsync(HttpClient admin)
-        => await PostOkAsync(admin, "/admin/genres", new GenreRequest($"Genre {Guid.NewGuid():N}"));
+        => await PostOkAsync(admin, "/admin/genres", TestRequests.Genre($"Genre {Guid.NewGuid():N}"));
 
     private static async Task<Guid> PersonAsync(HttpClient admin)
-        => await PostOkAsync(admin, "/admin/people", new PersonRequest("Ada", null));
+        => await PostOkAsync(admin, "/admin/people", TestRequests.Person("Ada", null));
 
     private static async Task<Guid> MovieAsync(HttpClient admin, string title, Guid genre, bool publish, Guid? person = null)
     {
         object[] credits = person is { } id ? [new { personId = id, role = "Actor", order = 1 }] : [];
-        var movie = await PostOkAsync(admin, "/admin/movies", new { title, synopsis = "A journey.", releaseYear = 2024, ageRating = "Age13", runtimeMinutes = 120, genreIds = new[] { genre }, credits });
+        var movie = await PostOkAsync(admin, "/admin/movies", new { translations = TestRequests.Text(title, "A journey."), releaseYear = 2024, ageRating = "Age13", runtimeMinutes = 120, genreIds = new[] { genre }, credits });
         if (publish)
         {
             var upload = await TestImages.UploadAsync(admin, TestImages.Poster(), Json, Cancellation);
@@ -204,9 +287,9 @@ public sealed class BrowseApiTests(CatalogApiFixture api)
 
     private static async Task<(Guid Id, Guid Season)> SeriesAsync(HttpClient admin, Guid genre, bool publishSeries)
     {
-        var id = await PostOkAsync(admin, "/admin/series", new { title = "Long Road", synopsis = "A road.", releaseYear = 2023, ageRating = "Age16", genreIds = new[] { genre } });
-        var season = await PostOkAsync(admin, $"/admin/series/{id}/seasons", new SeasonRequest(1, null, await VersionAsync(admin, id)));
-        var episode = await PostOkAsync(admin, $"/admin/series/{id}/seasons/{season}/episodes", new EpisodeRequest(1, "Pilot", "Begins.", 45, await VersionAsync(admin, id)));
+        var id = await PostOkAsync(admin, "/admin/series", new { translations = TestRequests.Text("Long Road", "A road."), releaseYear = 2023, ageRating = "Age16", genreIds = new[] { genre } });
+        var season = await PostOkAsync(admin, $"/admin/series/{id}/seasons", TestRequests.Season(1, null, await VersionAsync(admin, id)));
+        var episode = await PostOkAsync(admin, $"/admin/series/{id}/seasons/{season}/episodes", TestRequests.Episode(1, "Pilot", "Begins.", 45, await VersionAsync(admin, id)));
         Assert.True((await admin.PostAsync($"/admin/series/{id}/episodes/{episode}/publish?version={await VersionAsync(admin, id)}", null, Cancellation)).IsSuccessStatusCode);
         if (publishSeries)
         {

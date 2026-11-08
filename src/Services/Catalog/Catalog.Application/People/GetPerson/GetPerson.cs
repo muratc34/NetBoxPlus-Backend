@@ -1,5 +1,6 @@
 using Catalog.Application.Abstractions;
 using Catalog.Application.People.GetPeople;
+using Catalog.Domain.Content;
 using Catalog.Domain.People;
 using Microsoft.EntityFrameworkCore;
 using Shared.Application.Cqrs;
@@ -19,6 +20,6 @@ internal sealed class GetPersonHandler(ICatalogReadModel readModel, IImageStorag
 
         return person is null
             ? PersonErrors.NotFound
-            : new PersonResponse(person.Id, person.Name, person.Biography, person.PhotoImage is { } photo ? storage.PublicAddress(photo) : null);
+            : new PersonResponse(person.Id, person.Name, person.BiographyFor(Languages.Default)?.Biography, person.Translations.ToDictionary(item => item.Language, item => item.Biography), person.PhotoImage is { } photo ? storage.PublicAddress(photo) : null);
     }
 }

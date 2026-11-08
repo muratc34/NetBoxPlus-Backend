@@ -5,7 +5,7 @@ using Shared.Domain;
 
 namespace Catalog.Application.People.CreatePerson;
 
-public sealed record CreatePersonCommand(string? Name, string? Biography) : ICommand<Guid>, IAuditedCommand
+public sealed record CreatePersonCommand(string? Name, IReadOnlyDictionary<string, string?>? Biographies) : ICommand<Guid>, IAuditedCommand
 {
     Guid? IAuditedCommand.AuditTargetId => null;
 }
@@ -14,7 +14,7 @@ internal sealed class CreatePersonHandler(IPersonRepository people) : ICommandHa
 {
     public Task<Result<Guid>> Handle(CreatePersonCommand command, CancellationToken cancellationToken)
     {
-        var person = Person.Create(command.Name, command.Biography);
+        var person = Person.Create(command.Name, command.Biographies);
         if (person.IsFailure)
         {
             return Task.FromResult(Result.Failure<Guid>(person.Error));

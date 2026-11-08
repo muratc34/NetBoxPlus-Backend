@@ -37,14 +37,14 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
     IQueryable<Movie> ICatalogReadModel.MoviesTitled(string fragment)
     {
         var pattern = Pattern(fragment);
-        return Movies.AsNoTracking().Where(movie => EF.Functions.ILike(movie.Info.Title, pattern, "!")
+        return Movies.AsNoTracking().Where(movie => movie.Translations.Any(translation => EF.Functions.ILike(translation.Title, pattern, "!"))
             || (movie.Info.OriginalTitle != null && EF.Functions.ILike(movie.Info.OriginalTitle, pattern, "!")));
     }
 
     IQueryable<Series> ICatalogReadModel.SeriesTitled(string fragment)
     {
         var pattern = Pattern(fragment);
-        return Series.AsNoTracking().Where(series => EF.Functions.ILike(series.Info.Title, pattern, "!")
+        return Series.AsNoTracking().Where(series => series.Translations.Any(translation => EF.Functions.ILike(translation.Title, pattern, "!"))
             || (series.Info.OriginalTitle != null && EF.Functions.ILike(series.Info.OriginalTitle, pattern, "!")));
     }
 

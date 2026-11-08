@@ -7,7 +7,7 @@ namespace Catalog.Application.Shows.AddSeason;
 
 /// <summary>Adds a season to the series.</summary>
 /// <param name="Version">The version of the series the editor loaded.</param>
-public sealed record AddSeasonCommand(Guid SeriesId, int Number, string? Title, int Version) : ICommand<Guid>, IAuditedCommand
+public sealed record AddSeasonCommand(Guid SeriesId, int Number, IReadOnlyDictionary<string, string?>? Titles, int Version) : ICommand<Guid>, IAuditedCommand
 {
     Guid? IAuditedCommand.AuditTargetId => SeriesId;
 }
@@ -28,7 +28,7 @@ internal sealed class AddSeasonHandler(ISeriesRepository repository) : ICommandH
             return version.Error;
         }
 
-        var season = series.AddSeason(command.Number, command.Title);
+        var season = series.AddSeason(command.Number, command.Titles);
         return season.IsFailure ? season.Error : season.Value.Id;
     }
 }

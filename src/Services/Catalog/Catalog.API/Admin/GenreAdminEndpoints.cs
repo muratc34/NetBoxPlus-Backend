@@ -63,13 +63,13 @@ internal static class GenreAdminEndpoints
 
     private static async Task<IResult> CreateAsync([FromBody] GenreRequest request, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
     {
-        var result = await dispatcher.Send(new CreateGenreCommand(request.Name), cancellationToken);
+        var result = await dispatcher.Send(new CreateGenreCommand(request.Names), cancellationToken);
 
         return result.ToHttpResult(id => TypedResults.Created($"/admin/genres", new CreatedResponse(id)));
     }
 
     private static async Task<IResult> UpdateAsync(Guid id, [FromBody] GenreRequest request, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
-        => (await dispatcher.Send(new UpdateGenreCommand(id, request.Name), cancellationToken)).ToHttpResult();
+        => (await dispatcher.Send(new UpdateGenreCommand(id, request.Names), cancellationToken)).ToHttpResult();
 
     private static async Task<IResult> DeleteAsync(Guid id, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
         => (await dispatcher.Send(new DeleteGenreCommand(id), cancellationToken)).ToHttpResult();

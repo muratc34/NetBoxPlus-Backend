@@ -5,7 +5,7 @@ using Shared.Domain;
 
 namespace Catalog.Application.Genres.CreateGenre;
 
-public sealed record CreateGenreCommand(string? Name) : ICommand<Guid>, IAuditedCommand
+public sealed record CreateGenreCommand(IReadOnlyDictionary<string, string?> Names) : ICommand<Guid>, IAuditedCommand
 {
     Guid? IAuditedCommand.AuditTargetId => null;
 }
@@ -14,13 +14,13 @@ internal sealed class CreateGenreHandler(IGenreRepository genres) : ICommandHand
 {
     public async Task<Result<Guid>> Handle(CreateGenreCommand command, CancellationToken cancellationToken)
     {
-        var genre = Genre.Create(command.Name);
+        var genre = Genre.Create(command.Names);
         if (genre.IsFailure)
         {
             return genre.Error;
         }
 
-        if (await genres.ExistsByNameAsync(genre.Value.Name, cancellationToken).ConfigureAwait(false))
+        if (await genres.AnyNameTakenAsync(genre.Value, cancellationToken).ConfigureAwait(false))
         {
             return GenreErrors.NameTaken;
         }

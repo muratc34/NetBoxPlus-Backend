@@ -15,7 +15,7 @@ public sealed record MovieDetails(
     Guid Id,
     string Title,
     string? OriginalTitle,
-    string Synopsis,
+    IReadOnlyDictionary<string, ContentTextFields> Translations,
     int ReleaseYear,
     AgeRating AgeRating,
     int RuntimeMinutes,
@@ -42,9 +42,9 @@ internal sealed class GetMovieHandler(ICatalogReadModel readModel, ContentReader
         var names = await reader.LoadNamesAsync([movie], cancellationToken).ConfigureAwait(false);
         return new MovieDetails(
             movie.Id,
-            movie.Info.Title,
+            movie.TextFor(Languages.Default).Title,
             movie.Info.OriginalTitle,
-            movie.Info.Synopsis,
+            movie.Translations.ToDictionary(item => item.Language, item => new ContentTextFields(item.Title, item.Synopsis)),
             movie.Info.ReleaseYear,
             movie.Info.AgeRating,
             movie.RuntimeMinutes,

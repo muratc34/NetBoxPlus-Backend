@@ -213,26 +213,26 @@ internal static class SeriesAdminEndpoints
 
     private static async Task<IResult> AddSeasonAsync(Guid id, [FromBody] SeasonRequest request, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
     {
-        var result = await dispatcher.Send(new AddSeasonCommand(id, request.Number, request.Title, request.Version), cancellationToken);
+        var result = await dispatcher.Send(new AddSeasonCommand(id, request.Number, request.Translations, request.Version), cancellationToken);
 
         return result.ToHttpResult(created => TypedResults.Created($"/admin/series/{id}", new CreatedResponse(created)));
     }
 
     private static async Task<IResult> UpdateSeasonAsync(Guid id, Guid seasonId, [FromBody] SeasonRequest request, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
-        => (await dispatcher.Send(new UpdateSeasonCommand(id, seasonId, request.Number, request.Title, request.Version), cancellationToken)).ToHttpResult();
+        => (await dispatcher.Send(new UpdateSeasonCommand(id, seasonId, request.Number, request.Translations, request.Version), cancellationToken)).ToHttpResult();
 
     private static async Task<IResult> RemoveSeasonAsync(Guid id, Guid seasonId, [FromQuery] int version, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
         => (await dispatcher.Send(new RemoveSeasonCommand(id, seasonId, version), cancellationToken)).ToHttpResult();
 
     private static async Task<IResult> AddEpisodeAsync(Guid id, Guid seasonId, [FromBody] EpisodeRequest request, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
     {
-        var result = await dispatcher.Send(new AddEpisodeCommand(id, seasonId, request.Number, request.Title, request.Synopsis, request.RuntimeMinutes, request.Version), cancellationToken);
+        var result = await dispatcher.Send(new AddEpisodeCommand(id, seasonId, request.Number, request.Texts, request.RuntimeMinutes, request.Version), cancellationToken);
 
         return result.ToHttpResult(created => TypedResults.Created($"/admin/series/{id}", new CreatedResponse(created)));
     }
 
     private static async Task<IResult> UpdateEpisodeAsync(Guid id, Guid episodeId, [FromBody] EpisodeRequest request, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
-        => (await dispatcher.Send(new UpdateEpisodeCommand(id, episodeId, request.Number, request.Title, request.Synopsis, request.RuntimeMinutes, request.Version), cancellationToken)).ToHttpResult();
+        => (await dispatcher.Send(new UpdateEpisodeCommand(id, episodeId, request.Number, request.Texts, request.RuntimeMinutes, request.Version), cancellationToken)).ToHttpResult();
 
     private static async Task<IResult> RemoveEpisodeAsync(Guid id, Guid episodeId, [FromQuery] int version, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
         => (await dispatcher.Send(new RemoveEpisodeCommand(id, episodeId, version), cancellationToken)).ToHttpResult();

@@ -1,50 +1,85 @@
 using Catalog.Domain.Content;
-using Shared.Domain;
+using Catalog.Domain.Movies;
 
 namespace Catalog.Domain.Tests;
 
 public sealed class ContentInfoTests
 {
     [Fact]
-    public void Create_TrimsTheText_AndDropsABlankOriginalTitle()
-    {
-        var info = ContentInfo.Create("  Night Train ", "   ", " Journey ", 2024, AgeRating.Age7).Value;
-
-        Assert.Equal("Night Train", info.Title);
-        Assert.Null(info.OriginalTitle);
-        Assert.Equal("Journey", info.Synopsis);
-    }
+    public void Info_DropsABlankOriginalTitle()
+        => Assert.Null(ContentInfo.Create("   ", 2024, AgeRating.Age7).Value.OriginalTitle);
 
     [Theory]
-    [InlineData(null, "Text", 2024, "Content.TitleRequired")]
-    [InlineData("  ", "Text", 2024, "Content.TitleRequired")]
-    [InlineData("Title", null, 2024, "Content.SynopsisRequired")]
-    [InlineData("Title", "Text", ContentInfo.MinReleaseYear - 1, "Content.ReleaseYearOutOfRange")]
-    [InlineData("Title", "Text", ContentInfo.MaxReleaseYear + 1, "Content.ReleaseYearOutOfRange")]
-    public void Create_RejectsInvalidValues(string? title, string? synopsis, int year, string code)
-        => Assert.Equal(code, ContentInfo.Create(title, null, synopsis, year, AgeRating.All).Error.Code);
+    [InlineData(ContentInfo.MinReleaseYear - 1)]
+    [InlineData(ContentInfo.MaxReleaseYear + 1)]
+    public void Info_RejectsAYearOutOfRange(int year)
+        => Assert.Equal(ContentErrors.ReleaseYearOutOfRange, ContentInfo.Create(null, year, AgeRating.All).Error);
 
     [Theory]
     [InlineData(ContentInfo.MinReleaseYear)]
     [InlineData(ContentInfo.MaxReleaseYear)]
-    public void Create_AcceptsTheYearLimits(int year)
-        => Assert.True(ContentInfo.Create("Title", null, "Text", year, AgeRating.All).IsSuccess);
+    public void Info_AcceptsTheYearLimits(int year)
+        => Assert.True(ContentInfo.Create(null, year, AgeRating.All).IsSuccess);
 
     [Fact]
-    public void Create_RejectsTooLongText()
+    public void Info_RejectsATooLongOriginalTitle_AndAnUnknownRating()
     {
-        var longTitle = new string('a', ContentInfo.TitleMaxLength + 1);
-        var longSynopsis = new string('a', ContentInfo.SynopsisMaxLength + 1);
-
-        Assert.Equal(ContentErrors.TitleTooLong, Failure(longTitle, null, "Text"));
-        Assert.Equal(ContentErrors.OriginalTitleTooLong, Failure("Title", longTitle, "Text"));
-        Assert.Equal(ContentErrors.SynopsisTooLong, Failure("Title", null, longSynopsis));
+        Assert.Equal(ContentErrors.OriginalTitleTooLong, ContentInfo.Create(new string('a', ContentInfo.OriginalTitleMaxLength + 1), 2024, AgeRating.All).Error);
+        Assert.Equal(ContentErrors.AgeRatingInvalid, ContentInfo.Create(null, 2024, (AgeRating)99).Error);
     }
 
     [Fact]
-    public void Create_RejectsAnUnknownAgeRating()
-        => Assert.Equal(ContentErrors.AgeRatingInvalid, ContentInfo.Create("Title", null, "Text", 2024, (AgeRating)99).Error);
+    public void Text_IsTrimmed()
+    {
+        var text = ContentText.Create("  Night Train ", " Journey ").Value;
 
-    private static Error Failure(string title, string? original, string synopsis)
-        => ContentInfo.Create(title, original, synopsis, 2024, AgeRating.All).Error;
+        Assert.Equal("Night Train", text.Title);
+        Assert.Equal("Journey", text.Synopsis);
+    }
+
+    [Theory]
+    [InlineData(null, "Text", "Content.TitleRequired")]
+    [InlineData("  ", "Text", "Content.TitleRequired")]
+    [InlineData("Title", null, "Content.SynopsisRequired")]
+    public void Text_RejectsMissingValues(string? title, string? synopsis, string code)
+        => Assert.Equal(code, ContentText.Create(title, synopsis).Error.Code);
+
+    [Fact]
+    public void Text_RejectsTooLongValues()
+    {
+        Assert.Equal(ContentErrors.TitleTooLong, ContentText.Create(new string('a', ContentText.TitleMaxLength + 1), "Text").Error);
+        Assert.Equal(ContentErrors.SynopsisTooLong, ContentText.Create("Title", new string('a', ContentText.SynopsisMaxLength + 1)).Error);
+    }
+
+    [Fact]
+    public void Texts_NeedTheDefaultLanguage_AndOnlySupportedOnes()
+    {
+        var english = ContentText.Create("Title", "Text").Value;
+
+        Assert.Equal(ContentErrors.DefaultLanguageRequired, Movie.Create(TestContent.Info(), new Dictionary<string, ContentText> { ["en"] = english }, 120).Error);
+        Assert.Equal(ContentErrors.UnsupportedLanguage, Movie.Create(TestContent.Info(), new Dictionary<string, ContentText> { ["tr"] = english, ["fr"] = english }, 120).Error);
+    }
+
+    [Fact]
+    public void TextFor_FallsBackToTheDefaultLanguage()
+    {
+        var movie = Movie.Create(TestContent.Info(), TestContent.Texts("Gece Treni", "Night Train"), 120).Value;
+        var turkishOnly = TestContent.Movie();
+
+        Assert.Equal("Night Train", movie.TextFor("en").Title);
+        Assert.Equal("Gece Treni", movie.TextFor("tr").Title);
+        Assert.Equal("tr", turkishOnly.TextFor("en").Language);
+    }
+
+    [Fact]
+    public void SetTexts_KeepsEntries_UpdatesThem_AndDropsRemovedLanguages()
+    {
+        var movie = Movie.Create(TestContent.Info(), TestContent.Texts("Eski", "Old"), 120).Value;
+        var turkish = movie.Translations.Single(item => item.Language == "tr");
+
+        Assert.True(movie.SetTexts(TestContent.Texts("Yeni")).IsSuccess);
+
+        Assert.Same(turkish, Assert.Single(movie.Translations));
+        Assert.Equal("Yeni", turkish.Title);
+    }
 }

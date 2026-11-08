@@ -20,13 +20,16 @@ public sealed class Series : ContentItem
 
     public IReadOnlyCollection<Season> Seasons => _seasons.AsReadOnly();
 
-    public static Series Create(ContentInfo info)
+    public static Result<Series> Create(ContentInfo info, IReadOnlyDictionary<string, ContentText> texts)
     {
         ArgumentNullException.ThrowIfNull(info);
-        return new Series(Guid.CreateVersion7(), info);
+
+        var series = new Series(Guid.CreateVersion7(), info);
+        var set = series.SetTexts(texts);
+        return set.IsFailure ? set.Error : series;
     }
 
-    public Result<Season> AddSeason(int number, string? title)
+    public Result<Season> AddSeason(int number, IReadOnlyDictionary<string, string?>? titles)
     {
         var checkedNumber = Season.CheckNumber(number);
         if (checkedNumber.IsFailure)
@@ -34,7 +37,7 @@ public sealed class Series : ContentItem
             return checkedNumber.Error;
         }
 
-        var checkedTitle = Season.CheckTitle(title);
+        var checkedTitle = Season.CheckTitles(titles);
         if (checkedTitle.IsFailure)
         {
             return checkedTitle.Error;
@@ -51,7 +54,7 @@ public sealed class Series : ContentItem
         return added;
     }
 
-    public Result ChangeSeason(Guid seasonId, int number, string? title)
+    public Result ChangeSeason(Guid seasonId, int number, IReadOnlyDictionary<string, string?>? titles)
     {
         if (FindSeason(seasonId) is not { } season)
         {
@@ -64,7 +67,7 @@ public sealed class Series : ContentItem
             return checkedNumber;
         }
 
-        var checkedTitle = Season.CheckTitle(title);
+        var checkedTitle = Season.CheckTitles(titles);
         if (checkedTitle.IsFailure)
         {
             return checkedTitle.Error;

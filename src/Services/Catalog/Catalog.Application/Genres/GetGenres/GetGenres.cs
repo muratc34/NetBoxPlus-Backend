@@ -1,4 +1,5 @@
 using Catalog.Application.Abstractions;
+using Catalog.Domain.Content;
 using Microsoft.EntityFrameworkCore;
 using Shared.Application.Cqrs;
 using Shared.Domain;
@@ -9,7 +10,7 @@ namespace Catalog.Application.Genres.GetGenres;
 public sealed record GetGenresQuery : IQuery<IReadOnlyList<GenreResponse>>;
 
 /// <param name="UsageCount">Movies and series using it, deleted ones included: above zero it cannot be deleted.</param>
-public sealed record GenreResponse(Guid Id, string Name, int UsageCount);
+public sealed record GenreResponse(Guid Id, string Name, IReadOnlyDictionary<string, string> Translations, int UsageCount);
 
 internal sealed class GetGenresHandler(ICatalogReadModel readModel) : IQueryHandler<GetGenresQuery, IReadOnlyList<GenreResponse>>
 {
@@ -18,13 +19,15 @@ internal sealed class GetGenresHandler(ICatalogReadModel readModel) : IQueryHand
         var movies = await CountAsync(readModel.MoviesIncludingDeleted.SelectMany(movie => movie.Genres), cancellationToken).ConfigureAwait(false);
         var series = await CountAsync(readModel.SeriesIncludingDeleted.SelectMany(item => item.Genres), cancellationToken).ConfigureAwait(false);
 
-        var genres = await readModel.Genres
-            .OrderBy(genre => genre.Name)
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
+        var genres = await readModel.Genres.ToListAsync(cancellationToken).ConfigureAwait(false);
 
         return genres
-            .Select(genre => new GenreResponse(genre.Id, genre.Name, movies.GetValueOrDefault(genre.Id) + series.GetValueOrDefault(genre.Id)))
+            .Select(genre => new GenreResponse(
+                genre.Id,
+                genre.NameFor(Languages.Default),
+                genre.Translations.ToDictionary(item => item.Language, item => item.Name),
+                movies.GetValueOrDefault(genre.Id) + series.GetValueOrDefault(genre.Id)))
+            .OrderBy(genre => genre.Name, StringComparer.Ordinal)
             .ToList();
     }
 

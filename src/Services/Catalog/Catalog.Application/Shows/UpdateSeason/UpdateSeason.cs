@@ -7,7 +7,7 @@ namespace Catalog.Application.Shows.UpdateSeason;
 
 /// <summary>Changes the number and title of a season.</summary>
 /// <param name="Version">The version of the series the editor loaded.</param>
-public sealed record UpdateSeasonCommand(Guid SeriesId, Guid SeasonId, int Number, string? Title, int Version) : ICommand, IAuditedCommand
+public sealed record UpdateSeasonCommand(Guid SeriesId, Guid SeasonId, int Number, IReadOnlyDictionary<string, string?>? Titles, int Version) : ICommand, IAuditedCommand
 {
     Guid? IAuditedCommand.AuditTargetId => SeriesId;
 }
@@ -28,6 +28,6 @@ internal sealed class UpdateSeasonHandler(ISeriesRepository repository) : IComma
             return version;
         }
 
-        return series.ChangeSeason(command.SeasonId, command.Number, command.Title);
+        return series.ChangeSeason(command.SeasonId, command.Number, command.Titles);
     }
 }

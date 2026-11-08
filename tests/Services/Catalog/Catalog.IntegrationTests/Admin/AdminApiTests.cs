@@ -102,12 +102,12 @@ public sealed class AdminApiTests(CatalogApiFixture api)
     {
         using var client = api.CreateClient(Everything);
 
-        var response = await client.PostAsJsonAsync("/admin/movies", new { title = " ", synopsis = "", releaseYear = 1000, ageRating = "All", runtimeMinutes = 0 }, Json, Cancellation);
+        var response = await client.PostAsJsonAsync("/admin/movies", new { translations = TestRequests.Text(" ", ""), releaseYear = 1000, ageRating = "All", runtimeMinutes = 0 }, Json, Cancellation);
         var codes = (await response.Content.ReadFromJsonAsync<JsonElement>(Cancellation)).GetProperty("errorCodes");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Equal("Content.TitleRequired", codes.GetProperty("title")[0].GetString());
-        Assert.Equal("Content.SynopsisRequired", codes.GetProperty("synopsis")[0].GetString());
+        Assert.Equal("Content.TitleRequired", codes.GetProperty("translations.tr.title")[0].GetString());
+        Assert.Equal("Content.SynopsisRequired", codes.GetProperty("translations.tr.synopsis")[0].GetString());
         Assert.Equal("Content.ReleaseYearOutOfRange", codes.GetProperty("releaseYear")[0].GetString());
         Assert.Equal("Content.RuntimeOutOfRange", codes.GetProperty("runtimeMinutes")[0].GetString());
     }
@@ -177,11 +177,11 @@ public sealed class AdminApiTests(CatalogApiFixture api)
         var created = await client.PostAsJsonAsync("/admin/series", Series("Long Road", [genre]), Json, Cancellation);
         var id = (await ReadAsync<CreatedResponse>(created)).Id;
 
-        var season = (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync($"/admin/series/{id}/seasons", new SeasonRequest(1, "First", await VersionAsync(client, id)), Json, Cancellation))).Id;
-        var duplicate = await client.PostAsJsonAsync($"/admin/series/{id}/seasons", new SeasonRequest(1, null, await VersionAsync(client, id)), Json, Cancellation);
+        var season = (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync($"/admin/series/{id}/seasons", TestRequests.Season(1, "First", await VersionAsync(client, id)), Json, Cancellation))).Id;
+        var duplicate = await client.PostAsJsonAsync($"/admin/series/{id}/seasons", TestRequests.Season(1, null, await VersionAsync(client, id)), Json, Cancellation);
         Assert.Equal("Series.SeasonNumberTaken", await CodeAsync(duplicate));
 
-        var episode = (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync($"/admin/series/{id}/seasons/{season}/episodes", new EpisodeRequest(1, "Pilot", "Begins.", 45, await VersionAsync(client, id)), Json, Cancellation))).Id;
+        var episode = (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync($"/admin/series/{id}/seasons/{season}/episodes", TestRequests.Episode(1, "Pilot", "Begins.", 45, await VersionAsync(client, id)), Json, Cancellation))).Id;
         Assert.Equal("Series.PublishedEpisodeRequired", await CodeAsync(await client.PostAsync($"/admin/series/{id}/publish", null, Cancellation)));
 
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync($"/admin/series/{id}/episodes/{episode}/publish?version={await VersionAsync(client, id)}", null, Cancellation)).StatusCode);
@@ -207,16 +207,16 @@ public sealed class AdminApiTests(CatalogApiFixture api)
         using var client = api.CreateClient(Everything);
         var id = (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync("/admin/series", Series("Road", []), Json, Cancellation))).Id;
         var version = await VersionAsync(client, id);
-        var season = (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync($"/admin/series/{id}/seasons", new SeasonRequest(1, null, version), Json, Cancellation))).Id;
+        var season = (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync($"/admin/series/{id}/seasons", TestRequests.Season(1, null, version), Json, Cancellation))).Id;
 
-        var stale = await client.PostAsJsonAsync($"/admin/series/{id}/seasons/{season}/episodes", new EpisodeRequest(1, "Pilot", "Begins.", 45, version), Json, Cancellation);
+        var stale = await client.PostAsJsonAsync($"/admin/series/{id}/seasons/{season}/episodes", TestRequests.Episode(1, "Pilot", "Begins.", 45, version), Json, Cancellation);
 
         Assert.Equal("Content.VersionConflict", await CodeAsync(stale));
 
         var fresh = await VersionAsync(client, id);
-        var episode = (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync($"/admin/series/{id}/seasons/{season}/episodes", new EpisodeRequest(1, "Pilot", "Begins.", 45, fresh), Json, Cancellation))).Id;
-        Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync($"/admin/series/{id}/episodes/{episode}", new EpisodeRequest(2, "Renamed", "Text.", 50, await VersionAsync(client, id)), Json, Cancellation)).StatusCode);
-        Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync($"/admin/series/{id}/seasons/{season}", new SeasonRequest(3, "Third", await VersionAsync(client, id)), Json, Cancellation)).StatusCode);
+        var episode = (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync($"/admin/series/{id}/seasons/{season}/episodes", TestRequests.Episode(1, "Pilot", "Begins.", 45, fresh), Json, Cancellation))).Id;
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync($"/admin/series/{id}/episodes/{episode}", TestRequests.Episode(2, "Renamed", "Text.", 50, await VersionAsync(client, id)), Json, Cancellation)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync($"/admin/series/{id}/seasons/{season}", TestRequests.Season(3, "Third", await VersionAsync(client, id)), Json, Cancellation)).StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/admin/series/{id}/episodes/{episode}?version={await VersionAsync(client, id)}", Cancellation)).StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/admin/series/{id}/seasons/{season}?version={await VersionAsync(client, id)}", Cancellation)).StatusCode);
         Assert.Empty((await GetSeriesAsync(client, id)).Seasons);
@@ -280,13 +280,13 @@ public sealed class AdminApiTests(CatalogApiFixture api)
     {
         using var client = api.CreateClient(Everything);
         var marker = Guid.NewGuid().ToString("N")[..10];
-        var id = (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync("/admin/people", new PersonRequest($"Ada {marker}", null), Json, Cancellation))).Id;
+        var id = (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync("/admin/people", TestRequests.Person($"Ada {marker}", null), Json, Cancellation))).Id;
 
-        Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync($"/admin/people/{id}", new PersonRequest($"Grace {marker}", "Bio"), Json, Cancellation)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync($"/admin/people/{id}", TestRequests.Person($"Grace {marker}", "Bio"), Json, Cancellation)).StatusCode);
 
         var found = await ReadAsync<Page<PersonResponse>>(await client.GetAsync($"/admin/people?search={marker}", Cancellation));
         Assert.Equal($"Grace {marker}", Assert.Single(found.Items).Name);
-        Assert.Equal("Person.NameRequired", await CodeAsync(await client.PostAsJsonAsync("/admin/people", new PersonRequest(" ", null), Json, Cancellation)));
+        Assert.Equal("Person.NameRequired", await CodeAsync(await client.PostAsJsonAsync("/admin/people", TestRequests.Person(" ", null), Json, Cancellation)));
     }
 
     [Fact]
@@ -294,13 +294,13 @@ public sealed class AdminApiTests(CatalogApiFixture api)
     {
         using var client = api.CreateClient(Everything);
         var marker = Guid.NewGuid().ToString("N")[..10];
-        var id = (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync("/admin/genres", new GenreRequest($"ilk {marker}"), Json, Cancellation))).Id;
+        var id = (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync("/admin/genres", TestRequests.Genre($"ilk {marker}"), Json, Cancellation))).Id;
 
-        var duplicate = await client.PostAsJsonAsync("/admin/genres", new GenreRequest($"İLK {marker.ToUpperInvariant()}"), Json, Cancellation);
+        var duplicate = await client.PostAsJsonAsync("/admin/genres", TestRequests.Genre($"İLK {marker.ToUpperInvariant()}"), Json, Cancellation);
 
         Assert.Equal("Genre.NameTaken", await CodeAsync(duplicate));
-        Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync($"/admin/genres/{id}", new GenreRequest($"ilk {marker}"), Json, Cancellation)).StatusCode);
-        Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync($"/admin/genres/{id}", new GenreRequest($"son {marker}"), Json, Cancellation)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync($"/admin/genres/{id}", TestRequests.Genre($"ilk {marker}"), Json, Cancellation)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync($"/admin/genres/{id}", TestRequests.Genre($"son {marker}"), Json, Cancellation)).StatusCode);
     }
 
     [Fact]
@@ -310,7 +310,7 @@ public sealed class AdminApiTests(CatalogApiFixture api)
         var name = $"Tür {Guid.NewGuid():N}";
 
         var responses = await Task.WhenAll(Enumerable.Range(0, 8)
-            .Select(_ => client.PostAsJsonAsync("/admin/genres", new GenreRequest(name), Json, Cancellation)));
+            .Select(_ => client.PostAsJsonAsync("/admin/genres", TestRequests.Genre(name), Json, Cancellation)));
 
         Assert.Single(responses, response => response.StatusCode == HttpStatusCode.Created);
         Assert.All(
@@ -329,16 +329,16 @@ public sealed class AdminApiTests(CatalogApiFixture api)
         => new(new HttpMethod(method), path) { Content = method is "POST" or "PUT" ? JsonContent.Create(new { }) : null };
 
     private static object Movie(string title, Guid[] genres, object[] credits, int version = 0)
-        => new { title, synopsis = "A long journey.", releaseYear = 2024, ageRating = "Age13", runtimeMinutes = 120, genreIds = genres, credits, version };
+        => new { translations = TestRequests.Text(title, "A long journey."), releaseYear = 2024, ageRating = "Age13", runtimeMinutes = 120, genreIds = genres, credits, version };
 
     private static object Series(string title, Guid[] genres, object[]? credits = null, int version = 0)
-        => new { title, synopsis = "A long road.", releaseYear = 2024, ageRating = "Age16", genreIds = genres, credits = credits ?? [], version };
+        => new { translations = TestRequests.Text(title, "A long road."), releaseYear = 2024, ageRating = "Age16", genreIds = genres, credits = credits ?? [], version };
 
     private static async Task<Guid> CreateGenreAsync(HttpClient client)
-        => (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync("/admin/genres", new GenreRequest($"Genre {Guid.NewGuid():N}"), Json, Cancellation))).Id;
+        => (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync("/admin/genres", TestRequests.Genre($"Genre {Guid.NewGuid():N}"), Json, Cancellation))).Id;
 
     private static async Task<Guid> CreatePersonAsync(HttpClient client)
-        => (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync("/admin/people", new PersonRequest("Ada", null), Json, Cancellation))).Id;
+        => (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync("/admin/people", TestRequests.Person("Ada", null), Json, Cancellation))).Id;
 
     private static async Task<Guid> CreateMovieAsync(HttpClient client, string title, params Guid[] genres)
         => (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync("/admin/movies", Movie(title, genres, []), Json, Cancellation))).Id;

@@ -27,7 +27,13 @@ internal sealed class CreateSeriesHandler(ISeriesRepository repository, ContentE
             return references.Error;
         }
 
-        var series = Series.Create(command.Fields.ToInfo());
+        var created = Series.Create(command.Fields.ToInfo(), command.Fields.ToTexts());
+        if (created.IsFailure)
+        {
+            return created.Error;
+        }
+
+        var series = created.Value;
         var lists = ContentEditor.ApplyLists(series, command.Fields);
         if (lists.IsFailure)
         {

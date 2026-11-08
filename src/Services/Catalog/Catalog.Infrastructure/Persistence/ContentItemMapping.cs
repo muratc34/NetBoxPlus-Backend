@@ -11,7 +11,21 @@ internal static class ContentItemMapping
 {
     private const string OwnerKey = "ContentId";
 
-    public static void MapContentItem<TContent>(this EntityTypeBuilder<TContent> builder, string genresTable, string creditsTable)
+    /// <summary>Length of a language code column.</summary>
+    public const int LanguageMaxLength = 8;
+
+    public static void MapTranslation<TOwner>(OwnedNavigationBuilder<TOwner, ContentTranslation> translation, string table)
+        where TOwner : class
+    {
+        translation.ToTable(table);
+        translation.WithOwner().HasForeignKey(OwnerKey);
+        translation.HasKey(OwnerKey, nameof(ContentTranslation.Language));
+        translation.Property(item => item.Language).HasMaxLength(LanguageMaxLength);
+        translation.Property(item => item.Title).HasMaxLength(ContentText.TitleMaxLength).IsRequired();
+        translation.Property(item => item.Synopsis).HasMaxLength(ContentText.SynopsisMaxLength).IsRequired();
+    }
+
+    public static void MapContentItem<TContent>(this EntityTypeBuilder<TContent> builder, string translationsTable, string genresTable, string creditsTable)
         where TContent : ContentItem
     {
         builder.HasKey(content => content.Id);
@@ -19,9 +33,7 @@ internal static class ContentItemMapping
 
         builder.ComplexProperty(content => content.Info, info =>
         {
-            info.Property(value => value.Title).HasColumnName(nameof(ContentInfo.Title)).HasMaxLength(ContentInfo.TitleMaxLength);
-            info.Property(value => value.OriginalTitle).HasColumnName(nameof(ContentInfo.OriginalTitle)).HasMaxLength(ContentInfo.TitleMaxLength);
-            info.Property(value => value.Synopsis).HasColumnName(nameof(ContentInfo.Synopsis)).HasMaxLength(ContentInfo.SynopsisMaxLength);
+            info.Property(value => value.OriginalTitle).HasColumnName(nameof(ContentInfo.OriginalTitle)).HasMaxLength(ContentInfo.OriginalTitleMaxLength);
             info.Property(value => value.ReleaseYear).HasColumnName(nameof(ContentInfo.ReleaseYear));
             info.Property(value => value.AgeRating).HasColumnName(nameof(ContentInfo.AgeRating)).HasConversion<string>().HasMaxLength(16);
         });
@@ -35,6 +47,9 @@ internal static class ContentItemMapping
         // Customer lists show what is published, newest first.
         builder.HasIndex(content => new { content.Status, content.PublishedAt });
         builder.HasQueryFilter(content => !content.IsDeleted);
+
+        builder.OwnsMany(content => content.Translations, translation => MapTranslation(translation, translationsTable));
+        builder.Navigation(content => content.Translations).UsePropertyAccessMode(PropertyAccessMode.Field);
 
         builder.OwnsMany(content => content.Genres, genre =>
         {

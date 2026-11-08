@@ -41,6 +41,7 @@ internal sealed class UpdateSeriesHandler(ISeriesRepository repository, ContentE
         }
 
         series.Describe(command.Fields.ToInfo());
-        return ContentEditor.ApplyLists(series, command.Fields);
+        var texts = series.SetTexts(command.Fields.ToTexts());
+        return texts.IsFailure ? texts : ContentEditor.ApplyLists(series, command.Fields);
     }
 }

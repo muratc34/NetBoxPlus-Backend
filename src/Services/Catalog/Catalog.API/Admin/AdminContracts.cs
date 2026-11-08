@@ -25,9 +25,8 @@ public sealed record CreatedResponse(Guid Id);
 
 /// <param name="Version">On a change: the version that was loaded. Ignored when creating.</param>
 public sealed record MovieRequest(
-    string? Title,
+    IReadOnlyDictionary<string, ContentTextFields>? Translations,
     string? OriginalTitle,
-    string? Synopsis,
     int ReleaseYear,
     AgeRating AgeRating,
     int RuntimeMinutes,
@@ -35,30 +34,37 @@ public sealed record MovieRequest(
     IReadOnlyList<CreditInput>? Credits,
     int Version)
 {
-    internal ContentFields Fields => new(Title, OriginalTitle, Synopsis, ReleaseYear, AgeRating, GenreIds ?? [], Credits ?? []);
+    internal ContentFields Fields => new(Translations ?? new Dictionary<string, ContentTextFields>(), OriginalTitle, ReleaseYear, AgeRating, GenreIds ?? [], Credits ?? []);
 }
 
 /// <param name="Version">On a change: the version that was loaded. Ignored when creating.</param>
 public sealed record SeriesRequest(
-    string? Title,
+    IReadOnlyDictionary<string, ContentTextFields>? Translations,
     string? OriginalTitle,
-    string? Synopsis,
     int ReleaseYear,
     AgeRating AgeRating,
     IReadOnlyList<Guid>? GenreIds,
     IReadOnlyList<CreditInput>? Credits,
     int Version)
 {
-    internal ContentFields Fields => new(Title, OriginalTitle, Synopsis, ReleaseYear, AgeRating, GenreIds ?? [], Credits ?? []);
+    internal ContentFields Fields => new(Translations ?? new Dictionary<string, ContentTextFields>(), OriginalTitle, ReleaseYear, AgeRating, GenreIds ?? [], Credits ?? []);
 }
 
-public sealed record SeasonRequest(int Number, string? Title, int Version);
+public sealed record SeasonRequest(int Number, IReadOnlyDictionary<string, string?>? Translations, int Version);
 
-public sealed record EpisodeRequest(int Number, string? Title, string? Synopsis, int RuntimeMinutes, int Version);
+public sealed record EpisodeRequest(int Number, IReadOnlyDictionary<string, ContentTextFields>? Translations, int RuntimeMinutes, int Version)
+{
+    internal IReadOnlyDictionary<string, ContentTextFields> Texts => Translations ?? new Dictionary<string, ContentTextFields>();
+}
 
-public sealed record PersonRequest(string? Name, string? Biography);
+/// <param name="Translations">The biography per language.</param>
+public sealed record PersonRequest(string? Name, IReadOnlyDictionary<string, string?>? Translations);
 
-public sealed record GenreRequest(string? Name);
+/// <param name="Translations">The name per language.</param>
+public sealed record GenreRequest(IReadOnlyDictionary<string, string?>? Translations)
+{
+    internal IReadOnlyDictionary<string, string?> Names => Translations ?? new Dictionary<string, string?>();
+}
 
 /// <param name="Version">The version that was loaded.</param>
 public sealed record AttachImageRequest(Guid UploadId, int Version);

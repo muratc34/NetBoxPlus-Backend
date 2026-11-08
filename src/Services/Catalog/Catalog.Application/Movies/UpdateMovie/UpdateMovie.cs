@@ -54,6 +54,12 @@ internal sealed class UpdateMovieHandler(IMovieRepository movies, ContentEditor 
         }
 
         movie.Describe(command.Fields.ToInfo());
+        var texts = movie.SetTexts(command.Fields.ToTexts());
+        if (texts.IsFailure)
+        {
+            return texts;
+        }
+
         var runtime = movie.ChangeRuntime(command.RuntimeMinutes);
         return runtime.IsFailure ? runtime : ContentEditor.ApplyLists(movie, command.Fields);
     }

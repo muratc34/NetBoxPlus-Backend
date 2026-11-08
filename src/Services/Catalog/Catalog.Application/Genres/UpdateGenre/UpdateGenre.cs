@@ -5,7 +5,7 @@ using Shared.Domain;
 
 namespace Catalog.Application.Genres.UpdateGenre;
 
-public sealed record UpdateGenreCommand(Guid GenreId, string? Name) : ICommand, IAuditedCommand
+public sealed record UpdateGenreCommand(Guid GenreId, IReadOnlyDictionary<string, string?> Names) : ICommand, IAuditedCommand
 {
     Guid? IAuditedCommand.AuditTargetId => GenreId;
 }
@@ -20,14 +20,13 @@ internal sealed class UpdateGenreHandler(IGenreRepository genres) : ICommandHand
             return GenreErrors.NotFound;
         }
 
-        var previous = genre.NormalizedName;
-        var renamed = genre.Rename(command.Name);
+        var renamed = genre.Rename(command.Names);
         if (renamed.IsFailure)
         {
             return renamed;
         }
 
-        return genre.NormalizedName != previous && await genres.ExistsByNameAsync(genre.Name, cancellationToken).ConfigureAwait(false)
+        return await genres.AnyNameTakenAsync(genre, cancellationToken).ConfigureAwait(false)
             ? GenreErrors.NameTaken
             : Result.Success();
     }

@@ -63,7 +63,7 @@ internal sealed class GetMoviesHandler(ICatalogReadModel readModel, ContentReade
         var items = page
             .Select(movie => new MovieSummary(
                 movie.Id,
-                movie.Info.Title,
+                movie.TextFor(Languages.Default).Title,
                 movie.Info.ReleaseYear,
                 movie.Info.AgeRating,
                 movie.RuntimeMinutes,

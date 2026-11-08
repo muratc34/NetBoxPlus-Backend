@@ -34,20 +34,7 @@ namespace Catalog.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("ModifiedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("NormalizedName")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
                     b.HasKey("Id");
-
-                    b.HasIndex("NormalizedName")
-                        .IsUnique();
 
                     b.ToTable("Genres", (string)null);
                 });
@@ -147,18 +134,6 @@ namespace Catalog.Infrastructure.Persistence.Migrations
                             b1.Property<int>("ReleaseYear")
                                 .HasColumnType("integer")
                                 .HasColumnName("ReleaseYear");
-
-                            b1.Property<string>("Synopsis")
-                                .IsRequired()
-                                .HasMaxLength(2000)
-                                .HasColumnType("character varying(2000)")
-                                .HasColumnName("Synopsis");
-
-                            b1.Property<string>("Title")
-                                .IsRequired()
-                                .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
-                                .HasColumnName("Title");
                         });
 
                     b.HasKey("Id");
@@ -172,10 +147,6 @@ namespace Catalog.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
-
-                    b.Property<string>("Biography")
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -219,16 +190,6 @@ namespace Catalog.Infrastructure.Persistence.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
-                    b.Property<string>("Synopsis")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
                     b.HasKey("Id");
 
                     b.HasIndex("SeasonId", "Number")
@@ -247,10 +208,6 @@ namespace Catalog.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("SeriesId")
                         .HasColumnType("uuid");
-
-                    b.Property<string>("Title")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
 
                     b.HasKey("Id");
 
@@ -315,18 +272,6 @@ namespace Catalog.Infrastructure.Persistence.Migrations
                             b1.Property<int>("ReleaseYear")
                                 .HasColumnType("integer")
                                 .HasColumnName("ReleaseYear");
-
-                            b1.Property<string>("Synopsis")
-                                .IsRequired()
-                                .HasMaxLength(2000)
-                                .HasColumnType("character varying(2000)")
-                                .HasColumnName("Synopsis");
-
-                            b1.Property<string>("Title")
-                                .IsRequired()
-                                .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
-                                .HasColumnName("Title");
                         });
 
                     b.HasKey("Id");
@@ -431,6 +376,41 @@ namespace Catalog.Infrastructure.Persistence.Migrations
                     b.ToTable("OutboxMessages", (string)null);
                 });
 
+            modelBuilder.Entity("Catalog.Domain.Genres.Genre", b =>
+                {
+                    b.OwnsMany("Catalog.Domain.Genres.GenreTranslation", "Translations", b1 =>
+                        {
+                            b1.Property<Guid>("GenreId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("Language")
+                                .HasMaxLength(8)
+                                .HasColumnType("character varying(8)");
+
+                            b1.Property<string>("Name")
+                                .IsRequired()
+                                .HasMaxLength(64)
+                                .HasColumnType("character varying(64)");
+
+                            b1.Property<string>("NormalizedName")
+                                .IsRequired()
+                                .HasMaxLength(64)
+                                .HasColumnType("character varying(64)");
+
+                            b1.HasKey("GenreId", "Language");
+
+                            b1.HasIndex("Language", "NormalizedName")
+                                .IsUnique();
+
+                            b1.ToTable("GenreTranslations", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("GenreId");
+                        });
+
+                    b.Navigation("Translations");
+                });
+
             modelBuilder.Entity("Catalog.Domain.Movies.Movie", b =>
                 {
                     b.OwnsMany("Catalog.Domain.Content.Credit", "Credits", b1 =>
@@ -492,9 +472,65 @@ namespace Catalog.Infrastructure.Persistence.Migrations
                                 .IsRequired();
                         });
 
+                    b.OwnsMany("Catalog.Domain.Content.ContentTranslation", "Translations", b1 =>
+                        {
+                            b1.Property<Guid>("ContentId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("Language")
+                                .HasMaxLength(8)
+                                .HasColumnType("character varying(8)");
+
+                            b1.Property<string>("Synopsis")
+                                .IsRequired()
+                                .HasMaxLength(2000)
+                                .HasColumnType("character varying(2000)");
+
+                            b1.Property<string>("Title")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)");
+
+                            b1.HasKey("ContentId", "Language");
+
+                            b1.ToTable("MovieTranslations", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("ContentId");
+                        });
+
                     b.Navigation("Credits");
 
                     b.Navigation("Genres");
+
+                    b.Navigation("Translations");
+                });
+
+            modelBuilder.Entity("Catalog.Domain.People.Person", b =>
+                {
+                    b.OwnsMany("Catalog.Domain.People.PersonTranslation", "Translations", b1 =>
+                        {
+                            b1.Property<Guid>("PersonId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("Language")
+                                .HasMaxLength(8)
+                                .HasColumnType("character varying(8)");
+
+                            b1.Property<string>("Biography")
+                                .IsRequired()
+                                .HasMaxLength(4000)
+                                .HasColumnType("character varying(4000)");
+
+                            b1.HasKey("PersonId", "Language");
+
+                            b1.ToTable("PersonTranslations", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("PersonId");
+                        });
+
+                    b.Navigation("Translations");
                 });
 
             modelBuilder.Entity("Catalog.Domain.Shows.Episode", b =>
@@ -504,6 +540,35 @@ namespace Catalog.Infrastructure.Persistence.Migrations
                         .HasForeignKey("SeasonId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.OwnsMany("Catalog.Domain.Content.ContentTranslation", "Translations", b1 =>
+                        {
+                            b1.Property<Guid>("ContentId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("Language")
+                                .HasMaxLength(8)
+                                .HasColumnType("character varying(8)");
+
+                            b1.Property<string>("Synopsis")
+                                .IsRequired()
+                                .HasMaxLength(2000)
+                                .HasColumnType("character varying(2000)");
+
+                            b1.Property<string>("Title")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)");
+
+                            b1.HasKey("ContentId", "Language");
+
+                            b1.ToTable("EpisodeTranslations", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("ContentId");
+                        });
+
+                    b.Navigation("Translations");
                 });
 
             modelBuilder.Entity("Catalog.Domain.Shows.Season", b =>
@@ -513,6 +578,30 @@ namespace Catalog.Infrastructure.Persistence.Migrations
                         .HasForeignKey("SeriesId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.OwnsMany("Catalog.Domain.Shows.SeasonTranslation", "Translations", b1 =>
+                        {
+                            b1.Property<Guid>("SeasonId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("Language")
+                                .HasMaxLength(8)
+                                .HasColumnType("character varying(8)");
+
+                            b1.Property<string>("Title")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)");
+
+                            b1.HasKey("SeasonId", "Language");
+
+                            b1.ToTable("SeasonTranslations", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("SeasonId");
+                        });
+
+                    b.Navigation("Translations");
                 });
 
             modelBuilder.Entity("Catalog.Domain.Shows.Series", b =>
@@ -576,9 +665,38 @@ namespace Catalog.Infrastructure.Persistence.Migrations
                                 .IsRequired();
                         });
 
+                    b.OwnsMany("Catalog.Domain.Content.ContentTranslation", "Translations", b1 =>
+                        {
+                            b1.Property<Guid>("ContentId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("Language")
+                                .HasMaxLength(8)
+                                .HasColumnType("character varying(8)");
+
+                            b1.Property<string>("Synopsis")
+                                .IsRequired()
+                                .HasMaxLength(2000)
+                                .HasColumnType("character varying(2000)");
+
+                            b1.Property<string>("Title")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)");
+
+                            b1.HasKey("ContentId", "Language");
+
+                            b1.ToTable("SeriesTranslations", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("ContentId");
+                        });
+
                     b.Navigation("Credits");
 
                     b.Navigation("Genres");
+
+                    b.Navigation("Translations");
                 });
 
             modelBuilder.Entity("Catalog.Domain.Shows.Season", b =>

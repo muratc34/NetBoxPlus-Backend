@@ -4,6 +4,7 @@ using Catalog.Application.Browse.GetPublishedMovie;
 using Catalog.Application.Browse.GetPublishedSeries;
 using Catalog.Application.Browse.GetTitles;
 using Catalog.Application.Content;
+using Catalog.Domain.Content;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Application.Cqrs;
 using Shared.Application.Paging;
@@ -31,23 +32,27 @@ internal static class BrowseEndpoints
             .WithName("GetPublishedMovie")
             .WithSummary("Returns a published movie.")
             .Produces<PublishedMovie>()
+            .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         browse.MapGet("/series/{id:guid}", GetSeriesAsync)
             .WithName("GetPublishedSeries")
             .WithSummary("Returns a published series with its published episodes.")
             .Produces<PublishedSeries>()
+            .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         browse.MapGet("/genres", GetGenresAsync)
             .WithName("GetPublishedGenres")
             .WithSummary("Lists the genres that have published content.")
-            .Produces<IReadOnlyList<GenreReference>>();
+            .Produces<IReadOnlyList<GenreReference>>()
+            .ProducesValidationProblem();
 
         browse.MapGet("/people/{id:guid}", GetPersonAsync)
             .WithName("GetPublicPerson")
             .WithSummary("Returns someone credited on published content.")
             .Produces<PublicPerson>()
+            .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         return endpoints;
@@ -56,22 +61,23 @@ internal static class BrowseEndpoints
     private static async Task<IResult> GetTitlesAsync(
         [FromServices] IDispatcher dispatcher,
         CancellationToken cancellationToken,
+        [FromQuery] string? lang = null,
         [FromQuery] TitleKind? kind = null,
         [FromQuery] Guid? genreId = null,
         [FromQuery] Guid? personId = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = PageLimits.DefaultPageSize)
-        => (await dispatcher.Query(new GetTitlesQuery(kind, genreId, personId, page, pageSize), cancellationToken)).ToHttpResult();
+        => (await dispatcher.Query(new GetTitlesQuery(lang ?? Languages.Default, kind, genreId, personId, page, pageSize), cancellationToken)).ToHttpResult();
 
-    private static async Task<IResult> GetMovieAsync(Guid id, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
-        => (await dispatcher.Query(new GetPublishedMovieQuery(id), cancellationToken)).ToHttpResult();
+    private static async Task<IResult> GetMovieAsync(Guid id, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken, [FromQuery] string? lang = null)
+        => (await dispatcher.Query(new GetPublishedMovieQuery(id, lang ?? Languages.Default), cancellationToken)).ToHttpResult();
 
-    private static async Task<IResult> GetSeriesAsync(Guid id, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
-        => (await dispatcher.Query(new GetPublishedSeriesQuery(id), cancellationToken)).ToHttpResult();
+    private static async Task<IResult> GetSeriesAsync(Guid id, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken, [FromQuery] string? lang = null)
+        => (await dispatcher.Query(new GetPublishedSeriesQuery(id, lang ?? Languages.Default), cancellationToken)).ToHttpResult();
 
-    private static async Task<IResult> GetGenresAsync([FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
-        => (await dispatcher.Query(new GetPublishedGenresQuery(), cancellationToken)).ToHttpResult();
+    private static async Task<IResult> GetGenresAsync([FromServices] IDispatcher dispatcher, CancellationToken cancellationToken, [FromQuery] string? lang = null)
+        => (await dispatcher.Query(new GetPublishedGenresQuery(lang ?? Languages.Default), cancellationToken)).ToHttpResult();
 
-    private static async Task<IResult> GetPersonAsync(Guid id, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
-        => (await dispatcher.Query(new GetPublicPersonQuery(id), cancellationToken)).ToHttpResult();
+    private static async Task<IResult> GetPersonAsync(Guid id, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken, [FromQuery] string? lang = null)
+        => (await dispatcher.Query(new GetPublicPersonQuery(id, lang ?? Languages.Default), cancellationToken)).ToHttpResult();
 }

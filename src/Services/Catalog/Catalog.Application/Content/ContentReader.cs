@@ -1,5 +1,6 @@
 using Catalog.Application.Abstractions;
 using Catalog.Domain.Content;
+using Catalog.Domain.Genres;
 using Microsoft.EntityFrameworkCore;
 
 namespace Catalog.Application.Content;
@@ -14,7 +15,7 @@ internal sealed class ContentReader(ICatalogReadModel readModel, IImageStorage s
         var genreIds = loaded.SelectMany(item => item.Genres).Select(genre => genre.GenreId).Distinct().ToList();
         var genres = await readModel.Genres
             .Where(genre => genreIds.Contains(genre.Id))
-            .ToDictionaryAsync(genre => genre.Id, genre => genre.Name, cancellationToken)
+            .ToDictionaryAsync(genre => genre.Id, cancellationToken)
             .ConfigureAwait(false);
 
         var personIds = loaded.SelectMany(item => item.Credits).Select(credit => credit.PersonId).Distinct().ToList();
@@ -27,12 +28,12 @@ internal sealed class ContentReader(ICatalogReadModel readModel, IImageStorage s
     }
 }
 
-internal sealed record ContentNames(IReadOnlyDictionary<Guid, string> Genres, IReadOnlyDictionary<Guid, string> People, IImageStorage Storage)
+internal sealed record ContentNames(IReadOnlyDictionary<Guid, Genre> Genres, IReadOnlyDictionary<Guid, string> People, IImageStorage Storage)
 {
     public Uri? ImageAddress(string? name) => name is null ? null : Storage.PublicAddress(name);
 
-    public IReadOnlyList<GenreReference> GenresOf(ContentItem item)
-        => [.. item.Genres.Select(genre => new GenreReference(genre.GenreId, Genres[genre.GenreId])).OrderBy(genre => genre.Name, StringComparer.Ordinal)];
+    public IReadOnlyList<GenreReference> GenresOf(ContentItem item, string language = Languages.Default)
+        => [.. item.Genres.Select(genre => new GenreReference(genre.GenreId, Genres[genre.GenreId].NameFor(language))).OrderBy(genre => genre.Name, StringComparer.Ordinal)];
 
     public IReadOnlyList<CreditResponse> CreditsOf(ContentItem item)
         => [.. item.Credits

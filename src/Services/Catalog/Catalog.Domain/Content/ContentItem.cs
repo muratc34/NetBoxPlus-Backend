@@ -10,6 +10,7 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
 {
     private readonly List<ContentGenre> _genres = [];
     private readonly List<Credit> _credits = [];
+    private readonly List<ContentTranslation> _translations = [];
 
     protected ContentItem(Guid id, ContentInfo info)
         : base(id)
@@ -42,6 +43,8 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
 
     public string? BackdropImage { get; private set; }
 
+    public IReadOnlyCollection<ContentTranslation> Translations => _translations.AsReadOnly();
+
     public IReadOnlyCollection<ContentGenre> Genres => _genres.AsReadOnly();
 
     public IReadOnlyCollection<Credit> Credits => _credits.AsReadOnly();
@@ -60,6 +63,25 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
         Info = info;
         Version++;
     }
+
+    /// <summary>Replaces the texts; the default language must be among them.</summary>
+    public Result SetTexts(IReadOnlyDictionary<string, ContentText> texts)
+    {
+        ArgumentNullException.ThrowIfNull(texts);
+
+        var languages = ContentText.CheckLanguages(texts.Keys);
+        if (languages.IsFailure)
+        {
+            return languages;
+        }
+
+        ContentTranslation.Apply(_translations, texts);
+        Version++;
+        return Result.Success();
+    }
+
+    /// <summary>The text in the language, or in the default language when it has not been translated.</summary>
+    public ContentTranslation TextFor(string language) => ContentTranslation.Pick(_translations, language);
 
     /// <summary>Replaces the genres. Published content cannot be left without one.</summary>
     public Result SetGenres(IEnumerable<Guid> genreIds)

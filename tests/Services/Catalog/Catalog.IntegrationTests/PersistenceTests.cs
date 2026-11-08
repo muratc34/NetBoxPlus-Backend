@@ -5,6 +5,8 @@ using Catalog.Domain.People;
 using Catalog.Domain.Shows;
 using Catalog.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Catalog.IntegrationTests;
@@ -20,7 +22,7 @@ public sealed class PersistenceTests(CatalogDatabaseFixture database)
     public async Task Movie_IsStoredWithItsDescriptionGenresAndCredits()
     {
         await using var services = await database.CreateServicesAsync();
-        var genre = Genre.Create("Dram").Value;
+        var genre = Genre.Create(Names("Dram")).Value;
         var person = Person.Create("Ada", null).Value;
         var movie = NewMovie();
         movie.SetGenres([genre.Id]);
@@ -45,8 +47,8 @@ public sealed class PersistenceTests(CatalogDatabaseFixture database)
     public async Task Credits_AndGenres_CanBeReplacedOnAStoredMovie()
     {
         await using var services = await database.CreateServicesAsync();
-        var kept = Genre.Create("Dram").Value;
-        var dropped = Genre.Create("Komedi").Value;
+        var kept = Genre.Create(Names("Dram")).Value;
+        var dropped = Genre.Create(Names("Komedi")).Value;
         var person = Person.Create("Ada", null).Value;
         var other = Person.Create("Grace", null).Value;
         var movie = NewMovie();
@@ -72,8 +74,8 @@ public sealed class PersistenceTests(CatalogDatabaseFixture database)
     public async Task Series_LoadsItsSeasonsAndEpisodes_AndTakesNewOnes()
     {
         await using var services = await database.CreateServicesAsync();
-        var series = Series.Create(Info());
-        var season = series.AddSeason(1, "First").Value;
+        var series = Series.Create(Info(), Texts()).Value;
+        var season = series.AddSeason(1, new Dictionary<string, string?> { ["tr"] = "İlk" }).Value;
         var episode = series.AddEpisode(season.Id, Details(1)).Value;
         series.PublishEpisode(episode.Id, Now);
         await SaveAsync(services, context => context.Add(series));
@@ -105,7 +107,7 @@ public sealed class PersistenceTests(CatalogDatabaseFixture database)
     public async Task RemovedEpisodeAndSeason_LeaveTheDatabase()
     {
         await using var services = await database.CreateServicesAsync();
-        var series = Series.Create(Info());
+        var series = Series.Create(Info(), Texts()).Value;
         var season = series.AddSeason(1, null).Value;
         var episode = series.AddEpisode(season.Id, Details(1)).Value;
         await SaveAsync(services, context => context.Add(series));
@@ -130,7 +132,7 @@ public sealed class PersistenceTests(CatalogDatabaseFixture database)
     public async Task DeletedMovie_IsHidden_ButItsRowAndGenresStay()
     {
         await using var services = await database.CreateServicesAsync();
-        var genre = Genre.Create("Dram").Value;
+        var genre = Genre.Create(Names("Dram")).Value;
         var movie = NewMovie();
         movie.SetGenres([genre.Id]);
         await SaveAsync(services, context => context.AddRange(genre, movie));
@@ -158,10 +160,73 @@ public sealed class PersistenceTests(CatalogDatabaseFixture database)
     }
 
     [Fact]
+    public async Task Translations_AreStored_Changed_AndRemoved()
+    {
+        await using var services = await database.CreateServicesAsync();
+        var movie = Movie.Create(Info(), new Dictionary<string, ContentText>
+        {
+            ["tr"] = ContentText.Create("Gece Treni", "Uzun.").Value,
+            ["en"] = ContentText.Create("Night Train", "Long.").Value,
+        }, 120).Value;
+        await SaveAsync(services, context => context.Add(movie));
+
+        await using (var scope = services.CreateAsyncScope())
+        {
+            var tracked = await scope.ServiceProvider.GetRequiredService<IMovieRepository>().GetByIdAsync(movie.Id, Cancellation);
+            Assert.Equal("Night Train", tracked!.TextFor("en").Title);
+            tracked.SetTexts(Texts("Yeni Tren"));
+            await scope.ServiceProvider.GetRequiredService<CatalogDbContext>().SaveChangesAsync(Cancellation);
+        }
+
+        var found = await LoadMovieAsync(services, movie.Id);
+        Assert.Equal("Yeni Tren", Assert.Single(found!.Translations).Title);
+    }
+
+    [Fact]
+    public async Task ExistingContent_MovesToTheDefaultLanguage_WhenTheMigrationRuns()
+    {
+        await using var services = await database.CreateServicesAsync();
+        await using var scope = services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+        var migrator = context.GetInfrastructure().GetRequiredService<IMigrator>();
+        await migrator.MigrateAsync(BeforeTranslations(context), Cancellation);
+        var movie = Guid.CreateVersion7();
+        var series = Guid.CreateVersion7();
+        var season = Guid.CreateVersion7();
+        var episode = Guid.CreateVersion7();
+        var genre = Guid.CreateVersion7();
+        var person = Guid.CreateVersion7();
+        await context.Database.ExecuteSqlAsync($"""
+            INSERT INTO "Movies" ("Id", "Title", "Synopsis", "ReleaseYear", "AgeRating", "RuntimeMinutes", "Status", "CreatedAt", "IsDeleted", "Version") VALUES ({movie}, 'Film', 'Filmin konusu', 2024, 'All', 90, 'Draft', now(), false, 0);
+            INSERT INTO "Series" ("Id", "Title", "Synopsis", "ReleaseYear", "AgeRating", "Status", "CreatedAt", "IsDeleted", "Version") VALUES ({series}, 'Dizi', 'Dizinin konusu', 2024, 'All', 'Draft', now(), false, 0);
+            INSERT INTO "Seasons" ("Id", "SeriesId", "Number", "Title") VALUES ({season}, {series}, 1, 'Sezon');
+            INSERT INTO "Episodes" ("Id", "SeasonId", "Number", "Title", "Synopsis", "RuntimeMinutes", "Status") VALUES ({episode}, {season}, 1, 'Bölüm', 'Bölümün konusu', 45, 'Draft');
+            INSERT INTO "Genres" ("Id", "Name", "NormalizedName", "CreatedAt") VALUES ({genre}, 'Dram', 'DRAM', now());
+            INSERT INTO "People" ("Id", "Name", "Biography", "CreatedAt") VALUES ({person}, 'Ada', 'Yazar', now());
+            """, Cancellation);
+
+        await context.Database.MigrateAsync(Cancellation);
+
+        Assert.Equal("Film", (await context.Movies.AsNoTracking().SingleAsync(item => item.Id == movie, Cancellation)).TextFor("tr").Title);
+        var loaded = await context.Series.AsNoTracking().Include(item => item.Seasons).ThenInclude(item => item.Episodes).SingleAsync(item => item.Id == series, Cancellation);
+        Assert.Equal("Dizi", loaded.TextFor("tr").Title);
+        Assert.Equal("Sezon", loaded.Seasons.Single().TitleFor("tr"));
+        Assert.Equal("Bölüm", loaded.Seasons.Single().Episodes.Single().TextFor("tr").Title);
+        Assert.Equal("Dram", (await context.Genres.AsNoTracking().SingleAsync(item => item.Id == genre, Cancellation)).NameFor("tr"));
+        Assert.Equal("Yazar", (await context.People.AsNoTracking().SingleAsync(item => item.Id == person, Cancellation)).BiographyFor("tr")!.Biography);
+    }
+
+    private static string BeforeTranslations(CatalogDbContext context)
+    {
+        var all = context.Database.GetMigrations().ToList();
+        return all[all.FindIndex(name => name.EndsWith("_AddTranslations", StringComparison.Ordinal)) - 1];
+    }
+
+    [Fact]
     public async Task GenreInUse_CannotBeDeleted()
     {
         await using var services = await database.CreateServicesAsync();
-        var genre = Genre.Create("Dram").Value;
+        var genre = Genre.Create(Names("Dram")).Value;
         var movie = NewMovie();
         movie.SetGenres([genre.Id]);
         await SaveAsync(services, context => context.AddRange(genre, movie));
@@ -174,7 +239,7 @@ public sealed class PersistenceTests(CatalogDatabaseFixture database)
     {
         await using var services = await database.CreateServicesAsync();
         var person = Person.Create("Ada", null).Value;
-        var series = Series.Create(Info());
+        var series = Series.Create(Info(), Texts()).Value;
         series.SetCredits([new CreditInput(person.Id, CreditRole.Creator, null, 0)]);
         await SaveAsync(services, context => context.AddRange(person, series));
 
@@ -189,7 +254,7 @@ public sealed class PersistenceTests(CatalogDatabaseFixture database)
     public async Task UnusedGenre_CanBeDeleted()
     {
         await using var services = await database.CreateServicesAsync();
-        var genre = Genre.Create("Dram").Value;
+        var genre = Genre.Create(Names("Dram")).Value;
         await SaveAsync(services, context => context.Add(genre));
 
         await RemoveGenreAsync(services, genre.Id);
@@ -202,22 +267,22 @@ public sealed class PersistenceTests(CatalogDatabaseFixture database)
     public async Task GenreNames_AreUniqueByTurkishCase()
     {
         await using var services = await database.CreateServicesAsync();
-        await SaveAsync(services, context => context.Add(Genre.Create("ilk").Value));
+        await SaveAsync(services, context => context.Add(Genre.Create(Names("ilk")).Value));
 
         await using (var scope = services.CreateAsyncScope())
         {
-            Assert.True(await scope.ServiceProvider.GetRequiredService<IGenreRepository>().ExistsByNameAsync(" İlk ", Cancellation));
-            Assert.False(await scope.ServiceProvider.GetRequiredService<IGenreRepository>().ExistsByNameAsync("Ilk", Cancellation));
+            Assert.True(await scope.ServiceProvider.GetRequiredService<IGenreRepository>().AnyNameTakenAsync(Genre.Create(Names(" İlk ")).Value, Cancellation));
+            Assert.False(await scope.ServiceProvider.GetRequiredService<IGenreRepository>().AnyNameTakenAsync(Genre.Create(Names("Ilk")).Value, Cancellation));
         }
 
-        await Assert.ThrowsAsync<DbUpdateException>(() => SaveAsync(services, context => context.Add(Genre.Create("İLK").Value)));
+        await Assert.ThrowsAsync<DbUpdateException>(() => SaveAsync(services, context => context.Add(Genre.Create(Names("İLK")).Value)));
     }
 
     [Fact]
     public async Task SeasonAndEpisodeNumbers_AreUniqueInTheDatabase()
     {
         await using var services = await database.CreateServicesAsync();
-        var series = Series.Create(Info());
+        var series = Series.Create(Info(), Texts()).Value;
         var season = series.AddSeason(1, null).Value;
         var episode = series.AddEpisode(season.Id, Details(1)).Value;
         var second = series.AddEpisode(season.Id, Details(2)).Value;
@@ -233,11 +298,15 @@ public sealed class PersistenceTests(CatalogDatabaseFixture database)
         Assert.NotEqual(episode.Id, second.Id);
     }
 
-    private static ContentInfo Info() => ContentInfo.Create("Night Train", "Yolculuk", "A long journey.", 2024, AgeRating.Age13).Value;
+    private static Dictionary<string, string?> Names(string turkish) => new() { ["tr"] = turkish };
 
-    private static Movie NewMovie() => Movie.Create(Info(), 120).Value;
+    private static Dictionary<string, ContentText> Texts(string title = "Gece Treni") => new() { ["tr"] = ContentText.Create(title, "Uzun bir yolculuk.").Value };
 
-    private static EpisodeDetails Details(int number) => EpisodeDetails.Create(number, $"Episode {number}", "Something happens.", 45).Value;
+    private static ContentInfo Info() => ContentInfo.Create("Yolculuk", 2024, AgeRating.Age13).Value;
+
+    private static Movie NewMovie() => Movie.Create(Info(), Texts(), 120).Value;
+
+    private static EpisodeDetails Details(int number) => EpisodeDetails.Create(number, Texts($"Episode {number}"), 45).Value;
 
     private static async Task SaveAsync(ServiceProvider services, Action<CatalogDbContext> change)
     {

@@ -18,12 +18,19 @@ public sealed class Movie : ContentItem
 
     public int RuntimeMinutes { get; private set; }
 
-    public static Result<Movie> Create(ContentInfo info, int runtimeMinutes)
+    public static Result<Movie> Create(ContentInfo info, IReadOnlyDictionary<string, ContentText> texts, int runtimeMinutes)
     {
         ArgumentNullException.ThrowIfNull(info);
 
         var runtime = Runtime.Check(runtimeMinutes);
-        return runtime.IsFailure ? runtime.Error : new Movie(Guid.CreateVersion7(), info, runtimeMinutes);
+        if (runtime.IsFailure)
+        {
+            return runtime.Error;
+        }
+
+        var movie = new Movie(Guid.CreateVersion7(), info, runtimeMinutes);
+        var set = movie.SetTexts(texts);
+        return set.IsFailure ? set.Error : movie;
     }
 
     public Result ChangeRuntime(int runtimeMinutes)

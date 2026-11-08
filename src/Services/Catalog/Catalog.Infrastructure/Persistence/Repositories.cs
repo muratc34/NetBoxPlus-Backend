@@ -46,10 +46,23 @@ internal sealed class GenreRepository(CatalogDbContext context) : IGenreReposito
     public Task<Genre?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
         => context.Genres.FirstOrDefaultAsync(genre => genre.Id == id, cancellationToken);
 
-    public Task<bool> ExistsByNameAsync(string name, CancellationToken cancellationToken)
+    public async Task<bool> AnyNameTakenAsync(Genre genre, CancellationToken cancellationToken)
     {
-        var normalized = Genre.Normalize(name);
-        return context.Genres.AnyAsync(genre => genre.NormalizedName == normalized, cancellationToken);
+        foreach (var translation in genre.Translations)
+        {
+            var language = translation.Language;
+            var normalized = translation.NormalizedName;
+            var taken = await context.Genres
+                .AnyAsync(other => other.Id != genre.Id && other.Translations.Any(item => item.Language == language && item.NormalizedName == normalized), cancellationToken)
+                .ConfigureAwait(false);
+
+            if (taken)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public void Add(Genre genre) => context.Genres.Add(genre);

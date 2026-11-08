@@ -64,7 +64,7 @@ internal sealed class GetSeriesListHandler(ICatalogReadModel readModel, ContentR
         var items = page
             .Select(series => new SeriesSummary(
                 series.Id,
-                series.Info.Title,
+                series.TextFor(Languages.Default).Title,
                 series.Info.ReleaseYear,
                 series.Info.AgeRating,
                 series.Status,

@@ -15,7 +15,7 @@ public sealed record SeriesDetails(
     Guid Id,
     string Title,
     string? OriginalTitle,
-    string Synopsis,
+    IReadOnlyDictionary<string, ContentTextFields> Translations,
     int ReleaseYear,
     AgeRating AgeRating,
     PublicationStatus Status,
@@ -29,9 +29,9 @@ public sealed record SeriesDetails(
     DateTimeOffset CreatedAt,
     DateTimeOffset? ModifiedAt);
 
-public sealed record SeasonDetails(Guid Id, int Number, string? Title, IReadOnlyList<EpisodeResponse> Episodes);
+public sealed record SeasonDetails(Guid Id, int Number, string? Title, IReadOnlyDictionary<string, string> Translations, IReadOnlyList<EpisodeResponse> Episodes);
 
-public sealed record EpisodeResponse(Guid Id, int Number, string Title, string Synopsis, int RuntimeMinutes, PublicationStatus Status, DateTimeOffset? PublishedAt);
+public sealed record EpisodeResponse(Guid Id, int Number, string Title, IReadOnlyDictionary<string, ContentTextFields> Translations, int RuntimeMinutes, PublicationStatus Status, DateTimeOffset? PublishedAt);
 
 internal sealed class GetSeriesHandler(ICatalogReadModel readModel, ContentReader reader) : IQueryHandler<GetSeriesQuery, SeriesDetails>
 {
@@ -49,9 +49,9 @@ internal sealed class GetSeriesHandler(ICatalogReadModel readModel, ContentReade
         var names = await reader.LoadNamesAsync([series], cancellationToken).ConfigureAwait(false);
         return new SeriesDetails(
             series.Id,
-            series.Info.Title,
+            series.TextFor(Languages.Default).Title,
             series.Info.OriginalTitle,
-            series.Info.Synopsis,
+            series.Translations.ToDictionary(item => item.Language, item => new ContentTextFields(item.Title, item.Synopsis)),
             series.Info.ReleaseYear,
             series.Info.AgeRating,
             series.Status,
@@ -64,12 +64,13 @@ internal sealed class GetSeriesHandler(ICatalogReadModel readModel, ContentReade
             [.. series.Seasons.OrderBy(season => season.Number).Select(season => new SeasonDetails(
                 season.Id,
                 season.Number,
-                season.Title,
+                season.TitleFor(Languages.Default),
+                season.Translations.ToDictionary(item => item.Language, item => item.Title),
                 [.. season.Episodes.OrderBy(episode => episode.Number).Select(episode => new EpisodeResponse(
                     episode.Id,
                     episode.Number,
-                    episode.Title,
-                    episode.Synopsis,
+                    episode.TextFor(Languages.Default).Title,
+                    episode.Translations.ToDictionary(item => item.Language, item => new ContentTextFields(item.Title, item.Synopsis)),
                     episode.RuntimeMinutes,
                     episode.Status,
                     episode.PublishedAt))]))],

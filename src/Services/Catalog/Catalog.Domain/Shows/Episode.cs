@@ -10,16 +10,13 @@ namespace Catalog.Domain.Shows;
 public sealed class Episode : Entity
 {
     public const int MaxNumber = 10000;
-    public const int TitleMaxLength = 200;
-    public const int SynopsisMaxLength = 2000;
+
+    private readonly List<ContentTranslation> _translations = [];
 
     internal Episode(Guid id, EpisodeDetails details)
         : base(id)
     {
-        Number = details.Number;
-        Title = details.Title;
-        Synopsis = details.Synopsis;
-        RuntimeMinutes = details.RuntimeMinutes;
+        Change(details);
     }
 
     /// <summary>Used by EF Core when materializing.</summary>
@@ -29,10 +26,6 @@ public sealed class Episode : Entity
 
     public int Number { get; private set; }
 
-    public string Title { get; private set; } = string.Empty;
-
-    public string Synopsis { get; private set; } = string.Empty;
-
     public int RuntimeMinutes { get; private set; }
 
     public PublicationStatus Status { get; private set; }
@@ -41,12 +34,16 @@ public sealed class Episode : Entity
 
     public bool IsPublished => Status == PublicationStatus.Published;
 
+    public IReadOnlyCollection<ContentTranslation> Translations => _translations.AsReadOnly();
+
+    /// <summary>The text in the language, or in the default language when it has not been translated.</summary>
+    public ContentTranslation TextFor(string language) => ContentTranslation.Pick(_translations, language);
+
     internal void Change(EpisodeDetails details)
     {
         Number = details.Number;
-        Title = details.Title;
-        Synopsis = details.Synopsis;
         RuntimeMinutes = details.RuntimeMinutes;
+        ContentTranslation.Apply(_translations, details.Texts);
     }
 
     internal void Publish(DateTimeOffset now)
@@ -68,52 +65,35 @@ public sealed class Episode : Entity
 /// <summary>The editable fields of an episode, checked.</summary>
 public sealed record EpisodeDetails
 {
-    private EpisodeDetails(int number, string title, string synopsis, int runtimeMinutes)
+    private EpisodeDetails(int number, IReadOnlyDictionary<string, ContentText> texts, int runtimeMinutes)
     {
         Number = number;
-        Title = title;
-        Synopsis = synopsis;
+        Texts = texts;
         RuntimeMinutes = runtimeMinutes;
     }
 
     public int Number { get; }
 
-    public string Title { get; }
-
-    public string Synopsis { get; }
+    public IReadOnlyDictionary<string, ContentText> Texts { get; }
 
     public int RuntimeMinutes { get; }
 
-    public static Result<EpisodeDetails> Create(int number, string? title, string? synopsis, int runtimeMinutes)
+    public static Result<EpisodeDetails> Create(int number, IReadOnlyDictionary<string, ContentText> texts, int runtimeMinutes)
     {
+        ArgumentNullException.ThrowIfNull(texts);
+
         if (number is < 1 or > Episode.MaxNumber)
         {
             return SeriesErrors.EpisodeNumberOutOfRange;
         }
 
-        var trimmedTitle = title?.Trim();
-        if (string.IsNullOrEmpty(trimmedTitle))
+        var languages = ContentText.CheckLanguages(texts.Keys);
+        if (languages.IsFailure)
         {
-            return SeriesErrors.EpisodeTitleRequired;
-        }
-
-        if (trimmedTitle.Length > Episode.TitleMaxLength)
-        {
-            return SeriesErrors.EpisodeTitleTooLong;
-        }
-
-        var trimmedSynopsis = synopsis?.Trim();
-        if (string.IsNullOrEmpty(trimmedSynopsis))
-        {
-            return SeriesErrors.EpisodeSynopsisRequired;
-        }
-
-        if (trimmedSynopsis.Length > Episode.SynopsisMaxLength)
-        {
-            return SeriesErrors.EpisodeSynopsisTooLong;
+            return languages.Error;
         }
 
         var runtime = Runtime.Check(runtimeMinutes);
-        return runtime.IsFailure ? runtime.Error : new EpisodeDetails(number, trimmedTitle, trimmedSynopsis, runtimeMinutes);
+        return runtime.IsFailure ? runtime.Error : new EpisodeDetails(number, texts, runtimeMinutes);
     }
 }
