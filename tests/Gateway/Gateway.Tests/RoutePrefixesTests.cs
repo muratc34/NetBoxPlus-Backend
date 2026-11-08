@@ -5,20 +5,20 @@ namespace Gateway.Tests;
 
 public sealed class RoutePrefixesTests
 {
-    private static readonly RoutePrefixes Public = Parse("/sample/{**remainder}", RouteGroups.Public);
-    private static readonly RoutePrefixes Admin = Parse("/admin/sample/{**remainder}", RouteGroups.Admin);
+    private static readonly RoutePrefixes Public = Parse("/downstream/{**remainder}", RouteGroups.Public);
+    private static readonly RoutePrefixes Admin = Parse("/admin/downstream/{**remainder}", RouteGroups.Admin);
 
     [Fact]
     public void Prefixes_FollowTheGroupConventions()
     {
-        Assert.Equal(new RoutePrefixes("/sample", string.Empty), Public);
-        Assert.Equal(new RoutePrefixes("/admin/sample", "/admin"), Admin);
+        Assert.Equal(new RoutePrefixes("/downstream", string.Empty), Public);
+        Assert.Equal(new RoutePrefixes("/admin/downstream", "/admin"), Admin);
     }
 
     [Theory]
-    [InlineData("/notes/1", "/sample/notes/1")]
-    [InlineData("/notes/1?view=full", "/sample/notes/1?view=full")]
-    [InlineData("/", "/sample/")]
+    [InlineData("/notes/1", "/downstream/notes/1")]
+    [InlineData("/notes/1?view=full", "/downstream/notes/1?view=full")]
+    [InlineData("/", "/downstream/")]
     [InlineData("/admin/notes/1", null)]
     [InlineData("https://elsewhere.test/notes/1", null)]
     [InlineData("//elsewhere.test/notes/1", null)]
@@ -29,8 +29,8 @@ public sealed class RoutePrefixesTests
     }
 
     [Theory]
-    [InlineData("/admin/notes/1", "/admin/sample/notes/1")]
-    [InlineData("/admin", "/admin/sample")]
+    [InlineData("/admin/notes/1", "/admin/downstream/notes/1")]
+    [InlineData("/admin", "/admin/downstream")]
     [InlineData("/notes/1", null)]
     [InlineData("/administrators", null)]
     public void AdminRoute_MapsServicePaths(string servicePath, string? expected)

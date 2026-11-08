@@ -53,7 +53,7 @@ public sealed class ValkeyFixture : IAsyncLifetime
 public sealed class ValkeyCollection : ICollectionFixture<ValkeyFixture>;
 
 /// <summary>
-/// A gateway wired for sessions: real Valkey, the fake auth service, a downstream sample service and
+/// A gateway wired for sessions: real Valkey, the fake auth service, a downstream service and
 /// a clock the test moves. Several gateways can share the Valkey and the auth service, like
 /// instances behind a load balancer.
 /// </summary>
@@ -63,12 +63,12 @@ public sealed class SessionHarness : IAsyncDisposable
     private readonly ValkeyFixture _valkey;
     private readonly IReadOnlyDictionary<string, string?> _settings;
 
-    private SessionHarness(ValkeyFixture valkey, FakeTimeProvider time, FakeAuthService auth, DownstreamService sample, IReadOnlyDictionary<string, string?> settings)
+    private SessionHarness(ValkeyFixture valkey, FakeTimeProvider time, FakeAuthService auth, DownstreamService downstream, IReadOnlyDictionary<string, string?> settings)
     {
         _valkey = valkey;
         Time = time;
         Auth = auth;
-        Sample = sample;
+        Downstream = downstream;
         _settings = settings;
         Gateway = AddGateway();
     }
@@ -77,7 +77,7 @@ public sealed class SessionHarness : IAsyncDisposable
 
     public FakeAuthService Auth { get; }
 
-    public DownstreamService Sample { get; }
+    public DownstreamService Downstream { get; }
 
     public GatewayFactory Gateway { get; }
 
@@ -87,8 +87,8 @@ public sealed class SessionHarness : IAsyncDisposable
 
         var time = new FakeTimeProvider(DateTimeOffset.UtcNow);
         var auth = await FakeAuthService.StartAsync(time);
-        var sample = await DownstreamService.StartAsync();
-        return new SessionHarness(valkey, time, auth, sample, settings ?? new Dictionary<string, string?>());
+        var downstream = await DownstreamService.StartAsync();
+        return new SessionHarness(valkey, time, auth, downstream, settings ?? new Dictionary<string, string?>());
     }
 
     /// <summary>Another gateway instance on the same Valkey and auth service.</summary>
@@ -100,7 +100,7 @@ public sealed class SessionHarness : IAsyncDisposable
             ["Session:AuthAddress"] = Auth.Address,
         };
 
-        var gateway = new GatewayFactory(Sample.Address, settings, services => services.Replace(ServiceDescriptor.Singleton<TimeProvider>(Time)));
+        var gateway = new GatewayFactory(Downstream.Address, settings, services => services.Replace(ServiceDescriptor.Singleton<TimeProvider>(Time)));
         _gateways.Add(gateway);
         return gateway;
     }
@@ -135,7 +135,7 @@ public sealed class SessionHarness : IAsyncDisposable
         }
 
         await Auth.DisposeAsync();
-        await Sample.DisposeAsync();
+        await Downstream.DisposeAsync();
     }
 }
 

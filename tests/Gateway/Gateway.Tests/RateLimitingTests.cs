@@ -5,13 +5,13 @@ namespace Gateway.Tests;
 
 public sealed class RateLimitingTests : IAsyncLifetime
 {
-    private DownstreamService _sample = null!;
+    private DownstreamService _downstream = null!;
     private GatewayFactory _gateway = null!;
 
     public async ValueTask InitializeAsync()
     {
-        _sample = await DownstreamService.StartAsync();
-        _gateway = new GatewayFactory(_sample.Address, new Dictionary<string, string?>
+        _downstream = await DownstreamService.StartAsync();
+        _gateway = new GatewayFactory(_downstream.Address, new Dictionary<string, string?>
         {
             ["RateLimiting:Public:PermitLimit"] = "2",
             ["RateLimiting:Public:Window"] = "00:10:00",
@@ -24,7 +24,7 @@ public sealed class RateLimitingTests : IAsyncLifetime
     public async Task RequestOverTheLimit_IsTooManyRequestsProblem()
     {
         var client = _gateway.CreateClient();
-        var path = new Uri("/sample/notes", UriKind.Relative);
+        var path = new Uri("/downstream/notes", UriKind.Relative);
 
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(path, TestContext.Current.CancellationToken)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(path, TestContext.Current.CancellationToken)).StatusCode);
@@ -40,7 +40,7 @@ public sealed class RateLimitingTests : IAsyncLifetime
         Assert.Equal("RateLimit.Exceeded", problem.RootElement.GetProperty("code").GetString());
         Assert.Equal(429, problem.RootElement.GetProperty("status").GetInt32());
         Assert.True(problem.RootElement.TryGetProperty("traceId", out _));
-        Assert.Equal(2, _sample.Received.Count);
+        Assert.Equal(2, _downstream.Received.Count);
     }
 
     [Fact]
@@ -48,15 +48,15 @@ public sealed class RateLimitingTests : IAsyncLifetime
     {
         var client = _gateway.CreateClient();
 
-        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(new Uri("/admin/sample/notes", UriKind.Relative), TestContext.Current.CancellationToken)).StatusCode);
-        Assert.Equal(HttpStatusCode.TooManyRequests, (await client.GetAsync(new Uri("/admin/sample/notes", UriKind.Relative), TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(new Uri("/admin/downstream/notes", UriKind.Relative), TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests, (await client.GetAsync(new Uri("/admin/downstream/notes", UriKind.Relative), TestContext.Current.CancellationToken)).StatusCode);
 
-        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(new Uri("/sample/notes", UriKind.Relative), TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(new Uri("/downstream/notes", UriKind.Relative), TestContext.Current.CancellationToken)).StatusCode);
     }
 
     public async ValueTask DisposeAsync()
     {
         await _gateway.DisposeAsync();
-        await _sample.DisposeAsync();
+        await _downstream.DisposeAsync();
     }
 }

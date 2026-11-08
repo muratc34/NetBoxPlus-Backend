@@ -4,18 +4,18 @@ namespace Gateway.Tests;
 
 public sealed class CorsTests : IAsyncLifetime
 {
-    private DownstreamService _sample = null!;
+    private DownstreamService _downstream = null!;
     private GatewayFactory _gateway = null!;
 
     public async ValueTask InitializeAsync()
     {
-        _sample = await DownstreamService.StartAsync();
-        _gateway = new GatewayFactory(_sample.Address);
+        _downstream = await DownstreamService.StartAsync();
+        _gateway = new GatewayFactory(_downstream.Address);
     }
 
     [Theory]
-    [InlineData("/sample/notes", GatewayFactory.PublicOrigin)]
-    [InlineData("/admin/sample/notes", GatewayFactory.AdminOrigin)]
+    [InlineData("/downstream/notes", GatewayFactory.PublicOrigin)]
+    [InlineData("/admin/downstream/notes", GatewayFactory.AdminOrigin)]
     public async Task Preflight_FromTheGroupsOrigin_IsAllowed(string path, string origin)
     {
         var response = await PreflightAsync(path, origin);
@@ -23,13 +23,13 @@ public sealed class CorsTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
         Assert.Equal(origin, Assert.Single(response.Headers.GetValues("Access-Control-Allow-Origin")));
         Assert.Equal("true", Assert.Single(response.Headers.GetValues("Access-Control-Allow-Credentials")));
-        Assert.Empty(_sample.Received);
+        Assert.Empty(_downstream.Received);
     }
 
     [Theory]
-    [InlineData("/sample/notes", GatewayFactory.AdminOrigin)]
-    [InlineData("/admin/sample/notes", GatewayFactory.PublicOrigin)]
-    [InlineData("/sample/notes", "https://elsewhere.test")]
+    [InlineData("/downstream/notes", GatewayFactory.AdminOrigin)]
+    [InlineData("/admin/downstream/notes", GatewayFactory.PublicOrigin)]
+    [InlineData("/downstream/notes", "https://elsewhere.test")]
     public async Task Preflight_FromAnotherOrigin_IsNotAllowed(string path, string origin)
     {
         var response = await PreflightAsync(path, origin);
@@ -50,6 +50,6 @@ public sealed class CorsTests : IAsyncLifetime
     public async ValueTask DisposeAsync()
     {
         await _gateway.DisposeAsync();
-        await _sample.DisposeAsync();
+        await _downstream.DisposeAsync();
     }
 }

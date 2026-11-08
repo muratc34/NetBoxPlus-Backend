@@ -137,7 +137,7 @@ Migrator'daki seed):
   (`/<s>/{**remainder}`, `PathRemovePrefix: /<s>`, `RouteGroup: public`) ve, admin endpoint'i
   varsa, `<s>-admin` (`/admin/<s>/{**remainder}`, `PathPattern: /admin/{**remainder}`,
   `RouteGroup: admin`); cluster adresi base'de compose adı, `appsettings.Development.json`'da
-  `localhost` portu. Portlar: gateway 5100, Auth 5103; sıradaki servis 5104 (5101-5102 silinen örnek servislerindi).
+  `localhost` portu. Portlar: gateway 5100, Auth 5103; sıradaki servis 5104.
 - Admin yazma command'ları `IAuditedCommand` implement eder (`AuditTargetId` explicit, JSON'a
   girmesin) ve secret taşımaz; liste endpoint'leri `Shared.Application.Paging` (`page`,
   `pageSize`, en fazla 100).
@@ -145,8 +145,7 @@ Migrator'daki seed):
   iç içe sınıfına eklenir (`<servis>:<kaynak>:<eylem>`, küçük harf); servis aynı string'i
   `RequirePermission` ile kontrol eder. Katalogda olmayan permission bir role atanamaz.
 
-**Başka bir servisin event'ini tüketmek** — henüz tüketen servis yok; ilk gerçek tüketici referans
-olur. O zamana kadar örnek git geçmişinde: `git show 8321acd:src/Services/Feed/Feed.Application/...`.
+**Başka bir servisin event'ini tüketmek** — henüz tüketen servis yok; ilk gerçek tüketici referans olur.
 
 - `<S>.Application` diğer servisin sadece `*.Contracts` projesini referans alır.
 - `IIntegrationEventHandler<TEvent>` event'i bir command'a çevirip `dispatcher.Send` ile gönderir;

@@ -8,8 +8,8 @@ public sealed class RouteGroupConfigFilterTests
     private readonly RouteGroupConfigFilter _filter = new();
 
     [Theory]
-    [InlineData("public", "/sample/{**remainder}")]
-    [InlineData("admin", "/admin/sample/{**remainder}")]
+    [InlineData("public", "/downstream/{**remainder}")]
+    [InlineData("admin", "/admin/downstream/{**remainder}")]
     public async Task Route_GetsThePoliciesOfItsGroup(string group, string path)
     {
         var configured = await _filter.ConfigureRouteAsync(Route(path, group), cluster: null, TestContext.Current.CancellationToken);
@@ -19,13 +19,13 @@ public sealed class RouteGroupConfigFilterTests
     }
 
     [Theory]
-    [InlineData(null, "/sample/{**remainder}", "has no 'RouteGroup' metadata")]
-    [InlineData("internal", "/sample/{**remainder}", "unknown group 'internal'")]
-    [InlineData("admin", "/sample/{**remainder}", "must start with '/admin/'")]
-    [InlineData("public", "/admin/sample/{**remainder}", "must not start with '/admin'")]
+    [InlineData(null, "/downstream/{**remainder}", "has no 'RouteGroup' metadata")]
+    [InlineData("internal", "/downstream/{**remainder}", "unknown group 'internal'")]
+    [InlineData("admin", "/downstream/{**remainder}", "must start with '/admin/'")]
+    [InlineData("public", "/admin/downstream/{**remainder}", "must not start with '/admin'")]
     [InlineData("public", "/Admin/{**remainder}", "must not start with '/admin'")]
-    [InlineData("public", "/sample/{id}", "one catch-all")]
-    [InlineData("public", "/sample/{**remainder}/edit", "one catch-all")]
+    [InlineData("public", "/downstream/{id}", "one catch-all")]
+    [InlineData("public", "/downstream/{**remainder}/edit", "one catch-all")]
     [InlineData("admin", "/admin/{service}/{**remainder}", "one catch-all")]
     public async Task InvalidRoute_IsRejected(string? group, string path, string expected)
     {
@@ -38,7 +38,7 @@ public sealed class RouteGroupConfigFilterTests
     [Fact]
     public async Task RouteWithItsOwnPolicy_IsRejected()
     {
-        var route = Route("/admin/sample/{**remainder}", "admin") with { RateLimiterPolicy = "public" };
+        var route = Route("/admin/downstream/{**remainder}", "admin") with { RateLimiterPolicy = "public" };
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await _filter.ConfigureRouteAsync(route, cluster: null, TestContext.Current.CancellationToken));
@@ -49,7 +49,7 @@ public sealed class RouteGroupConfigFilterTests
     {
         await using var gateway = new GatewayFactory("http://127.0.0.1:1", new Dictionary<string, string?>
         {
-            ["ReverseProxy:Routes:sample-admin:Metadata:RouteGroup"] = "public",
+            ["ReverseProxy:Routes:downstream-admin:Metadata:RouteGroup"] = "public",
         });
 
         Assert.ThrowsAny<Exception>(() => gateway.CreateClient());
@@ -58,7 +58,7 @@ public sealed class RouteGroupConfigFilterTests
     private static RouteConfig Route(string path, string? group) => new()
     {
         RouteId = "test",
-        ClusterId = "sample",
+        ClusterId = "downstream",
         Match = new RouteMatch { Path = path },
         Metadata = group is null ? null : new Dictionary<string, string> { [RouteGroups.MetadataKey] = group },
     };

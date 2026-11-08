@@ -73,10 +73,10 @@ public sealed class SessionTests(ValkeyFixture valkey)
         var browser = harness.NewBrowser();
         await browser.SignInAsync();
 
-        var response = await browser.SendAsync(HttpMethod.Get, "/sample/notes");
+        var response = await browser.SendAsync(HttpMethod.Get, "/downstream/notes");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var received = Assert.Single(harness.Sample.Received);
+        var received = Assert.Single(harness.Downstream.Received);
         Assert.StartsWith("Bearer eyJ", received.Headers["Authorization"], StringComparison.Ordinal);
         Assert.False(received.Headers.ContainsKey("Cookie"));
     }
@@ -86,9 +86,9 @@ public sealed class SessionTests(ValkeyFixture valkey)
     {
         await using var harness = await SessionHarness.StartAsync(valkey);
 
-        await harness.NewBrowser().SendAsync(HttpMethod.Get, "/sample/notes", bearer: "client-token");
+        await harness.NewBrowser().SendAsync(HttpMethod.Get, "/downstream/notes", bearer: "client-token");
 
-        Assert.Equal("Bearer client-token", Assert.Single(harness.Sample.Received).Headers["Authorization"]);
+        Assert.Equal("Bearer client-token", Assert.Single(harness.Downstream.Received).Headers["Authorization"]);
     }
 
     [Fact]
@@ -98,9 +98,9 @@ public sealed class SessionTests(ValkeyFixture valkey)
         var browser = harness.NewBrowser();
         await browser.SignInAsync();
 
-        var missing = await browser.SendAsync(HttpMethod.Post, "/sample/notes", new { }, withCsrf: false);
+        var missing = await browser.SendAsync(HttpMethod.Post, "/downstream/notes", new { }, withCsrf: false);
         browser.CsrfToken = new string('x', 43);
-        var wrong = await browser.SendAsync(HttpMethod.Delete, "/sample/notes/1");
+        var wrong = await browser.SendAsync(HttpMethod.Delete, "/downstream/notes/1");
 
         foreach (var response in new[] { missing, wrong })
         {
@@ -108,7 +108,7 @@ public sealed class SessionTests(ValkeyFixture valkey)
             Assert.Equal("Csrf.Invalid", await CodeAsync(response));
         }
 
-        Assert.Empty(harness.Sample.Received);
+        Assert.Empty(harness.Downstream.Received);
     }
 
     [Fact]
@@ -118,10 +118,10 @@ public sealed class SessionTests(ValkeyFixture valkey)
         var browser = harness.NewBrowser();
         await browser.SignInAsync();
 
-        var response = await browser.SendAsync(HttpMethod.Post, "/sample/notes", new { });
+        var response = await browser.SendAsync(HttpMethod.Post, "/downstream/notes", new { });
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        Assert.False(Assert.Single(harness.Sample.Received).Headers.ContainsKey("X-CSRF-Token"));
+        Assert.False(Assert.Single(harness.Downstream.Received).Headers.ContainsKey("X-CSRF-Token"));
     }
 
     [Fact]
@@ -133,10 +133,10 @@ public sealed class SessionTests(ValkeyFixture valkey)
         var customer = harness.NewBrowser();
         await customer.SignInAsync();
 
-        await admin.SendAsync(HttpMethod.Get, "/sample/notes");
-        await customer.SendAsync(HttpMethod.Get, "/admin/sample/notes");
+        await admin.SendAsync(HttpMethod.Get, "/downstream/notes");
+        await customer.SendAsync(HttpMethod.Get, "/admin/downstream/notes");
 
-        Assert.All(harness.Sample.Received, received =>
+        Assert.All(harness.Downstream.Received, received =>
         {
             Assert.False(received.Headers.ContainsKey("Authorization"));
             Assert.False(received.Headers.ContainsKey("Cookie"));
@@ -155,12 +155,12 @@ public sealed class SessionTests(ValkeyFixture valkey)
         var browser = harness.NewBrowser();
         await browser.SignInAsync();
 
-        var responses = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => browser.SendAsync(HttpMethod.Get, "/sample/notes")));
+        var responses = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => browser.SendAsync(HttpMethod.Get, "/downstream/notes")));
 
         Assert.All(responses, response => Assert.Equal(HttpStatusCode.OK, response.StatusCode));
         Assert.Equal(1, harness.Auth.RefreshCalls);
         Assert.Empty(harness.Auth.Reused);
-        Assert.Single(harness.Sample.Received.Select(received => received.Headers["Authorization"]).Distinct());
+        Assert.Single(harness.Downstream.Received.Select(received => received.Headers["Authorization"]).Distinct());
     }
 
     [Fact]
@@ -178,7 +178,7 @@ public sealed class SessionTests(ValkeyFixture valkey)
         }
 
         var responses = await Task.WhenAll(Enumerable.Range(0, 10)
-            .SelectMany(_ => new[] { first.SendAsync(HttpMethod.Get, "/sample/notes"), second.SendAsync(HttpMethod.Get, "/sample/notes") }));
+            .SelectMany(_ => new[] { first.SendAsync(HttpMethod.Get, "/downstream/notes"), second.SendAsync(HttpMethod.Get, "/downstream/notes") }));
 
         Assert.All(responses, response => Assert.Equal(HttpStatusCode.OK, response.StatusCode));
         Assert.Equal(1, harness.Auth.RefreshCalls);
@@ -214,12 +214,12 @@ public sealed class SessionTests(ValkeyFixture valkey)
         harness.Auth.RefuseRefresh = true;
         harness.Time.Advance(TimeSpan.FromMinutes(15));
 
-        var response = await browser.SendAsync(HttpMethod.Get, "/sample/notes");
+        var response = await browser.SendAsync(HttpMethod.Get, "/downstream/notes");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Equal("Session.Expired", await CodeAsync(response));
         Assert.False(browser.Cookies.ContainsKey(CustomerCookie));
-        Assert.Empty(harness.Sample.Received);
+        Assert.Empty(harness.Downstream.Received);
 
         browser.Cookies[CustomerCookie] = cookie;
         Assert.Equal("Session.Expired", await CodeAsync(await browser.SendAsync(HttpMethod.Get, "/session")));
@@ -241,7 +241,7 @@ public sealed class SessionTests(ValkeyFixture valkey)
         Assert.False(browser.Cookies.ContainsKey(CustomerCookie));
 
         browser.Cookies[CustomerCookie] = cookie;
-        Assert.Equal(HttpStatusCode.Unauthorized, (await browser.SendAsync(HttpMethod.Get, "/sample/notes")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await browser.SendAsync(HttpMethod.Get, "/downstream/notes")).StatusCode);
     }
 
     [Fact]
@@ -320,15 +320,15 @@ public sealed class SessionTests(ValkeyFixture valkey)
         await using var harness = await SessionHarness.StartAsync(valkey);
         var browser = harness.NewBrowser();
         await browser.SignInAsync();
-        await browser.SendAsync(HttpMethod.Get, "/sample/notes");
+        await browser.SendAsync(HttpMethod.Get, "/downstream/notes");
 
         var wrong = await browser.SendAsync(HttpMethod.Post, "/session/password", new { currentPassword = "nope", newPassword = "another long password" });
         var changed = await browser.SendAsync(HttpMethod.Post, "/session/password", new { currentPassword = FakeAuthService.Password, newPassword = "another long password" });
-        await browser.SendAsync(HttpMethod.Get, "/sample/notes");
+        await browser.SendAsync(HttpMethod.Get, "/downstream/notes");
 
         Assert.Equal("User.PasswordIncorrect", await CodeAsync(wrong));
         Assert.Equal(HttpStatusCode.NoContent, changed.StatusCode);
-        var tokens = harness.Sample.Received.Select(received => received.Headers["Authorization"]).ToList();
+        var tokens = harness.Downstream.Received.Select(received => received.Headers["Authorization"]).ToList();
         Assert.NotEqual(tokens[0], tokens[1]);
         Assert.Equal("Bearer " + harness.Auth.PasswordChanges.First(), tokens[0]);
     }
@@ -339,9 +339,9 @@ public sealed class SessionTests(ValkeyFixture valkey)
         await using var harness = await SessionHarness.StartAsync(valkey);
         var browser = harness.NewBrowser();
         await browser.SignInAsync("stored@example.com");
-        await browser.SendAsync(HttpMethod.Get, "/sample/notes");
+        await browser.SendAsync(HttpMethod.Get, "/downstream/notes");
         var cookie = browser.Cookies[CustomerCookie];
-        var accessToken = harness.Sample.Received.Single().Headers["Authorization"]["Bearer ".Length..];
+        var accessToken = harness.Downstream.Received.Single().Headers["Authorization"]["Bearer ".Length..];
 
         var keys = await harness.ValkeyKeysAsync("gateway:session:*");
         var values = await harness.ValkeyValuesAsync("gateway:session:*");

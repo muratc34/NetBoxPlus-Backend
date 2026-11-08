@@ -6,11 +6,11 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Gateway.Tests;
 
 /// <summary>
-/// The gateway in memory with the routes of <c>appsettings.json</c> plus a test-only <c>sample</c> service
-/// at <paramref name="sampleAddress"/>, and any further settings on top.
+/// The gateway in memory with the routes of <c>appsettings.json</c> plus a test-only <c>downstream</c> service
+/// at <paramref name="downstreamAddress"/>, and any further settings on top.
 /// </summary>
 public sealed class GatewayFactory(
-    string sampleAddress,
+    string downstreamAddress,
     IReadOnlyDictionary<string, string?>? settings = null,
     Action<IServiceCollection>? configureServices = null)
     : WebApplicationFactory<Program>
@@ -23,15 +23,15 @@ public sealed class GatewayFactory(
         // Not "Development": that would point the cluster at a locally running service.
         builder.UseEnvironment("Testing");
         // The product has no public routes of its own yet, so the tests bring a service of their own.
-        builder.UseSetting("ReverseProxy:Routes:sample-public:ClusterId", "sample");
-        builder.UseSetting("ReverseProxy:Routes:sample-public:Match:Path", "/sample/{**remainder}");
-        builder.UseSetting("ReverseProxy:Routes:sample-public:Metadata:RouteGroup", "public");
-        builder.UseSetting("ReverseProxy:Routes:sample-public:Transforms:0:PathRemovePrefix", "/sample");
-        builder.UseSetting("ReverseProxy:Routes:sample-admin:ClusterId", "sample");
-        builder.UseSetting("ReverseProxy:Routes:sample-admin:Match:Path", "/admin/sample/{**remainder}");
-        builder.UseSetting("ReverseProxy:Routes:sample-admin:Metadata:RouteGroup", "admin");
-        builder.UseSetting("ReverseProxy:Routes:sample-admin:Transforms:0:PathPattern", "/admin/{**remainder}");
-        builder.UseSetting("ReverseProxy:Clusters:sample:Destinations:primary:Address", sampleAddress);
+        builder.UseSetting("ReverseProxy:Routes:downstream-public:ClusterId", "downstream");
+        builder.UseSetting("ReverseProxy:Routes:downstream-public:Match:Path", "/downstream/{**remainder}");
+        builder.UseSetting("ReverseProxy:Routes:downstream-public:Metadata:RouteGroup", "public");
+        builder.UseSetting("ReverseProxy:Routes:downstream-public:Transforms:0:PathRemovePrefix", "/downstream");
+        builder.UseSetting("ReverseProxy:Routes:downstream-admin:ClusterId", "downstream");
+        builder.UseSetting("ReverseProxy:Routes:downstream-admin:Match:Path", "/admin/downstream/{**remainder}");
+        builder.UseSetting("ReverseProxy:Routes:downstream-admin:Metadata:RouteGroup", "admin");
+        builder.UseSetting("ReverseProxy:Routes:downstream-admin:Transforms:0:PathPattern", "/admin/{**remainder}");
+        builder.UseSetting("ReverseProxy:Clusters:downstream:Destinations:primary:Address", downstreamAddress);
         builder.UseSetting("Cors:PublicOrigins:0", PublicOrigin);
         builder.UseSetting("Cors:AdminOrigins:0", AdminOrigin);
 
