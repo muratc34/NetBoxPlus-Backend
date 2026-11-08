@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Catalog.API.Admin;
+using Catalog.API.Public;
 using Catalog.Application;
 using Catalog.Infrastructure;
 using Shared.Infrastructure.API.Hosting;
@@ -35,6 +36,7 @@ app.MapMovieAdminEndpoints();
 app.MapSeriesAdminEndpoints();
 app.MapPersonAdminEndpoints();
 app.MapGenreAdminEndpoints();
+app.MapBrowseEndpoints();
 app.MapDefaultEndpoints();
 
 app.Run();

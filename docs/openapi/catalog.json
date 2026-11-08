@@ -2269,6 +2269,238 @@
           }
         }
       }
+    },
+    "/titles": {
+      "get": {
+        "tags": [
+          "Browse"
+        ],
+        "summary": "Lists published movies and series, most recently published first.",
+        "operationId": "GetTitles",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/TitleKind"
+            }
+          },
+          {
+            "name": "genreId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "personId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfTitleSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/movies/{id}": {
+      "get": {
+        "tags": [
+          "Browse"
+        ],
+        "summary": "Returns a published movie.",
+        "operationId": "GetPublishedMovie",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedMovie"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/series/{id}": {
+      "get": {
+        "tags": [
+          "Browse"
+        ],
+        "summary": "Returns a published series with its published episodes.",
+        "operationId": "GetPublishedSeries",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedSeries"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/genres": {
+      "get": {
+        "tags": [
+          "Browse"
+        ],
+        "summary": "Lists the genres that have published content.",
+        "operationId": "GetPublishedGenres",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GenreReference"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/people/{id}": {
+      "get": {
+        "tags": [
+          "Browse"
+        ],
+        "summary": "Returns someone credited on published content.",
+        "operationId": "GetPublicPerson",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicPerson"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2927,6 +3159,47 @@
           }
         }
       },
+      "PageOfTitleSummary": {
+        "required": [
+          "items",
+          "pageNumber",
+          "pageSize",
+          "totalCount"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TitleSummary"
+            }
+          },
+          "pageNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "pageSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "totalCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "PersonRequest": {
         "required": [
           "name",
@@ -3014,6 +3287,226 @@
           "Draft",
           "Published"
         ]
+      },
+      "PublicPerson": {
+        "required": [
+          "id",
+          "name",
+          "biography"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "biography": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PublishedEpisode": {
+        "required": [
+          "id",
+          "number",
+          "title",
+          "synopsis",
+          "runtimeMinutes"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "number": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "title": {
+            "type": "string"
+          },
+          "synopsis": {
+            "type": "string"
+          },
+          "runtimeMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "PublishedMovie": {
+        "required": [
+          "id",
+          "title",
+          "originalTitle",
+          "synopsis",
+          "releaseYear",
+          "ageRating",
+          "runtimeMinutes",
+          "genres",
+          "credits"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "originalTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "synopsis": {
+            "type": "string"
+          },
+          "releaseYear": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "ageRating": {
+            "$ref": "#/components/schemas/AgeRating"
+          },
+          "runtimeMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "genres": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GenreReference"
+            }
+          },
+          "credits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreditResponse"
+            }
+          }
+        }
+      },
+      "PublishedSeason": {
+        "required": [
+          "id",
+          "number",
+          "title",
+          "episodes"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "number": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "episodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublishedEpisode"
+            }
+          }
+        }
+      },
+      "PublishedSeries": {
+        "required": [
+          "id",
+          "title",
+          "originalTitle",
+          "synopsis",
+          "releaseYear",
+          "ageRating",
+          "genres",
+          "credits",
+          "seasons"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "originalTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "synopsis": {
+            "type": "string"
+          },
+          "releaseYear": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "ageRating": {
+            "$ref": "#/components/schemas/AgeRating"
+          },
+          "genres": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GenreReference"
+            }
+          },
+          "credits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreditResponse"
+            }
+          },
+          "seasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublishedSeason"
+            }
+          }
+        }
       },
       "SeasonDetails": {
         "required": [
@@ -3313,6 +3806,52 @@
             }
           }
         }
+      },
+      "TitleKind": {
+        "enum": [
+          "Movie",
+          "Series"
+        ]
+      },
+      "TitleSummary": {
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "releaseYear",
+          "ageRating",
+          "genres"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/TitleKind"
+          },
+          "title": {
+            "type": "string"
+          },
+          "releaseYear": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "ageRating": {
+            "$ref": "#/components/schemas/AgeRating"
+          },
+          "genres": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GenreReference"
+            }
+          }
+        }
       }
     }
   },
@@ -3328,6 +3867,9 @@
     },
     {
       "name": "Genres"
+    },
+    {
+      "name": "Browse"
     }
   ]
 }
