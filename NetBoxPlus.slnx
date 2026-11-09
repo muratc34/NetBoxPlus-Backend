@@ -19,6 +19,13 @@
     <Project Path="src/Services/Auth/Auth.Infrastructure/Auth.Infrastructure.csproj" />
     <Project Path="src/Services/Auth/Auth.Migrator/Auth.Migrator.csproj" />
   </Folder>
+  <Folder Name="/src/Services/Billing/">
+    <Project Path="src/Services/Billing/Billing.API/Billing.API.csproj" />
+    <Project Path="src/Services/Billing/Billing.Application/Billing.Application.csproj" />
+    <Project Path="src/Services/Billing/Billing.Domain/Billing.Domain.csproj" />
+    <Project Path="src/Services/Billing/Billing.Infrastructure/Billing.Infrastructure.csproj" />
+    <Project Path="src/Services/Billing/Billing.Migrator/Billing.Migrator.csproj" />
+  </Folder>
   <Folder Name="/src/Services/Catalog/">
     <Project Path="src/Services/Catalog/Catalog.API/Catalog.API.csproj" />
     <Project Path="src/Services/Catalog/Catalog.Application/Catalog.Application.csproj" />
@@ -43,6 +50,10 @@
   <Folder Name="/tests/Services/Auth/">
     <Project Path="tests/Services/Auth/Auth.Domain.Tests/Auth.Domain.Tests.csproj" />
     <Project Path="tests/Services/Auth/Auth.IntegrationTests/Auth.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Services/Billing/">
+    <Project Path="tests/Services/Billing/Billing.Domain.Tests/Billing.Domain.Tests.csproj" />
+    <Project Path="tests/Services/Billing/Billing.IntegrationTests/Billing.IntegrationTests.csproj" />
   </Folder>
   <Folder Name="/tests/Services/Catalog/">
     <Project Path="tests/Services/Catalog/Catalog.Domain.Tests/Catalog.Domain.Tests.csproj" />

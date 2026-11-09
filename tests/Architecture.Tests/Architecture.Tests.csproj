@@ -6,6 +6,8 @@
     <ProjectReference Include="../../src/Services/Auth/Auth.Migrator/Auth.Migrator.csproj" />
     <ProjectReference Include="../../src/Services/Catalog/Catalog.API/Catalog.API.csproj" />
     <ProjectReference Include="../../src/Services/Catalog/Catalog.Migrator/Catalog.Migrator.csproj" />
+    <ProjectReference Include="../../src/Services/Billing/Billing.API/Billing.API.csproj" />
+    <ProjectReference Include="../../src/Services/Billing/Billing.Migrator/Billing.Migrator.csproj" />
     <ProjectReference Include="../../src/Gateway/Gateway/Gateway.csproj" />
   </ItemGroup>
 

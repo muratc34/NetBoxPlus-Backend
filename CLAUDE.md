@@ -5,7 +5,7 @@ mikroservisler, servis başına Clean Architecture, ortak kod `src/BuildingBlock
 Her geliştirmeden sonra bu dosya ve ilgili doküman güncellenir.
 
 - Kararlar ve gerekçeleri: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- Aktif faz ve iş dökümü: [docs/PHASE-2.md](docs/PHASE-2.md) (bitenler: [docs/PHASE-0.md](docs/PHASE-0.md), [docs/PHASE-1.md](docs/PHASE-1.md))
+- Aktif faz ve iş dökümü: [docs/PHASE-3.md](docs/PHASE-3.md) (bitenler: [docs/PHASE-0.md](docs/PHASE-0.md), [docs/PHASE-1.md](docs/PHASE-1.md), [docs/PHASE-2.md](docs/PHASE-2.md))
 
 Bu dokümanlar **sadece lokalde** durur, repoya commit edilmez (`.gitignore`'da `/docs/*.md`).
 GitHub'da yokturlar; commit'lenen hiçbir dosya (README dahil) onlara link vermez.
@@ -94,7 +94,7 @@ Catalog araması Elasticsearch ister: `./deploy/dev.ps1 up -Search`. Index'i ver
 `dotnet run --project src/Services/Catalog/Catalog.Migrator -- reindex`.
 
 Diğer servisler de aynı şekilde (`<S>.Migrator`, `<S>.API`). Gateway (`http://localhost:5100`;
-Development'ta Auth'a `localhost:5103`, Catalog'a `localhost:5104` üzerinden gider; tarayıcı oturumları için Valkey ve Auth çalışmalı):
+Development'ta Auth'a `localhost:5103`, Catalog'a `localhost:5104`, Billing'e `localhost:5105` üzerinden gider; tarayıcı oturumları için Valkey ve Auth çalışmalı):
 
 ```powershell
 dotnet run --project src/Gateway/Gateway --launch-profile Gateway
@@ -141,7 +141,7 @@ Migrator'daki seed):
   (`/<s>/{**remainder}`, `PathRemovePrefix: /<s>`, `RouteGroup: public`) ve, admin endpoint'i
   varsa, `<s>-admin` (`/admin/<s>/{**remainder}`, `PathPattern: /admin/{**remainder}`,
   `RouteGroup: admin`); cluster adresi base'de compose adı, `appsettings.Development.json`'da
-  `localhost` portu. Portlar: gateway 5100, Auth 5103, Catalog 5104; sıradaki servis 5105.
+  `localhost` portu. Portlar: gateway 5100, Auth 5103, Catalog 5104, Billing 5105; sıradaki servis 5106.
 - Admin yazma command'ları `IAuditedCommand` implement eder (`AuditTargetId` explicit, JSON'a
   girmesin) ve secret taşımaz; liste endpoint'leri `Shared.Application.Paging` (`page`,
   `pageSize`, en fazla 100).
@@ -248,6 +248,7 @@ Migrator'daki seed):
 - **Çoklu dil (Catalog):** diller `Languages` sınıfında (`tr` zorunlu ve varsayılan, `en`); çeviriler kayıt başına tabloda. Admin `translations`,
   müşteri `?lang=` kullanır; çeviri yoksa Türkçe döner, yanıttaki `language` metnin gerçek dilini söyler.
 - **Arama (Catalog):** Elasticsearch `ConnectionStrings:Search`, alias `catalog-titles`. Değişiklik `SearchIndexQueue`'ya aynı transaction'da yazılır, worker index'e taşır; arama `ISearchIndex` arkasında, Elasticsearch yoksa 503 `Search.Unavailable`, katalog okumaları etkilenmez. `HttpClient` değil transport ile düz JSON.
+- **Billing:** Stripe gerçeğin kaynağı; `Subscription` ve `Invoice` onun aynası. Tutarlar `long` kuruş (`AmountMinor`). Kullanıcı başına tek canlı abonelik DB'de filtreli unique index. Kart için sadece marka ve son 4 hane saklanır (`CardSummary`).
 - **Eş zamanlı yazma:** kaydetmede yarışı kaybeden command (concurrency, unique, FK) 409 `Data.Conflict` alır. Düzenlenen
   aggregate'ler `Version` taşır; istemci yüklediği değeri geri gönderir (ör. Catalog `ContentItem`).
 - **Audit:** `IAuditedCommand` işaretli başarılı command'lar aynı transaction'da
