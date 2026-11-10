@@ -149,9 +149,9 @@ Migrator'daki seed):
   iç içe sınıfına eklenir (`<servis>:<kaynak>:<eylem>`, küçük harf); servis aynı string'i
   `RequirePermission` ile kontrol eder. Katalogda olmayan permission bir role atanamaz.
 
-**Başka bir servisin event'ini tüketmek** — henüz tüketen servis yok; ilk gerçek tüketici referans olur.
+**Başka bir servisin event'ini tüketmek** — referans: Billing'in `Customers/CreateCustomerOnUserRegistered.cs` (Auth'un `UserRegistered`'ı).
 
-- `<S>.Application` diğer servisin sadece `*.Contracts` projesini referans alır.
+- `<S>.Application` diğer servisin sadece `*.Contracts` projesini referans alır; servisin Dockerfile'ı o projeyi de `COPY` eder.
 - `IIntegrationEventHandler<TEvent>` event'i bir command'a çevirip `dispatcher.Send` ile gönderir;
   kayıt, validation ve inbox kaydı aynı pipeline/transaction'da olur. Ayrıca kayıt yok — `AddCqrs`
   handler'ı bulur, messaging de bu event'e abone olur.
@@ -228,7 +228,8 @@ Migrator'daki seed):
 - **Messaging:** `services.AddRabbitMqMessaging()`, ayarlar `Messaging` bölümünde. Integration
   event handler'ları `IIntegrationEventHandler<T>` implement eder ve `Task<Result>` döner: kalıcı
   başarısızlık `Result.Failure`, geçici sorun exception (retry → DLQ). Her mesaj bir handler'a en
-  fazla bir kez ulaşır (inbox).
+  fazla bir kez ulaşır (inbox). Broker'a ulaşılamazken outbox deneme saymaz, artan aralıkla
+  bekler (`MessageTransportUnavailableException`); mesaj kesinti boyunca kaybolmaz.
 - **Zaman:** `DateTime.UtcNow` doğrudan çağrılmaz, `TimeProvider` kullanılır.
 - **ID'ler:** düz `Guid`, `Guid.CreateVersion7()`.
 - **API:** Minimal API. Her uygulama `builder.AddServiceDefaults()` → `app.UseServiceDefaults()` →

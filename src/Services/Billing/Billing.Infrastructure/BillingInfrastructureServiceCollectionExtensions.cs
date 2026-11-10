@@ -1,3 +1,6 @@
+using Billing.Application.Abstractions;
+using Billing.Domain.Customers;
+using Billing.Domain.Plans;
 using Billing.Infrastructure.Persistence;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,10 +26,13 @@ public static class BillingInfrastructureServiceCollectionExtensions
         return services;
     }
 
-    /// <summary>The database; the integration tests use it on its own.</summary>
+    /// <summary>The database and repositories; the integration tests use it on its own.</summary>
     internal static IServiceCollection AddBillingPersistence(this IServiceCollection services, string connectionString)
     {
         services.AddPersistence<BillingDbContext>(connectionString);
+        services.AddScoped<IBillingReadModel>(provider => provider.GetRequiredService<BillingDbContext>());
+        services.AddScoped<IPlanRepository, PlanRepository>();
+        services.AddScoped<ICustomerRepository, CustomerRepository>();
 
         return services;
     }

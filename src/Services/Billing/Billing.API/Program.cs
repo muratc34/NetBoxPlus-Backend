@@ -1,4 +1,6 @@
 using System.Text.Json.Serialization;
+using Billing.API.Admin;
+using Billing.API.Public;
 using Billing.Application;
 using Billing.Infrastructure;
 using Shared.Infrastructure.API.Hosting;
@@ -30,6 +32,8 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.MapPlanAdminEndpoints();
+app.MapPlanEndpoints();
 app.MapDefaultEndpoints();
 
 app.Run();

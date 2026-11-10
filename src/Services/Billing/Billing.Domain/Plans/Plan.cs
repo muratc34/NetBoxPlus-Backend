@@ -187,6 +187,8 @@ public sealed class Plan : AggregateRoot, IAuditableEntity
         return Result.Success();
     }
 
+    public Result CheckVersion(int version) => version == Version ? Result.Success() : PlanErrors.VersionConflict;
+
     /// <summary>The text in the language, or in the default language when it has not been translated.</summary>
     public PlanTranslation TextFor(string language)
         => _translations.Find(translation => translation.Language == language)
@@ -214,6 +216,10 @@ public sealed class Plan : AggregateRoot, IAuditableEntity
 public static class PlanErrors
 {
     public static readonly Error NotFound = Error.NotFound("Plan.NotFound", "The plan was not found.");
+
+    public static readonly Error VersionConflict = Error.Conflict("Plan.VersionConflict", "The plan was changed by someone else. Load it again and retry.");
+
+    public static readonly Error ProviderPriceTaken = Error.Conflict("Plan.ProviderPriceTaken", "Another plan is already sold at this provider price.");
 
     public static readonly Error UnsupportedLanguage = Error.Validation("Plan.UnsupportedLanguage", "The language is not supported.");
 

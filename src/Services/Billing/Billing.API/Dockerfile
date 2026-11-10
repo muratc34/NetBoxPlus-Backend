@@ -9,6 +9,8 @@ COPY global.json nuget.config Directory.Build.props Directory.Packages.props ./
 COPY src/Directory.Build.props src/
 COPY src/BuildingBlocks/ src/BuildingBlocks/
 COPY src/Services/Billing/ src/Services/Billing/
+# The one auth project billing may use: the events it consumes.
+COPY src/Services/Auth/Auth.Contracts/ src/Services/Auth/Auth.Contracts/
 
 RUN dotnet restore src/Services/Billing/Billing.API/Billing.API.csproj
 

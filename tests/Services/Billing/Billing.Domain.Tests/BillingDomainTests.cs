@@ -96,6 +96,15 @@ public sealed class PlanTests
     }
 
     [Fact]
+    public void CheckVersion_AcceptsOnlyTheCurrentVersion()
+    {
+        var plan = Plan.Create(Texts(), Terms).Value;
+
+        Assert.True(plan.CheckVersion(plan.Version).IsSuccess);
+        Assert.Equal(PlanErrors.VersionConflict, plan.CheckVersion(plan.Version - 1).Error);
+    }
+
+    [Fact]
     public void TextFor_FallsBackToTurkish()
     {
         var plan = Plan.Create(Texts(), Terms).Value;
