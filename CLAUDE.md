@@ -93,6 +93,11 @@ dotnet run --project src/Services/Auth/Auth.API --launch-profile Auth.API
 Catalog araması Elasticsearch ister: `./deploy/dev.ps1 up -Search`. Index'i veritabanından yeniden kurmak (kesintisiz):
 `dotnet run --project src/Services/Catalog/Catalog.Migrator -- reindex`.
 
+Billing ödemeleri `deploy/.env`'deki `STRIPE_SECRET_KEY` (test modu) ile çalışır. Stripe'ın gönderdiği webhook'lar için Stripe CLI;
+CLI oturumu başka bir hesapta olabilir, `.env`'deki anahtarın hesabını dinlemek için `--api-key` ver ve
+`stripe listen --api-key <anahtar> --print-secret` değerini `STRIPE_WEBHOOK_SECRET` olarak `.env`'ye yaz:
+`stripe listen --api-key <anahtar> --forward-to localhost:5100/billing/webhooks/stripe`.
+
 Diğer servisler de aynı şekilde (`<S>.Migrator`, `<S>.API`). Gateway (`http://localhost:5100`;
 Development'ta Auth'a `localhost:5103`, Catalog'a `localhost:5104`, Billing'e `localhost:5105` üzerinden gider; tarayıcı oturumları için Valkey ve Auth çalışmalı):
 
