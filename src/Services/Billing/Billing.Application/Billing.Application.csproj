@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../Billing.Domain/Billing.Domain.csproj" />
+    <ProjectReference Include="../Billing.Contracts/Billing.Contracts.csproj" />
     <!-- The only project another service may be referenced through: its published events. -->
     <ProjectReference Include="../../Auth/Auth.Contracts/Auth.Contracts.csproj" />
     <ProjectReference Include="../../../BuildingBlocks/Shared.Application/Shared.Application.csproj" />

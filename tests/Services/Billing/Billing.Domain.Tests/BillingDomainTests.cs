@@ -187,6 +187,101 @@ public sealed class SubscriptionTests
     }
 }
 
+public sealed class SubscriptionEventTests
+{
+    private static readonly DateTimeOffset Now = new(2026, 11, 10, 12, 0, 0, TimeSpan.Zero);
+    private static readonly Guid Basic = Guid.NewGuid();
+    private static readonly Guid Premium = Guid.NewGuid();
+
+    private static SubscriptionState State(SubscriptionStatus status, Guid? plan = null, DateTimeOffset? end = null) => new(status, plan ?? Basic, end ?? Now.AddMonths(1), false);
+
+    [Fact]
+    public void Starting_Active_RaisesActivated_WithRevisionOne()
+    {
+        var subscription = Subscription.Start(Guid.NewGuid(), "sub_1", State(SubscriptionStatus.Active), Now);
+
+        var activated = Assert.IsType<SubscriptionActivatedDomainEvent>(Assert.Single(subscription.DomainEvents));
+        Assert.Equal((subscription.Id, Basic, 1, (DateTimeOffset?)Now.AddMonths(1)), (activated.SubscriptionId, activated.PlanId, activated.Revision, activated.CurrentPeriodEnd));
+        Assert.Equal(1, subscription.Revision);
+    }
+
+    [Fact]
+    public void Starting_Incomplete_RaisesNothing()
+    {
+        var subscription = Subscription.Start(Guid.NewGuid(), "sub_1", State(SubscriptionStatus.Incomplete), Now);
+
+        Assert.Empty(subscription.DomainEvents);
+    }
+
+    [Fact]
+    public void TheSameStateAgain_OrARenewal_IsNoNews()
+    {
+        var subscription = Subscription.Start(Guid.NewGuid(), "sub_1", State(SubscriptionStatus.Active), Now);
+        subscription.ClearDomainEvents();
+
+        subscription.Apply(State(SubscriptionStatus.Active), Now);
+        subscription.Apply(State(SubscriptionStatus.Active, end: Now.AddMonths(2)), Now);
+
+        Assert.Empty(subscription.DomainEvents);
+        Assert.Equal(1, subscription.Revision);
+        Assert.Equal(Now.AddMonths(2), subscription.CurrentPeriodEnd);
+    }
+
+    [Fact]
+    public void EveryChange_RaisesItsEvent_WithARisingRevision()
+    {
+        var subscription = Subscription.Start(Guid.NewGuid(), "sub_1", State(SubscriptionStatus.Active), Now);
+
+        subscription.Apply(State(SubscriptionStatus.PastDue), Now);
+        subscription.Apply(State(SubscriptionStatus.Active), Now);
+        subscription.Apply(State(SubscriptionStatus.Active, Premium), Now);
+        subscription.Apply(State(SubscriptionStatus.Canceled, Premium), Now.AddDays(1));
+
+        Assert.Collection(
+            subscription.DomainEvents,
+            item => Assert.Equal(1, Assert.IsType<SubscriptionActivatedDomainEvent>(item).Revision),
+            item => Assert.Equal(2, Assert.IsType<SubscriptionSuspendedDomainEvent>(item).Revision),
+            item => Assert.Equal(3, Assert.IsType<SubscriptionActivatedDomainEvent>(item).Revision),
+            item => Assert.Equal((4, Premium), (Assert.IsType<SubscriptionActivatedDomainEvent>(item).Revision, ((SubscriptionActivatedDomainEvent)item).PlanId)),
+            item => Assert.Equal((5, Now.AddDays(1)), (Assert.IsType<SubscriptionCanceledDomainEvent>(item).Revision, ((SubscriptionCanceledDomainEvent)item).CanceledAt)));
+    }
+
+    [Fact]
+    public void APlanChangeWhileSuspended_IsNotASecondSuspension()
+    {
+        var subscription = Subscription.Start(Guid.NewGuid(), "sub_1", State(SubscriptionStatus.PastDue), Now);
+        subscription.ClearDomainEvents();
+
+        subscription.Apply(State(SubscriptionStatus.PastDue, Premium), Now);
+
+        Assert.Empty(subscription.DomainEvents);
+        Assert.Equal(2, subscription.Revision);
+    }
+
+    [Fact]
+    public void ACanceledSubscription_RaisesNothingMore()
+    {
+        var subscription = Subscription.Start(Guid.NewGuid(), "sub_1", State(SubscriptionStatus.Canceled), Now);
+        subscription.ClearDomainEvents();
+
+        subscription.Apply(State(SubscriptionStatus.Active), Now);
+
+        Assert.Empty(subscription.DomainEvents);
+    }
+
+    [Fact]
+    public void AFirstPaymentFailure_IsAnEvent_ARepeatIsNot()
+    {
+        var invoice = Invoice.Record(Guid.NewGuid(), Guid.NewGuid(), "in_1", 14999, "TRY", Now);
+
+        invoice.MarkPaymentFailed();
+        invoice.MarkPaymentFailed();
+
+        var failed = Assert.IsType<InvoicePaymentFailedDomainEvent>(Assert.Single(invoice.DomainEvents));
+        Assert.Equal((invoice.Id, 14999L, "TRY"), (failed.InvoiceId, failed.AmountMinor, failed.Currency));
+    }
+}
+
 public sealed class InvoiceTests
 {
     private static readonly DateTimeOffset Now = new(2026, 11, 9, 12, 0, 0, TimeSpan.Zero);

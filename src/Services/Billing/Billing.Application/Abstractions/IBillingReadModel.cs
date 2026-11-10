@@ -1,5 +1,7 @@
 using Billing.Domain.Customers;
+using Billing.Domain.Invoices;
 using Billing.Domain.Plans;
+using Billing.Domain.Subscriptions;
 
 namespace Billing.Application.Abstractions;
 
@@ -9,4 +11,8 @@ public interface IBillingReadModel
     IQueryable<Plan> Plans { get; }
 
     IQueryable<BillingCustomer> Customers { get; }
+
+    IQueryable<Subscription> Subscriptions { get; }
+
+    IQueryable<Invoice> Invoices { get; }
 }

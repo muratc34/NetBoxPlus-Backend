@@ -25,6 +25,10 @@ public sealed class BillingDbContext(DbContextOptions<BillingDbContext> options)
 
     IQueryable<BillingCustomer> IBillingReadModel.Customers => Customers.AsNoTracking();
 
+    IQueryable<Subscription> IBillingReadModel.Subscriptions => Subscriptions.AsNoTracking();
+
+    IQueryable<Invoice> IBillingReadModel.Invoices => Invoices.AsNoTracking();
+
     protected override void ConfigureModel(ModelBuilder modelBuilder)
         => modelBuilder.ApplyConfigurationsFromAssembly(typeof(BillingDbContext).Assembly);
 }

@@ -10,6 +10,9 @@ public enum InvoiceStatus
     Void,
 }
 
+/// <summary>A payment of the invoice failed for the first time.</summary>
+public sealed record InvoicePaymentFailedDomainEvent(Guid InvoiceId, Guid SubscriptionId, Guid UserId, long AmountMinor, string Currency) : IDomainEvent;
+
 /// <summary>The only things kept about a card: enough for a customer to recognize it.</summary>
 public sealed record CardSummary(string Brand, string Last4)
 {
@@ -98,9 +101,10 @@ public sealed class Invoice : AggregateRoot, IAuditableEntity
 
     public void MarkPaymentFailed()
     {
-        if (Status is InvoiceStatus.Open or InvoiceStatus.PaymentFailed)
+        if (Status == InvoiceStatus.Open)
         {
             Status = InvoiceStatus.PaymentFailed;
+            RaiseDomainEvent(new InvoicePaymentFailedDomainEvent(Id, SubscriptionId, UserId, AmountMinor, Currency));
         }
     }
 

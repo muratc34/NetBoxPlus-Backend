@@ -22,6 +22,7 @@
   <Folder Name="/src/Services/Billing/">
     <Project Path="src/Services/Billing/Billing.API/Billing.API.csproj" />
     <Project Path="src/Services/Billing/Billing.Application/Billing.Application.csproj" />
+    <Project Path="src/Services/Billing/Billing.Contracts/Billing.Contracts.csproj" />
     <Project Path="src/Services/Billing/Billing.Domain/Billing.Domain.csproj" />
     <Project Path="src/Services/Billing/Billing.Infrastructure/Billing.Infrastructure.csproj" />
     <Project Path="src/Services/Billing/Billing.Migrator/Billing.Migrator.csproj" />

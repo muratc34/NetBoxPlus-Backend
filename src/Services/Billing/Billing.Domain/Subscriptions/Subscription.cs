@@ -17,6 +17,14 @@ public static class SubscriptionErrors
     public static readonly Error None = Error.Conflict("Subscription.None", "There is nothing to manage yet: no subscription has been started.");
 }
 
+/// <summary>The subscription now gives access (first payment, recovery, or a new plan while active).</summary>
+public sealed record SubscriptionActivatedDomainEvent(Guid SubscriptionId, Guid UserId, Guid PlanId, DateTimeOffset? CurrentPeriodEnd, int Revision) : IDomainEvent;
+
+/// <summary>A payment failed; no access until it is paid.</summary>
+public sealed record SubscriptionSuspendedDomainEvent(Guid SubscriptionId, Guid UserId, int Revision) : IDomainEvent;
+
+public sealed record SubscriptionCanceledDomainEvent(Guid SubscriptionId, Guid UserId, DateTimeOffset CanceledAt, int Revision) : IDomainEvent;
+
 /// <summary>What the payment provider currently says about a subscription.</summary>
 public sealed record SubscriptionState(SubscriptionStatus Status, Guid PlanId, DateTimeOffset? CurrentPeriodEnd, bool CancelAtPeriodEnd);
 
@@ -54,6 +62,9 @@ public sealed class Subscription : AggregateRoot, IAuditableEntity
 
     public DateTimeOffset? CanceledAt { get; private set; }
 
+    /// <summary>Goes up with every change of status or plan; events carry it, so that consumers can tell old from new.</summary>
+    public int Revision { get; private set; }
+
     public DateTimeOffset CreatedAt { get; private set; }
 
     public DateTimeOffset? ModifiedAt { get; private set; }
@@ -77,14 +88,33 @@ public sealed class Subscription : AggregateRoot, IAuditableEntity
             return;
         }
 
+        var previousStatus = Status;
+        var previousPlan = PlanId;
+
         Status = state.Status;
         PlanId = state.PlanId;
         CurrentPeriodEnd = state.CurrentPeriodEnd;
         CancelAtPeriodEnd = state.CancelAtPeriodEnd;
 
-        if (state.Status == SubscriptionStatus.Canceled)
+        // The same state told again (a renewal moves only the period end) is no news.
+        if (Status == previousStatus && PlanId == previousPlan)
         {
-            CanceledAt = now;
+            return;
+        }
+
+        Revision++;
+        switch (Status)
+        {
+            case SubscriptionStatus.Active:
+                RaiseDomainEvent(new SubscriptionActivatedDomainEvent(Id, UserId, PlanId, CurrentPeriodEnd, Revision));
+                break;
+            case SubscriptionStatus.PastDue when previousStatus != SubscriptionStatus.PastDue:
+                RaiseDomainEvent(new SubscriptionSuspendedDomainEvent(Id, UserId, Revision));
+                break;
+            case SubscriptionStatus.Canceled:
+                CanceledAt = now;
+                RaiseDomainEvent(new SubscriptionCanceledDomainEvent(Id, UserId, now, Revision));
+                break;
         }
     }
 }

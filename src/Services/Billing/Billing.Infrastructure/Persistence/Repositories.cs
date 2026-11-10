@@ -8,8 +8,9 @@ namespace Billing.Infrastructure.Persistence;
 
 internal sealed class PlanRepository(BillingDbContext context) : IPlanRepository
 {
-    public Task<Plan?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
-        => context.Plans.FirstOrDefaultAsync(plan => plan.Id == id, cancellationToken);
+    // Find, not a query: a plan added in the same save (not yet in the database) is found too.
+    public async Task<Plan?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
+        => await context.Plans.FindAsync([id], cancellationToken).ConfigureAwait(false);
 
     public Task<bool> IsProviderPriceTakenAsync(Plan plan, CancellationToken cancellationToken)
         => context.Plans.AnyAsync(other => other.Id != plan.Id && other.ProviderPriceId == plan.ProviderPriceId, cancellationToken);
