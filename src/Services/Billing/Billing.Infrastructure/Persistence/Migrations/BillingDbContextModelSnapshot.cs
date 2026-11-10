@@ -214,6 +214,39 @@ namespace Billing.Infrastructure.Persistence.Migrations
                     b.ToTable("Subscriptions", (string)null);
                 });
 
+            modelBuilder.Entity("Billing.Infrastructure.Idempotency.IdempotencyRequest", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Key")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<bool>("Completed")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ResponseBody")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("StatusCode")
+                        .HasColumnType("integer");
+
+                    b.HasKey("UserId", "Key");
+
+                    b.HasIndex("StartedAt");
+
+                    b.ToTable("IdempotencyRequests", (string)null);
+                });
+
             modelBuilder.Entity("Shared.Infrastructure.Persistence.Auditing.AuditLogEntry", b =>
                 {
                     b.Property<Guid>("Id")

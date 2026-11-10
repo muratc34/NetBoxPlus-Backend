@@ -1,6 +1,9 @@
 using Billing.Application.Abstractions;
 using Billing.Domain.Customers;
 using Billing.Domain.Plans;
+using Billing.Domain.Subscriptions;
+using Billing.Infrastructure.Idempotency;
+using Billing.Infrastructure.Payments;
 using Billing.Infrastructure.Persistence;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,7 +24,30 @@ public static class BillingInfrastructureServiceCollectionExtensions
                 $"ConnectionStrings:{BillingDbContext.ConnectionStringName} is not configured. Locally, run ./deploy/dev.ps1 secrets.");
 
         services.AddBillingPersistence(connectionString);
+        services.AddBillingPayments(configuration);
+        services.AddHostedService<IdempotencyCleanupService>();
         services.AddRabbitMqMessaging();
+
+        return services;
+    }
+
+    /// <summary>Stripe when a key is configured; otherwise a gateway that reports payments as unavailable.</summary>
+    internal static IServiceCollection AddBillingPayments(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<CheckoutOptions>().Bind(configuration.GetSection(CheckoutOptions.SectionName))
+            .Validate(options => options.IsValid, $"{CheckoutOptions.SectionName}: SuccessUrl, CancelUrl and PortalReturnUrl must be absolute addresses.")
+            .ValidateOnStart();
+
+        var secretKey = configuration.GetSection(StripeOptions.SectionName).Get<StripeOptions>()?.SecretKey;
+        if (string.IsNullOrWhiteSpace(secretKey))
+        {
+            services.AddSingleton<IPaymentGateway, UnconfiguredPaymentGateway>();
+        }
+        else
+        {
+            services.AddSingleton<Stripe.IStripeClient>(new Stripe.StripeClient(secretKey));
+            services.AddSingleton<IPaymentGateway, StripePaymentGateway>();
+        }
 
         return services;
     }
@@ -33,6 +59,9 @@ public static class BillingInfrastructureServiceCollectionExtensions
         services.AddScoped<IBillingReadModel>(provider => provider.GetRequiredService<BillingDbContext>());
         services.AddScoped<IPlanRepository, PlanRepository>();
         services.AddScoped<ICustomerRepository, CustomerRepository>();
+        services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
+        services.AddScoped<IIdempotencyStore, EfIdempotencyStore>();
+        services.AddScoped<IdempotencyCleaner>();
 
         return services;
     }

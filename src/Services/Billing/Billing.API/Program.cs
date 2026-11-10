@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Billing.API.Admin;
+using Billing.API.Checkout;
 using Billing.API.Public;
 using Billing.Application;
 using Billing.Infrastructure;
@@ -34,6 +35,7 @@ if (app.Environment.IsDevelopment())
 
 app.MapPlanAdminEndpoints();
 app.MapPlanEndpoints();
+app.MapCheckoutEndpoints();
 app.MapDefaultEndpoints();
 
 app.Run();

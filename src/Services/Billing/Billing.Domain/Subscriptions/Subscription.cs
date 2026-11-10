@@ -10,6 +10,13 @@ public enum SubscriptionStatus
     Canceled,
 }
 
+public static class SubscriptionErrors
+{
+    public static readonly Error AlreadyActive = Error.Conflict("Subscription.AlreadyActive", "There is already a subscription; change its plan from the billing portal.");
+
+    public static readonly Error None = Error.Conflict("Subscription.None", "There is nothing to manage yet: no subscription has been started.");
+}
+
 /// <summary>What the payment provider currently says about a subscription.</summary>
 public sealed record SubscriptionState(SubscriptionStatus Status, Guid PlanId, DateTimeOffset? CurrentPeriodEnd, bool CancelAtPeriodEnd);
 

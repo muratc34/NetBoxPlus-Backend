@@ -15,4 +15,10 @@ public enum ErrorType
     NotFound,
     Conflict,
     Unavailable,
+
+    /// <summary>The request is well formed but cannot be carried out as given, for example a reused idempotency key.</summary>
+    Unprocessable,
+
+    /// <summary>A service this one depends on refused the request.</summary>
+    UpstreamFailure,
 }

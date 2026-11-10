@@ -16,6 +16,9 @@ public sealed class ErrorMappingTests
     [InlineData(ErrorType.NotFound, StatusCodes.Status404NotFound)]
     [InlineData(ErrorType.Conflict, StatusCodes.Status409Conflict)]
     [InlineData(ErrorType.Failure, StatusCodes.Status500InternalServerError)]
+    [InlineData(ErrorType.Unavailable, StatusCodes.Status503ServiceUnavailable)]
+    [InlineData(ErrorType.Unprocessable, StatusCodes.Status422UnprocessableEntity)]
+    [InlineData(ErrorType.UpstreamFailure, StatusCodes.Status502BadGateway)]
     public void ErrorType_MapsToItsStatusCode(ErrorType type, int expected)
     {
         Assert.Equal(expected, ErrorMapping.ToStatusCode(type));

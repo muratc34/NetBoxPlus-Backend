@@ -134,6 +134,18 @@ function Set-ServiceSecrets {
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
 
+    # Billing talks to Stripe only with a key; without one its payment endpoints answer 503.
+    $stripeKey = $values['STRIPE_SECRET_KEY']
+    if ($stripeKey) {
+        & dotnet user-secrets set 'Billing:Stripe:SecretKey' $stripeKey --id 'netboxplus-billing' | Out-Null
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        Write-Host 'Stripe key set for billing.'
+    }
+    else {
+        & dotnet user-secrets remove 'Billing:Stripe:SecretKey' --id 'netboxplus-billing' | Out-Null
+        Write-Host 'No STRIPE_SECRET_KEY in deploy/.env; billing payments answer 503.'
+    }
+
     # The gateway keeps browser sessions in Valkey.
     $valkey = "localhost:6379,password=$($values['VALKEY_PASSWORD'])"
     & dotnet user-secrets set 'ConnectionStrings:Valkey' $valkey --id 'netboxplus-gateway' | Out-Null

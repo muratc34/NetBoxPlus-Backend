@@ -40,6 +40,10 @@
     <PackageVersion Include="SixLabors.ImageSharp" Version="4.1.3" />
   </ItemGroup>
 
+  <ItemGroup Label="Payments">
+    <PackageVersion Include="Stripe.net" Version="53.1.0" />
+  </ItemGroup>
+
   <ItemGroup Label="Search">
     <PackageVersion Include="Elastic.Clients.Elasticsearch" Version="9.5.3" />
   </ItemGroup>
