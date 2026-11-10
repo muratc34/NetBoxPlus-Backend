@@ -15,4 +15,10 @@ public sealed class OutboxOptions
 
     /// <summary>After this many failed sends a message is no longer retried and needs attention.</summary>
     public int MaxAttempts { get; set; } = 10;
+
+    /// <summary>
+    /// While the broker cannot be reached the processor waits before trying again, twice as long each
+    /// time from one second, up to this. Such tries do not count as attempts.
+    /// </summary>
+    public TimeSpan MaxUnavailableDelay { get; set; } = TimeSpan.FromSeconds(30);
 }

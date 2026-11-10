@@ -53,16 +53,22 @@ public sealed class RabbitMqFixture : IAsyncLifetime
     /// Starts a consumer for a fresh service name and waits until its queue is bound, so messages
     /// published afterwards are not lost.
     /// </summary>
-    internal async Task<MessagingHost> StartHostAsync()
+    internal Task<MessagingHost> StartHostAsync()
     {
         Assert.SkipUnless(IsAvailable, SkipReason);
+        return StartHostAsync(ConnectionString);
+    }
+
+    /// <summary>As above, against a broker of the test's own.</summary>
+    internal static async Task<MessagingHost> StartHostAsync(string connectionString)
+    {
 
         var serviceName = $"test-{Guid.NewGuid():N}";
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Messaging:ConnectionString"] = ConnectionString,
+                ["Messaging:ConnectionString"] = connectionString,
                 ["Messaging:ServiceName"] = serviceName,
                 ["Messaging:RetryDelays:0"] = "00:00:00",
                 ["Messaging:RetryDelays:1"] = "00:00:00",
@@ -81,7 +87,7 @@ public sealed class RabbitMqFixture : IAsyncLifetime
             await hostedService.StartAsync(TestContext.Current.CancellationToken);
         }
 
-        var host = new MessagingHost(provider, hostedServices, serviceName, ConnectionString);
+        var host = new MessagingHost(provider, hostedServices, serviceName, connectionString);
         await host.WaitForConsumerAsync();
         return host;
     }

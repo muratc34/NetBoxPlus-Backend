@@ -125,6 +125,56 @@ public sealed class OutboxTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task WhileTheBrokerIsUnreachable_NothingCountsAsAnAttempt()
+    {
+        await using var services = await postgres.CreateServicesAsync();
+        await Publish(services, 1m, 2m);
+        services.Transport.FailWith = new MessageTransportUnavailableException("broker down");
+
+        for (var attempt = 0; attempt < Options.MaxAttempts * 2; attempt++)
+        {
+            await Assert.ThrowsAsync<MessageTransportUnavailableException>(() => Processor(services).ProcessBatchAsync(TestContext.Current.CancellationToken));
+        }
+
+        Assert.All(await Messages(services), message => Assert.Equal((0, (string?)null, (DateTimeOffset?)null), (message.Attempts, message.LastError, message.ProcessedAt)));
+
+        services.Transport.FailWith = null;
+        Assert.Equal(2, await Processor(services).ProcessBatchAsync(TestContext.Current.CancellationToken));
+        Assert.All(await Messages(services), message => Assert.NotNull(message.ProcessedAt));
+    }
+
+    [Fact]
+    public async Task ABrokerOutageMidBatch_KeepsWhatWasAlreadySent()
+    {
+        await using var services = await postgres.CreateServicesAsync();
+        await Publish(services, 1m, 2m, 3m);
+        services.Transport.FailAfter = 1;
+        services.Transport.FailWith = new MessageTransportUnavailableException("broker down");
+
+        await Assert.ThrowsAsync<MessageTransportUnavailableException>(() => Processor(services).ProcessBatchAsync(TestContext.Current.CancellationToken));
+
+        var messages = await Messages(services);
+        Assert.NotNull(messages[0].ProcessedAt);
+        Assert.All(messages.Skip(1), message => Assert.Equal((0, (DateTimeOffset?)null), (message.Attempts, message.ProcessedAt)));
+        Assert.Single(services.Transport.Sent);
+    }
+
+    [Fact]
+    public void UnavailableDelay_DoublesFromOneSecond_UpToTheLimit()
+    {
+        var processor = Processor(services: null);
+        var delays = new List<TimeSpan>();
+        var delay = TimeSpan.Zero;
+        for (var step = 0; step < 7; step++)
+        {
+            delay = processor.NextUnavailableDelay(delay);
+            delays.Add(delay);
+        }
+
+        Assert.Equal([1, 2, 4, 8, 16, 30, 30], delays.Select(item => item.TotalSeconds));
+    }
+
+    [Fact]
     public async Task ConcurrentProcessors_NeverSendTheSameMessageTwice()
     {
         await using var services = await postgres.CreateServicesAsync();
@@ -146,10 +196,10 @@ public sealed class OutboxTests(PostgresFixture postgres)
         Assert.Equal(3, services.Transport.Sent.Select(e => e.MessageId).Distinct().Count());
     }
 
-    private static OutboxProcessor<TestDbContext> Processor(TestServices services) => new(
-        services.Provider.GetRequiredService<IServiceScopeFactory>(),
+    private static OutboxProcessor<TestDbContext> Processor(TestServices? services) => new(
+        services?.Provider.GetRequiredService<IServiceScopeFactory>() ?? new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(),
         Microsoft.Extensions.Options.Options.Create(Options),
-        services.Time,
+        services?.Time ?? TimeProvider.System,
         NullLogger<OutboxProcessor<TestDbContext>>.Instance);
 
     private static async Task Publish(TestServices services, params decimal[] amounts)

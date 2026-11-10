@@ -1,5 +1,6 @@
 using System.Text;
 using RabbitMQ.Client;
+using RabbitMQ.Client.Exceptions;
 using Shared.Application.Messaging;
 
 namespace Shared.Infrastructure.Messaging;
@@ -40,27 +41,40 @@ internal sealed class RabbitMqTransport(RabbitMqConnection connection) : IMessag
         await _lock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var channel = await GetChannelAsync(cancellationToken).ConfigureAwait(false);
-
-            if (!_declaredExchanges.Contains(exchange))
-            {
-                await channel.ExchangeDeclareAsync(exchange, ExchangeType.Topic, durable: true, autoDelete: false, cancellationToken: cancellationToken)
-                    .ConfigureAwait(false);
-                _declaredExchanges.Add(exchange);
-            }
-
-            await channel.BasicPublishAsync(
-                exchange,
-                routingKey: envelope.MessageType,
-                mandatory: false,
-                basicProperties: properties,
-                body: Encoding.UTF8.GetBytes(envelope.Payload),
-                cancellationToken: cancellationToken).ConfigureAwait(false);
+            await PublishAsync(exchange, envelope, properties, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException && IsUnavailable(exception))
+        {
+            throw new MessageTransportUnavailableException("The message broker cannot be reached.", exception);
         }
         finally
         {
             _lock.Release();
         }
+    }
+
+    // A connection that is down, or a channel closed under us, says nothing about the message.
+    private bool IsUnavailable(Exception exception)
+        => exception is BrokerUnreachableException or AlreadyClosedException || !connection.IsOpen;
+
+    private async Task PublishAsync(string exchange, MessageEnvelope envelope, BasicProperties properties, CancellationToken cancellationToken)
+    {
+        var channel = await GetChannelAsync(cancellationToken).ConfigureAwait(false);
+
+        if (!_declaredExchanges.Contains(exchange))
+        {
+            await channel.ExchangeDeclareAsync(exchange, ExchangeType.Topic, durable: true, autoDelete: false, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+            _declaredExchanges.Add(exchange);
+        }
+
+        await channel.BasicPublishAsync(
+            exchange,
+            routingKey: envelope.MessageType,
+            mandatory: false,
+            basicProperties: properties,
+            body: Encoding.UTF8.GetBytes(envelope.Payload),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<IChannel> GetChannelAsync(CancellationToken cancellationToken)

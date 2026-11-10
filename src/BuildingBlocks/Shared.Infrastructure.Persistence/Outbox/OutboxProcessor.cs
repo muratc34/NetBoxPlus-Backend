@@ -14,6 +14,8 @@ namespace Shared.Infrastructure.Persistence.Outbox;
 /// Sends outbox messages to the broker. Each batch is locked with <c>FOR UPDATE SKIP LOCKED</c>
 /// inside a transaction, so several replicas can run side by side without sending a message twice.
 /// Messages are sent oldest first, but consumers must not rely on ordering across batches or replicas.
+/// While the broker cannot be reached, nothing counts as a failed attempt: the processor waits and
+/// tries again for as long as the outage lasts.
 /// </summary>
 internal sealed partial class OutboxProcessor<TContext>(
     IServiceScopeFactory scopeFactory,
@@ -25,6 +27,8 @@ internal sealed partial class OutboxProcessor<TContext>(
 {
     private const int MaxErrorLength = 2000;
 
+    private static readonly TimeSpan FirstUnavailableDelay = TimeSpan.FromSeconds(1);
+
     private readonly OutboxOptions _options = options.Value;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -34,12 +38,23 @@ internal sealed partial class OutboxProcessor<TContext>(
             return;
         }
 
+        var unavailableDelay = TimeSpan.Zero;
+
         while (!stoppingToken.IsCancellationRequested)
         {
             int sent;
+            var delay = _options.PollingInterval;
             try
             {
                 sent = await ProcessBatchAsync(stoppingToken).ConfigureAwait(false);
+                unavailableDelay = TimeSpan.Zero;
+            }
+            catch (MessageTransportUnavailableException exception)
+            {
+                unavailableDelay = NextUnavailableDelay(unavailableDelay);
+                LogBrokerUnavailable(logger, exception, unavailableDelay.TotalSeconds);
+                delay = unavailableDelay;
+                sent = 0;
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -51,7 +66,7 @@ internal sealed partial class OutboxProcessor<TContext>(
             {
                 try
                 {
-                    await Task.Delay(_options.PollingInterval, timeProvider, stoppingToken).ConfigureAwait(false);
+                    await Task.Delay(delay, timeProvider, stoppingToken).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -61,7 +76,17 @@ internal sealed partial class OutboxProcessor<TContext>(
         }
     }
 
-    /// <summary>Sends one batch and returns how many messages it contained.</summary>
+    internal TimeSpan NextUnavailableDelay(TimeSpan previous)
+    {
+        var next = previous == TimeSpan.Zero ? FirstUnavailableDelay : previous * 2;
+        return next > _options.MaxUnavailableDelay ? _options.MaxUnavailableDelay : next;
+    }
+
+    /// <summary>
+    /// Sends one batch and returns how many messages it contained. When the broker cannot be
+    /// reached it keeps what was sent so far, leaves the rest untouched and throws
+    /// <see cref="MessageTransportUnavailableException"/>.
+    /// </summary>
     internal async Task<int> ProcessBatchAsync(CancellationToken cancellationToken)
     {
         await using var scope = scopeFactory.CreateAsyncScope();
@@ -80,6 +105,7 @@ internal sealed partial class OutboxProcessor<TContext>(
         }
 
         var transport = scope.ServiceProvider.GetRequiredService<IMessageTransport>();
+        MessageTransportUnavailableException? unavailable = null;
 
         foreach (var message in messages)
         {
@@ -91,6 +117,12 @@ internal sealed partial class OutboxProcessor<TContext>(
 
                 message.ProcessedAt = timeProvider.GetUtcNow();
                 message.LastError = null;
+            }
+            catch (MessageTransportUnavailableException exception)
+            {
+                // The rest would fail the same way; none of it is the messages' fault.
+                unavailable = exception;
+                break;
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -110,6 +142,11 @@ internal sealed partial class OutboxProcessor<TContext>(
 
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+
+        if (unavailable is not null)
+        {
+            throw unavailable;
+        }
 
         return messages.Count;
     }
@@ -134,6 +171,9 @@ internal sealed partial class OutboxProcessor<TContext>(
             FOR UPDATE SKIP LOCKED
             """;
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The message broker cannot be reached; outbox messages wait and are tried again in {DelaySeconds} s")]
+    private static partial void LogBrokerUnavailable(ILogger logger, Exception exception, double delaySeconds);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Outbox batch failed")]
     private static partial void LogBatchFailed(ILogger logger, Exception exception);

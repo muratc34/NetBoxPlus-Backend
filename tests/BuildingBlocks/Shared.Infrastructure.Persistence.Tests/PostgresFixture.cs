@@ -96,6 +96,7 @@ internal sealed record TestServices(ServiceProvider Provider, FakeTimeProvider T
 internal sealed class RecordingTransport : IMessageTransport
 {
     private readonly List<MessageEnvelope> _sent = [];
+    private int _remainingSuccesses;
 
     public IReadOnlyList<MessageEnvelope> Sent
     {
@@ -109,6 +110,13 @@ internal sealed class RecordingTransport : IMessageTransport
     }
 
     public Exception? FailWith { get; set; }
+
+    /// <summary>How many sends succeed before <see cref="FailWith"/> applies.</summary>
+    public int FailAfter
+    {
+        get => _remainingSuccesses;
+        set => _remainingSuccesses = value;
+    }
 
     /// <summary>When set, each send waits for it — used to hold a batch's lock open.</summary>
     public TaskCompletionSource? Gate { get; set; }
@@ -124,7 +132,7 @@ internal sealed class RecordingTransport : IMessageTransport
             await gate.Task.WaitAsync(cancellationToken);
         }
 
-        if (FailWith is { } failure)
+        if (FailWith is { } failure && Interlocked.Decrement(ref _remainingSuccesses) < 0)
         {
             throw failure;
         }
