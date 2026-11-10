@@ -13,6 +13,10 @@ public sealed class FakePaymentGateway : IPaymentGateway
 
     public ConcurrentQueue<string> Portals { get; } = new();
 
+    public ConcurrentDictionary<string, SubscriptionSnapshot> Subscriptions { get; } = new();
+
+    public ConcurrentDictionary<string, InvoiceSnapshot> Invoices { get; } = new();
+
     /// <summary>When set, every call fails with it.</summary>
     public Error? FailWith { get; set; }
 
@@ -55,6 +59,14 @@ public sealed class FakePaymentGateway : IPaymentGateway
         Checkouts.Enqueue(request);
         return new Uri($"https://checkout.test/{request.UserId:N}/{Uri.EscapeDataString(request.IdempotencyKey)}/{Guid.NewGuid():N}");
     }
+
+    public Task<Result<SubscriptionSnapshot>> GetSubscriptionAsync(string providerSubscriptionId, CancellationToken cancellationToken)
+        => Task.FromResult<Result<SubscriptionSnapshot>>(FailWith is { } error ? error
+            : Subscriptions.TryGetValue(providerSubscriptionId, out var snapshot) ? snapshot : PaymentErrors.ProviderRejected);
+
+    public Task<Result<InvoiceSnapshot>> GetInvoiceAsync(string providerInvoiceId, CancellationToken cancellationToken)
+        => Task.FromResult<Result<InvoiceSnapshot>>(FailWith is { } error ? error
+            : Invoices.TryGetValue(providerInvoiceId, out var snapshot) ? snapshot : PaymentErrors.ProviderRejected);
 
     public Task<Result<Uri>> CreatePortalAsync(string providerCustomerId, CancellationToken cancellationToken)
     {

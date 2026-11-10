@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Billing.API.Admin;
 using Billing.API.Checkout;
 using Billing.API.Public;
+using Billing.API.Webhooks;
 using Billing.Application;
 using Billing.Infrastructure;
 using Shared.Infrastructure.API.Hosting;
@@ -36,6 +37,7 @@ if (app.Environment.IsDevelopment())
 app.MapPlanAdminEndpoints();
 app.MapPlanEndpoints();
 app.MapCheckoutEndpoints();
+app.MapWebhookEndpoints();
 app.MapDefaultEndpoints();
 
 app.Run();

@@ -18,12 +18,12 @@ internal sealed class RouteGroupConfigFilter : IProxyConfigFilter
 
         if (route.Metadata is null || !route.Metadata.TryGetValue(RouteGroups.MetadataKey, out var group))
         {
-            throw Invalid(route, $"has no '{RouteGroups.MetadataKey}' metadata; set it to '{RouteGroups.Public}' or '{RouteGroups.Admin}'.");
+            throw Invalid(route, $"has no '{RouteGroups.MetadataKey}' metadata; set it to '{RouteGroups.Public}', '{RouteGroups.Admin}' or '{RouteGroups.Webhooks}'.");
         }
 
-        if (group is not (RouteGroups.Public or RouteGroups.Admin))
+        if (group is not (RouteGroups.Public or RouteGroups.Admin or RouteGroups.Webhooks))
         {
-            throw Invalid(route, $"has the unknown group '{group}'; use '{RouteGroups.Public}' or '{RouteGroups.Admin}'.");
+            throw Invalid(route, $"has the unknown group '{group}'; use '{RouteGroups.Public}', '{RouteGroups.Admin}' or '{RouteGroups.Webhooks}'.");
         }
 
         if (route.CorsPolicy is not null || route.RateLimiterPolicy is not null)
@@ -42,9 +42,14 @@ internal sealed class RouteGroupConfigFilter : IProxyConfigFilter
             throw Invalid(route, $"is an admin route, so its path must start with '{RouteGroups.AdminPathPrefix}/'.");
         }
 
-        if (group == RouteGroups.Public && isAdminPath)
+        if (group != RouteGroups.Admin && isAdminPath)
         {
-            throw Invalid(route, $"is a public route, so its path must not start with '{RouteGroups.AdminPathPrefix}'.");
+            throw Invalid(route, $"is a {group} route, so its path must not start with '{RouteGroups.AdminPathPrefix}'.");
+        }
+
+        if (group == RouteGroups.Webhooks && !RouteGroups.IsWebhookPath(route.Match.Path))
+        {
+            throw Invalid(route, $"is a webhooks route, so its path must be '/{{service}}/{RouteGroups.WebhookSegment}/...'.");
         }
 
         if (!RoutePrefixes.TryParse(route, out _))
@@ -52,8 +57,13 @@ internal sealed class RouteGroupConfigFilter : IProxyConfigFilter
             throw Invalid(route, "must match literal segments followed by one catch-all, such as '/catalog/{**remainder}'.");
         }
 
-        return new(route with { CorsPolicy = group, RateLimiterPolicy = group });
+        // Webhooks come from servers, never from a browser: no CORS answers at all.
+        var cors = group == RouteGroups.Webhooks ? DisableCors : group;
+        return new(route with { CorsPolicy = cors, RateLimiterPolicy = group });
     }
+
+    /// <summary>YARP's reserved policy name that turns CORS off for a route.</summary>
+    public const string DisableCors = "Disable";
 
     private static InvalidOperationException Invalid(RouteConfig route, string problem)
         => new($"Gateway route '{route.RouteId}' {problem}");

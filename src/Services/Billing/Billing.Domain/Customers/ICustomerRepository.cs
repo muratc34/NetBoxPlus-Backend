@@ -6,5 +6,7 @@ public interface ICustomerRepository
 
     Task<BillingCustomer?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken);
 
+    Task<BillingCustomer?> GetByProviderCustomerIdAsync(string providerCustomerId, CancellationToken cancellationToken);
+
     void Add(BillingCustomer customer);
 }

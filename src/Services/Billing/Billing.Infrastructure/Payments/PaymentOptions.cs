@@ -7,6 +7,9 @@ public sealed class StripeOptions
 
     /// <summary>A secret: from user secrets or the environment, never from a committed file.</summary>
     public string? SecretKey { get; set; }
+
+    /// <summary>The webhook's signing secret (<c>whsec_...</c>). Without it the webhook endpoint answers 503.</summary>
+    public string? WebhookSecret { get; set; }
 }
 
 /// <summary>

@@ -162,6 +162,7 @@ Migrator'daki seed):
 ## Gateway — `src/Gateway/Gateway`
 
 - İş mantığı yok; sadece `Shared.Infrastructure.API`'yi referans alır.
+- Üç route grubu: `public`, `admin`, `webhooks` (`/<s>/webhooks/{**remainder}`, `PathRemovePrefix: /<s>`; CORS yok, kendi rate limit'i, `Cookie`/`Authorization` servise gitmez; ör. `billing-webhooks`).
 - Route'un CORS ve rate limiter policy'si **grubundan** gelir (`RouteGroupConfigFilter`); route'a
   `CorsPolicy`/`RateLimiterPolicy` yazılmaz. Kurala uymayan route'la gateway başlamaz.
 - Public route'tan servisin `/admin` yollarına erişim 404'tür; servisin döndüğü `Location`
@@ -249,7 +250,7 @@ Migrator'daki seed):
 - **Çoklu dil (Catalog):** diller `Languages` sınıfında (`tr` zorunlu ve varsayılan, `en`); çeviriler kayıt başına tabloda. Admin `translations`,
   müşteri `?lang=` kullanır; çeviri yoksa Türkçe döner, yanıttaki `language` metnin gerçek dilini söyler.
 - **Arama (Catalog):** Elasticsearch `ConnectionStrings:Search`, alias `catalog-titles`. Değişiklik `SearchIndexQueue`'ya aynı transaction'da yazılır, worker index'e taşır; arama `ISearchIndex` arkasında, Elasticsearch yoksa 503 `Search.Unavailable`, katalog okumaları etkilenmez. `HttpClient` değil transport ile düz JSON.
-- **Billing:** Stripe gerçeğin kaynağı; `Subscription` ve `Invoice` onun aynası. Tutarlar `long` kuruş (`AmountMinor`). Kullanıcı başına tek canlı abonelik DB'de filtreli unique index. Kart için sadece marka ve son 4 hane saklanır (`CardSummary`). Stripe `IPaymentGateway` arkasında; anahtar (`Billing:Stripe:SecretKey`, lokalde `deploy/.env`'deki `STRIPE_SECRET_KEY`) yoksa ödeme uçları 503. Ödeme `POST`'ları `Idempotency-Key` ister (`IdempotencyFilter`; sadece 2xx saklanır, farklı gövde 422, eş zamanlı 409). 422 `Error.Unprocessable`, 502 `Error.UpstreamFailure`.
+- **Billing:** Stripe gerçeğin kaynağı; `Subscription` ve `Invoice` onun aynası. Tutarlar `long` kuruş (`AmountMinor`). Kullanıcı başına tek canlı abonelik DB'de filtreli unique index. Kart için sadece marka ve son 4 hane saklanır (`CardSummary`). Stripe `IPaymentGateway` arkasında; anahtar (`Billing:Stripe:SecretKey`, lokalde `deploy/.env`'deki `STRIPE_SECRET_KEY`) yoksa ödeme uçları 503. Ödeme `POST`'ları `Idempotency-Key` ister (`IdempotencyFilter`; sadece 2xx saklanır, farklı gövde 422, eş zamanlı 409). Stripe webhook'u `POST /webhooks/stripe`: imza (`Billing:Stripe:WebhookSecret`, lokalde `STRIPE_WEBHOOK_SECRET`), inbox, nesne Stripe'tan güncel haliyle okunup aynalanır; geçici hatada inbox'a yazılmaz, Stripe tekrar dener. 422 `Error.Unprocessable`, 502 `Error.UpstreamFailure`.
 - **Eş zamanlı yazma:** kaydetmede yarışı kaybeden command (concurrency, unique, FK) 409 `Data.Conflict` alır. Düzenlenen
   aggregate'ler `Version` taşır; istemci yüklediği değeri geri gönderir (ör. Catalog `ContentItem`).
 - **Audit:** `IAuditedCommand` işaretli başarılı command'lar aynı transaction'da

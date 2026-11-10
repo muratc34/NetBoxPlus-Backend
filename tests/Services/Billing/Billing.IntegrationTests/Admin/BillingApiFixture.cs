@@ -35,6 +35,9 @@ public sealed class BillingApiFixture : IAsyncLifetime
     /// <summary>The payment provider the API talks to; tests look at what it was asked and decide how it answers.</summary>
     public FakePaymentGateway Payments { get; } = new();
 
+    /// <summary>What the API checks webhook signatures with; tests sign with it.</summary>
+    public const string WebhookSecret = "whsec_test_only_not_a_real_secret";
+
     public string SkipReason { get; private set; } = string.Empty;
 
     public async ValueTask InitializeAsync()
@@ -144,6 +147,7 @@ public sealed class BillingApiFixture : IAsyncLifetime
 
                 if (payments is not null)
                 {
+                    services.PostConfigure<Billing.Infrastructure.Payments.StripeOptions>(options => options.WebhookSecret = WebhookSecret);
                     services.RemoveAll<IPaymentGateway>();
                     services.AddSingleton<IPaymentGateway>(payments);
                 }

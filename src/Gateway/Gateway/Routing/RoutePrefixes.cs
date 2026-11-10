@@ -24,7 +24,15 @@ internal sealed partial record RoutePrefixes(string GatewayPrefix, string Servic
             return false;
         }
 
-        prefixes = new RoutePrefixes(match.Groups["prefix"].Value, group == RouteGroups.Admin ? RouteGroups.AdminPathPrefix : string.Empty);
+        var prefix = match.Groups["prefix"].Value;
+        prefixes = group switch
+        {
+            RouteGroups.Admin => new RoutePrefixes(prefix, RouteGroups.AdminPathPrefix),
+
+            // "/billing/webhooks/{**remainder}" forwards as "/webhooks/{remainder}", like the public route.
+            RouteGroups.Webhooks => new RoutePrefixes(prefix[..prefix.IndexOf('/', 1)], string.Empty),
+            _ => new RoutePrefixes(prefix, string.Empty),
+        };
         return true;
     }
 

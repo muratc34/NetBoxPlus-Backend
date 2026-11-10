@@ -16,6 +16,15 @@ internal static class SessionProxy
     public static async Task InvokeAsync(HttpContext context, Func<Task> next)
     {
         var routeGroup = context.GetReverseProxyFeature().Route.Config.Metadata?.GetValueOrDefault(RouteGroups.MetadataKey) ?? RouteGroups.Public;
+
+        // A webhook is not a browser: whatever cookie or token it carries is not ours to pass on.
+        if (routeGroup == RouteGroups.Webhooks)
+        {
+            context.Request.Headers.Remove(HeaderNames.Cookie);
+            context.Request.Headers.Remove(HeaderNames.Authorization);
+            await next().ConfigureAwait(false);
+            return;
+        }
         var kind = SessionCookies.KindOf(routeGroup);
 
         if (SessionCookies.Read(context, kind) is null)

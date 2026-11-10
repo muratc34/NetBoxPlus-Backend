@@ -14,7 +14,22 @@ internal static class RouteGroups
     /// <summary>The admin panel. Paths: <c>/admin/{service}/...</c>.</summary>
     public const string Admin = "admin";
 
+    /// <summary>
+    /// Calls from other systems, such as Stripe, that prove themselves with a signature the service
+    /// checks. No browser session, no CORS, a limit of their own. Paths: <c>/{service}/webhooks/...</c>.
+    /// </summary>
+    public const string Webhooks = "webhooks";
+
+    public const string WebhookSegment = "webhooks";
+
     public const string AdminPathPrefix = "/admin";
+
+    /// <summary>Whether the path is <c>/{service}/webhooks/...</c>.</summary>
+    public static bool IsWebhookPath(string path)
+    {
+        var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        return segments.Length >= 2 && segments[1].Equals(WebhookSegment, StringComparison.OrdinalIgnoreCase);
+    }
 
     public static bool IsAdminPath(string path)
         => path.Equals(AdminPathPrefix, StringComparison.OrdinalIgnoreCase)

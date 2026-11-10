@@ -1,5 +1,7 @@
 using Billing.Application.Abstractions;
+using Billing.Application.Webhooks;
 using Billing.Domain.Customers;
+using Billing.Domain.Invoices;
 using Billing.Domain.Plans;
 using Billing.Domain.Subscriptions;
 using Billing.Infrastructure.Idempotency;
@@ -38,6 +40,9 @@ public static class BillingInfrastructureServiceCollectionExtensions
             .Validate(options => options.IsValid, $"{CheckoutOptions.SectionName}: SuccessUrl, CancelUrl and PortalReturnUrl must be absolute addresses.")
             .ValidateOnStart();
 
+        services.AddOptions<StripeOptions>().Bind(configuration.GetSection(StripeOptions.SectionName));
+        services.AddSingleton<IPaymentWebhook, StripeWebhook>();
+
         var secretKey = configuration.GetSection(StripeOptions.SectionName).Get<StripeOptions>()?.SecretKey;
         if (string.IsNullOrWhiteSpace(secretKey))
         {
@@ -60,6 +65,7 @@ public static class BillingInfrastructureServiceCollectionExtensions
         services.AddScoped<IPlanRepository, PlanRepository>();
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
+        services.AddScoped<IInvoiceRepository, InvoiceRepository>();
         services.AddScoped<IIdempotencyStore, EfIdempotencyStore>();
         services.AddScoped<IdempotencyCleaner>();
 

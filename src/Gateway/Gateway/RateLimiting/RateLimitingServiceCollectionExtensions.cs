@@ -25,7 +25,7 @@ internal static partial class RateLimitingServiceCollectionExtensions
         services.AddOptions<GatewayRateLimitOptions>()
             .BindConfiguration(GatewayRateLimitOptions.SectionName)
             .Validate(
-                options => options.Public.IsValid && options.Admin.IsValid && options.Credentials.IsValid,
+                options => options.Public.IsValid && options.Admin.IsValid && options.Credentials.IsValid && options.Webhooks.IsValid,
                 $"{GatewayRateLimitOptions.SectionName}: every limit needs a positive PermitLimit and Window.")
             .ValidateOnStart();
 
@@ -40,6 +40,7 @@ internal static partial class RateLimitingServiceCollectionExtensions
             rateLimiter.AddPolicy(RouteGroups.Public, context => Partition(context, gateway.Value.Public));
             rateLimiter.AddPolicy(RouteGroups.Admin, context => Partition(context, gateway.Value.Admin));
             rateLimiter.AddPolicy(CredentialsPolicy, context => Partition(context, gateway.Value.Credentials));
+            rateLimiter.AddPolicy(RouteGroups.Webhooks, context => Partition(context, gateway.Value.Webhooks));
         });
 
         return services;

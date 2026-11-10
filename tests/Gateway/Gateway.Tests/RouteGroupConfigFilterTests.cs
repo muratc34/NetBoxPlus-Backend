@@ -18,8 +18,19 @@ public sealed class RouteGroupConfigFilterTests
         Assert.Equal(group, configured.RateLimiterPolicy);
     }
 
+    [Fact]
+    public async Task WebhookRoute_GetsItsOwnLimit_AndNoCors()
+    {
+        var configured = await _filter.ConfigureRouteAsync(Route("/downstream/webhooks/{**remainder}", "webhooks"), cluster: null, TestContext.Current.CancellationToken);
+
+        Assert.Equal("Disable", configured.CorsPolicy);
+        Assert.Equal("webhooks", configured.RateLimiterPolicy);
+    }
+
     [Theory]
     [InlineData(null, "/downstream/{**remainder}", "has no 'RouteGroup' metadata")]
+    [InlineData("webhooks", "/downstream/{**remainder}", "must be '/{service}/webhooks/...'")]
+    [InlineData("webhooks", "/admin/downstream/webhooks/{**remainder}", "must not start with '/admin'")]
     [InlineData("internal", "/downstream/{**remainder}", "unknown group 'internal'")]
     [InlineData("admin", "/downstream/{**remainder}", "must start with '/admin/'")]
     [InlineData("public", "/admin/downstream/{**remainder}", "must not start with '/admin'")]

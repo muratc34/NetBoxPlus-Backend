@@ -18,6 +18,9 @@ public sealed class GatewayRateLimitOptions
     /// guessing across accounts. Each account also locks itself after repeated failures.
     /// </summary>
     public FixedWindowLimit Credentials { get; set; } = new() { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) };
+
+    /// <summary>Per sending address: a payment provider sends bursts from few addresses, and retries what is refused.</summary>
+    public FixedWindowLimit Webhooks { get; set; } = new() { PermitLimit = 300, Window = TimeSpan.FromSeconds(10) };
 }
 
 /// <summary>At most <see cref="PermitLimit"/> requests per <see cref="Window"/>.</summary>

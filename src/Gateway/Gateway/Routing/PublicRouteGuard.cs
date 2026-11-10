@@ -14,7 +14,7 @@ internal static partial class PublicRouteGuard
     {
         var route = context.GetReverseProxyFeature().Route.Config;
 
-        if (route.Metadata?.GetValueOrDefault(RouteGroups.MetadataKey) == RouteGroups.Public && TargetsAdmin(context))
+        if (route.Metadata?.GetValueOrDefault(RouteGroups.MetadataKey) is RouteGroups.Public or RouteGroups.Webhooks && TargetsAdmin(context))
         {
             var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(PublicRouteGuard));
             LogBlocked(logger, route.RouteId);

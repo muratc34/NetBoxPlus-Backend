@@ -31,6 +31,10 @@ public sealed class GatewayFactory(
         builder.UseSetting("ReverseProxy:Routes:downstream-admin:Match:Path", "/admin/downstream/{**remainder}");
         builder.UseSetting("ReverseProxy:Routes:downstream-admin:Metadata:RouteGroup", "admin");
         builder.UseSetting("ReverseProxy:Routes:downstream-admin:Transforms:0:PathPattern", "/admin/{**remainder}");
+        builder.UseSetting("ReverseProxy:Routes:downstream-webhooks:ClusterId", "downstream");
+        builder.UseSetting("ReverseProxy:Routes:downstream-webhooks:Match:Path", "/downstream/webhooks/{**remainder}");
+        builder.UseSetting("ReverseProxy:Routes:downstream-webhooks:Metadata:RouteGroup", "webhooks");
+        builder.UseSetting("ReverseProxy:Routes:downstream-webhooks:Transforms:0:PathRemovePrefix", "/downstream");
         builder.UseSetting("ReverseProxy:Clusters:downstream:Destinations:primary:Address", downstreamAddress);
         builder.UseSetting("Cors:PublicOrigins:0", PublicOrigin);
         builder.UseSetting("Cors:AdminOrigins:0", AdminOrigin);
