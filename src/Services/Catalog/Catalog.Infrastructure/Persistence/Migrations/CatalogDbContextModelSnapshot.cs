@@ -136,6 +136,25 @@ namespace Catalog.Infrastructure.Persistence.Migrations
                                 .HasColumnName("ReleaseYear");
                         });
 
+                    b.ComplexProperty(typeof(Dictionary<string, object>), "Video", "Catalog.Domain.Movies.Movie.Video#ContentVideo", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<int>("LatestRevision")
+                                .HasColumnType("integer");
+
+                            b1.Property<string>("LatestState")
+                                .IsRequired()
+                                .HasMaxLength(16)
+                                .HasColumnType("character varying(16)");
+
+                            b1.Property<Guid?>("LatestVideoId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<Guid?>("PlayableVideoId")
+                                .HasColumnType("uuid");
+                        });
+
                     b.HasKey("Id");
 
                     b.HasIndex("Status", "PublishedAt");
@@ -189,6 +208,25 @@ namespace Catalog.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
+
+                    b.ComplexProperty(typeof(Dictionary<string, object>), "Video", "Catalog.Domain.Shows.Episode.Video#ContentVideo", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<int>("LatestRevision")
+                                .HasColumnType("integer");
+
+                            b1.Property<string>("LatestState")
+                                .IsRequired()
+                                .HasMaxLength(16)
+                                .HasColumnType("character varying(16)");
+
+                            b1.Property<Guid?>("LatestVideoId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<Guid?>("PlayableVideoId")
+                                .HasColumnType("uuid");
+                        });
 
                     b.HasKey("Id");
 

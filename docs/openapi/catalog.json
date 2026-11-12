@@ -3490,7 +3490,9 @@
           "translations",
           "runtimeMinutes",
           "status",
-          "publishedAt"
+          "publishedAt",
+          "videoStatus",
+          "hasPlayableVideo"
         ],
         "type": "object",
         "properties": {
@@ -3532,6 +3534,12 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "videoStatus": {
+            "$ref": "#/components/schemas/VideoState"
+          },
+          "hasPlayableVideo": {
+            "type": "boolean"
           }
         }
       },
@@ -3695,7 +3703,9 @@
           "genres",
           "credits",
           "createdAt",
-          "modifiedAt"
+          "modifiedAt",
+          "videoStatus",
+          "hasPlayableVideo"
         ],
         "type": "object",
         "properties": {
@@ -3791,6 +3801,12 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "videoStatus": {
+            "$ref": "#/components/schemas/VideoState"
+          },
+          "hasPlayableVideo": {
+            "type": "boolean"
           }
         }
       },
@@ -4966,6 +4982,14 @@
             }
           }
         }
+      },
+      "VideoState": {
+        "enum": [
+          "None",
+          "Processing",
+          "Ready",
+          "Failed"
+        ]
       }
     }
   },

@@ -165,8 +165,25 @@ public sealed class Series : ContentItem
             return SeriesErrors.EpisodeNotFound;
         }
 
+        if (!episode.Video.IsPlayable)
+        {
+            return ContentErrors.VideoRequired;
+        }
+
         episode.Publish(now);
         MarkChanged();
+        return Result.Success();
+    }
+
+    /// <summary>A report from the streaming service on an episode's video; not an edit, the version stays.</summary>
+    public Result ApplyEpisodeVideo(Guid episodeId, Guid videoId, VideoState state, int revision)
+    {
+        if (Find(episodeId) is not (_, var episode))
+        {
+            return SeriesErrors.EpisodeNotFound;
+        }
+
+        episode.Video.Apply(videoId, state, revision);
         return Result.Success();
     }
 

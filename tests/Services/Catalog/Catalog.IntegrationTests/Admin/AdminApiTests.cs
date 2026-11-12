@@ -79,6 +79,8 @@ public sealed class AdminApiTests(CatalogApiFixture api)
 
         Assert.Equal("Content.PosterRequired", await CodeAsync(await client.PostAsync($"/admin/movies/{id}/publish", null, Cancellation)));
         await AttachMoviePosterAsync(client, id);
+        Assert.Equal("Content.VideoRequired", await CodeAsync(await client.PostAsync($"/admin/movies/{id}/publish", null, Cancellation)));
+        await api.VideoReadyAsync("Movie", id);
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync($"/admin/movies/{id}/publish", null, Cancellation)).StatusCode);
         var published = await GetMovieAsync(client, id);
         Assert.Equal("Night Train 2", published.Title);
@@ -184,6 +186,8 @@ public sealed class AdminApiTests(CatalogApiFixture api)
         var episode = (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync($"/admin/series/{id}/seasons/{season}/episodes", TestRequests.Episode(1, "Pilot", "Begins.", 45, await VersionAsync(client, id)), Json, Cancellation))).Id;
         Assert.Equal("Series.PublishedEpisodeRequired", await CodeAsync(await client.PostAsync($"/admin/series/{id}/publish", null, Cancellation)));
 
+        Assert.Equal("Content.VideoRequired", await CodeAsync(await client.PostAsync($"/admin/series/{id}/episodes/{episode}/publish?version={await VersionAsync(client, id)}", null, Cancellation)));
+        await api.VideoReadyAsync("Episode", episode);
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync($"/admin/series/{id}/episodes/{episode}/publish?version={await VersionAsync(client, id)}", null, Cancellation)).StatusCode);
         Assert.Equal("Content.PosterRequired", await CodeAsync(await client.PostAsync($"/admin/series/{id}/publish", null, Cancellation)));
         var poster = await TestImages.UploadAsync(client, TestImages.Poster(), Json, Cancellation);
@@ -231,6 +235,7 @@ public sealed class AdminApiTests(CatalogApiFixture api)
         var first = await CreateMovieAsync(client, $"{marker} one", [genre]);
         await CreateMovieAsync(client, $"{marker} two");
         await AttachMoviePosterAsync(client, first);
+        await api.VideoReadyAsync("Movie", first);
         await client.PostAsync($"/admin/movies/{first}/publish", null, Cancellation);
 
         var byText = await ReadAsync<Page<MovieSummary>>(await client.GetAsync($"/admin/movies?search={marker.ToUpperInvariant()}&pageSize=1", Cancellation));

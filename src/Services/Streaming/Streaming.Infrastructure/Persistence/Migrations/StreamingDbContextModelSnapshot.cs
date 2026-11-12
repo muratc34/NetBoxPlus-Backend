@@ -116,6 +116,121 @@ namespace Streaming.Infrastructure.Persistence.Migrations
 
                     b.ToTable("OutboxMessages", (string)null);
                 });
+
+            modelBuilder.Entity("Streaming.Domain.Videos.Video", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ContentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentKind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<double?>("DurationSeconds")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer");
+
+                    b.Property<long?>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTimeOffset>("UploadExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContentId");
+
+                    b.HasIndex("Status", "UploadExpiresAt");
+
+                    b.ToTable("Videos", (string)null);
+                });
+
+            modelBuilder.Entity("Streaming.Infrastructure.Media.TranscodeJob", b =>
+                {
+                    b.Property<Guid>("VideoId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("AvailableAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTimeOffset?>("LeasedUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("VideoId");
+
+                    b.HasIndex("AvailableAt");
+
+                    b.ToTable("TranscodeJobs", (string)null);
+                });
+
+            modelBuilder.Entity("Streaming.Domain.Videos.Video", b =>
+                {
+                    b.OwnsMany("Streaming.Domain.Videos.Rendition", "Renditions", b1 =>
+                        {
+                            b1.Property<Guid>("VideoId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<int>("Height")
+                                .HasColumnType("integer");
+
+                            b1.Property<int>("Bandwidth")
+                                .HasColumnType("integer");
+
+                            b1.Property<string>("Playlist")
+                                .IsRequired()
+                                .HasMaxLength(64)
+                                .HasColumnType("character varying(64)");
+
+                            b1.Property<int>("Width")
+                                .HasColumnType("integer");
+
+                            b1.HasKey("VideoId", "Height");
+
+                            b1.ToTable("VideoRenditions", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("VideoId");
+                        });
+
+                    b.Navigation("Renditions");
+                });
+
+            modelBuilder.Entity("Streaming.Infrastructure.Media.TranscodeJob", b =>
+                {
+                    b.HasOne("Streaming.Domain.Videos.Video", null)
+                        .WithMany()
+                        .HasForeignKey("VideoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
 #pragma warning restore 612, 618
         }
     }

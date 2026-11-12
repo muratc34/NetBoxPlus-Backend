@@ -22,18 +22,22 @@ public static class ImageStorageSetup
             return;
         }
 
+        // CORS rules belong to the whole account, which the services share locally: add ours, keep the rest.
+        var rule = new BlobCorsRule
+        {
+            AllowedOrigins = string.Join(',', uploadOrigins),
+            AllowedMethods = "PUT",
+            AllowedHeaders = "x-ms-blob-type,content-type",
+            ExposedHeaders = string.Empty,
+            MaxAgeInSeconds = 600,
+        };
         var properties = (await blobs.GetPropertiesAsync(cancellationToken).ConfigureAwait(false)).Value;
-        properties.Cors =
-        [
-            new BlobCorsRule
-            {
-                AllowedOrigins = string.Join(',', uploadOrigins),
-                AllowedMethods = "PUT",
-                AllowedHeaders = "x-ms-blob-type,content-type",
-                ExposedHeaders = string.Empty,
-                MaxAgeInSeconds = 600,
-            },
-        ];
+        if (properties.Cors.Any(existing => existing.AllowedOrigins == rule.AllowedOrigins && existing.AllowedMethods == rule.AllowedMethods && existing.AllowedHeaders == rule.AllowedHeaders))
+        {
+            return;
+        }
+
+        properties.Cors = [.. properties.Cors, rule];
         await blobs.SetPropertiesAsync(properties, cancellationToken).ConfigureAwait(false);
     }
 }

@@ -191,6 +191,12 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
             return ContentErrors.PosterRequired;
         }
 
+        var playable = CheckPlayable();
+        if (playable.IsFailure)
+        {
+            return playable;
+        }
+
         Status = PublicationStatus.Published;
         PublishedAt = now;
         MarkChanged();
@@ -248,4 +254,7 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
 
     /// <summary>Rules of the specific kind of content, on top of the shared ones.</summary>
     protected virtual Result CheckReadyToPublish() => Result.Success();
+
+    /// <summary>The last check before publishing: whether there is something to watch.</summary>
+    protected virtual Result CheckPlayable() => Result.Success();
 }

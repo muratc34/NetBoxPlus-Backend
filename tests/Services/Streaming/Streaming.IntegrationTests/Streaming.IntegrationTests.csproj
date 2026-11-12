@@ -7,10 +7,12 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Testcontainers.Azurite" />
   </ItemGroup>
 
   <ItemGroup>
     <Compile Include="../../../TestSupport/DockerAvailability.cs" Link="TestSupport/DockerAvailability.cs" />
+    <Compile Include="../../../TestSupport/FfmpegAvailability.cs" Link="TestSupport/FfmpegAvailability.cs" />
   </ItemGroup>
 
 </Project>

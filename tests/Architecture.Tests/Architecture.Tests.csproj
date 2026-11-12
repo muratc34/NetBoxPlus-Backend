@@ -10,6 +10,7 @@
     <ProjectReference Include="../../src/Services/Billing/Billing.Migrator/Billing.Migrator.csproj" />
     <ProjectReference Include="../../src/Services/Streaming/Streaming.API/Streaming.API.csproj" />
     <ProjectReference Include="../../src/Services/Streaming/Streaming.Migrator/Streaming.Migrator.csproj" />
+    <ProjectReference Include="../../src/Services/Streaming/Streaming.Transcoder/Streaming.Transcoder.csproj" />
     <ProjectReference Include="../../src/Gateway/Gateway/Gateway.csproj" />
   </ItemGroup>
 

@@ -283,11 +283,12 @@ public sealed class ImageApiTests(CatalogApiFixture api)
     private static async Task<Guid> MovieAsync(HttpClient client, params Guid[] genres)
         => await PostAsync(client, "/admin/movies", new { translations = TestRequests.Text("Night Train", "A journey."), releaseYear = 2024, ageRating = "Age13", runtimeMinutes = 120, genreIds = genres });
 
-    private static async Task<Guid> PublishedMovieAsync(HttpClient client)
+    private async Task<Guid> PublishedMovieAsync(HttpClient client)
     {
         var genre = await PostAsync(client, "/admin/genres", TestRequests.Genre($"Genre {Guid.NewGuid():N}"));
         var movie = await MovieAsync(client, genre);
         await AttachAsync(client, movie, "poster", await TestImages.UploadAsync(client, TestImages.Poster(), Json, Cancellation));
+        await api.VideoReadyAsync("Movie", movie);
         Assert.True((await client.PostAsync($"/admin/movies/{movie}/publish", null, Cancellation)).IsSuccessStatusCode);
         return movie;
     }

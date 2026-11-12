@@ -91,6 +91,16 @@ public sealed class CatalogApiFixture : IAsyncLifetime
 
     public AsyncServiceScope CreateScope() => _factory!.Services.CreateAsyncScope();
 
+    /// <summary>What the streaming service reports once a video is converted, so that the content can be published.</summary>
+    public async Task VideoReadyAsync(string contentKind, Guid contentId)
+    {
+        await using var scope = CreateScope();
+        var result = await scope.ServiceProvider.GetRequiredService<Shared.Application.Cqrs.IDispatcher>().Send(
+            new Catalog.Application.Videos.ApplyVideoState.ApplyVideoStateCommand(contentKind, contentId, Guid.CreateVersion7(), Catalog.Domain.Content.VideoState.Ready, 2),
+            TestContext.Current.CancellationToken);
+        Assert.True(result.IsSuccess);
+    }
+
     /// <summary>The same API with a search engine that nothing answers at.</summary>
     public HttpClient CreateClientWithoutSearch()
     {

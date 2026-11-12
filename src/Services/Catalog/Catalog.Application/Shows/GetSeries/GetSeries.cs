@@ -31,7 +31,7 @@ public sealed record SeriesDetails(
 
 public sealed record SeasonDetails(Guid Id, int Number, string? Title, IReadOnlyDictionary<string, string> Translations, IReadOnlyList<EpisodeResponse> Episodes);
 
-public sealed record EpisodeResponse(Guid Id, int Number, string Title, IReadOnlyDictionary<string, ContentTextFields> Translations, int RuntimeMinutes, PublicationStatus Status, DateTimeOffset? PublishedAt);
+public sealed record EpisodeResponse(Guid Id, int Number, string Title, IReadOnlyDictionary<string, ContentTextFields> Translations, int RuntimeMinutes, PublicationStatus Status, DateTimeOffset? PublishedAt, VideoState VideoStatus, bool HasPlayableVideo);
 
 internal sealed class GetSeriesHandler(ICatalogReadModel readModel, ContentReader reader) : IQueryHandler<GetSeriesQuery, SeriesDetails>
 {
@@ -73,7 +73,9 @@ internal sealed class GetSeriesHandler(ICatalogReadModel readModel, ContentReade
                     episode.Translations.ToDictionary(item => item.Language, item => new ContentTextFields(item.Title, item.Synopsis)),
                     episode.RuntimeMinutes,
                     episode.Status,
-                    episode.PublishedAt))]))],
+                    episode.PublishedAt,
+                    episode.Video.LatestState,
+                    episode.Video.IsPlayable))]))],
             series.CreatedAt,
             series.ModifiedAt);
     }

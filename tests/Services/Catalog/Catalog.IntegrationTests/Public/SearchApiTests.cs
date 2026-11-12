@@ -303,12 +303,13 @@ public sealed class SearchApiTests(CatalogApiFixture api)
         return new { translations, releaseYear = 2024, ageRating = "Age13", runtimeMinutes = 120, genreIds = new[] { genre }, credits, version };
     }
 
-    private static async Task<Guid> MovieAsync(HttpClient admin, Guid genre, string title, string? english = null, Guid? credit = null)
+    private async Task<Guid> MovieAsync(HttpClient admin, Guid genre, string title, string? english = null, Guid? credit = null)
     {
         var movie = await PostAsync(admin, "/admin/movies", MovieBody(title, english, genre, credit: credit));
         var upload = await TestImages.UploadAsync(admin, TestImages.Poster(), Json, Cancellation);
         var version = (await ReadAsync<MovieDetails>(await admin.GetAsync($"/admin/movies/{movie}", Cancellation))).Version;
         Assert.True((await admin.PutAsJsonAsync($"/admin/movies/{movie}/images/poster", new AttachImageRequest(upload, version), Json, Cancellation)).IsSuccessStatusCode);
+        await api.VideoReadyAsync("Movie", movie);
         Assert.True((await admin.PostAsync($"/admin/movies/{movie}/publish", null, Cancellation)).IsSuccessStatusCode);
         return movie;
     }

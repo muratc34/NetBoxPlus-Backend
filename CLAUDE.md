@@ -63,7 +63,9 @@ ile yapar (`tests/TestSupport/DockerAvailability.cs`, csproj'a link'lenir). Test
 **CI** (`.github/workflows/ci.yml`, `v2` ve `master`'a push ve PR'larda): Release build (uyarı =
 hata) → `docs/openapi` build çıktısıyla aynı değilse kırılır → tüm testler (Docker zorunlu) →
 paralel olarak her Dockerfile'ın image build'i (push yok). API değiştiyse build'i lokalde çalıştırıp
-`docs/openapi/*.json`'ı da commit'le. Action'lar commit SHA'sıyla sabit; Dependabot (actions + NuGet)
+`docs/openapi/*.json`'ı da commit'le. Transcode testleri gerçek **ffmpeg** ister: `FFMPEG_DIRECTORY`
+ya da PATH (`tests/TestSupport/FfmpegAvailability.cs`); yoksa lokalde atlanır, CI'da (ffmpeg `apt` ile
+kurulur) kırar. Lokalde `winget install Gyan.FFmpeg`. Action'lar commit SHA'sıyla sabit; Dependabot (actions + NuGet)
 haftalık PR'ları `v2`'ye açar.
 
 Lokal bağımlılıklar (Postgres, RabbitMQ, Valkey, Azurite, Aspire dashboard; `-Search` ile Elasticsearch):
@@ -97,6 +99,10 @@ Billing ödemeleri `deploy/.env`'deki `STRIPE_SECRET_KEY` (test modu) ile çalı
 CLI oturumu başka bir hesapta olabilir, `.env`'deki anahtarın hesabını dinlemek için `--api-key` ver ve
 `stripe listen --api-key <anahtar> --print-secret` değerini `STRIPE_WEBHOOK_SECRET` olarak `.env`'ye yaz:
 `stripe listen --api-key <anahtar> --forward-to localhost:5100/billing/webhooks/stripe`.
+
+Streaming videoları transcode eden ayrı süreç (aynı database ve User Secrets; ffmpeg PATH'te veya
+`Transcoder:FfmpegPath`/`FfprobePath`): `dotnet run --project src/Services/Streaming/Streaming.Transcoder`.
+RabbitMQ'ya bağlanmaz; event'lerini Streaming.API'nin outbox işlemcisi gönderir, o da çalışmalı.
 
 Diğer servisler de aynı şekilde (`<S>.Migrator`, `<S>.API`). Gateway (`http://localhost:5100`;
 Development'ta Auth'a `localhost:5103`, Catalog'a `localhost:5104`, Billing'e `localhost:5105`, Streaming'e `localhost:5106` üzerinden gider; tarayıcı oturumları için Valkey ve Auth çalışmalı):
@@ -258,6 +264,8 @@ Migrator'daki seed):
 - **Arama (Catalog):** Elasticsearch `ConnectionStrings:Search`, alias `catalog-titles`. Değişiklik `SearchIndexQueue`'ya aynı transaction'da yazılır, worker index'e taşır; arama `ISearchIndex` arkasında, Elasticsearch yoksa 503 `Search.Unavailable`, katalog okumaları etkilenmez. `HttpClient` değil transport ile düz JSON.
 - **Billing:** Stripe gerçeğin kaynağı; `Subscription` ve `Invoice` onun aynası. Tutarlar `long` kuruş (`AmountMinor`). Kullanıcı başına tek canlı abonelik DB'de filtreli unique index. Kart için sadece marka ve son 4 hane saklanır (`CardSummary`). Stripe `IPaymentGateway` arkasında; anahtar (`Billing:Stripe:SecretKey`, lokalde `deploy/.env`'deki `STRIPE_SECRET_KEY`) yoksa ödeme uçları 503. Ödeme `POST`'ları `Idempotency-Key` ister (`IdempotencyFilter`; sadece 2xx saklanır, farklı gövde 422, eş zamanlı 409). Event'ler `Billing.Contracts`: `SubscriptionActivated`/`Suspended`/`Canceled` (artan `Revision` taşır; tüketici eskisini yok sayar) ve `PaymentFailed`. Stripe webhook'u `POST /webhooks/stripe`: imza (`Billing:Stripe:WebhookSecret`, lokalde `STRIPE_WEBHOOK_SECRET`), inbox, nesne Stripe'tan güncel haliyle okunup aynalanır; geçici hatada inbox'a yazılmaz, Stripe tekrar dener. 422 `Error.Unprocessable`, 502 `Error.UpstreamFailure`.
 - **Profiller (Auth):** `User` aggregate'inde, hesap başına en fazla 5, ad + `MaxAgeRating` (Catalog'un yaş değerleri); kayıtta "Main". Event'ler `ProfileCreated`/`Changed`/`Removed` (`Revision`).
+- **Videolar (Streaming):** admin SAS ile `video-uploads`'a yükler, `/admin/videos/{id}/uploaded` ile onaylar → `TranscodeJobs` (Postgres, `SKIP LOCKED` + lease). `Streaming.Transcoder` HLS üretir (360/720/1080, kaynağı aşmadan) → private `videos/{id:N}/`. Event'ler `Streaming.Contracts`: `VideoQueued`/`Ready`/`Failed` (`Revision`). Storage CORS hesap geneli: kurallar eklenir, ezilmez (`StorageCors.MergeAsync`); origin'ler `Videos:UploadOrigins`/`PlaybackOrigins`, blob bağlantısı `ConnectionStrings:Videos`.
+- **Video durumu (Catalog):** `ContentVideo` event'lerle güncellenir, `Version`'ı artırmaz; film/bölüm oynatılabilir video olmadan yayınlanmaz (409 `Content.VideoRequired`).
 - **Eş zamanlı yazma:** kaydetmede yarışı kaybeden command (concurrency, unique, FK) 409 `Data.Conflict` alır. Düzenlenen
   aggregate'ler `Version` taşır; istemci yüklediği değeri geri gönderir (ör. Catalog `ContentItem`).
 - **Audit:** `IAuditedCommand` işaretli başarılı command'lar aynı transaction'da

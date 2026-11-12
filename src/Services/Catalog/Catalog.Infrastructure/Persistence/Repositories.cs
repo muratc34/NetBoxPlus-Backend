@@ -26,6 +26,13 @@ internal sealed class SeriesRepository(CatalogDbContext context) : ISeriesReposi
             .AsSplitQuery()
             .FirstOrDefaultAsync(series => series.Id == id, cancellationToken);
 
+    public Task<Series?> GetByEpisodeIdAsync(Guid episodeId, CancellationToken cancellationToken)
+        => context.Series
+            .Include(series => series.Seasons)
+            .ThenInclude(season => season.Episodes)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync(series => series.Seasons.Any(season => season.Episodes.Any(episode => episode.Id == episodeId)), cancellationToken);
+
     public void Add(Series series) => context.Series.Add(series);
 
     public void Remove(Series series) => context.Series.Remove(series);

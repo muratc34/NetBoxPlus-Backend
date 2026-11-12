@@ -71,4 +71,11 @@ internal static class ContentItemMapping
         });
         builder.Navigation(content => content.Credits).UsePropertyAccessMode(PropertyAccessMode.Field);
     }
+
+    /// <summary>The video columns of a movie or an episode, prefixed <c>Video_</c>.</summary>
+    public static void MapVideo(ComplexPropertyBuilder<ContentVideo> video)
+    {
+        video.Property(item => item.LatestState).HasConversion<string>().HasMaxLength(16);
+        video.Ignore(item => item.IsPlayable);
+    }
 }

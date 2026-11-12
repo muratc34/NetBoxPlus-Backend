@@ -55,6 +55,8 @@
   <Folder Name="/src/Services/Streaming/">
     <Project Path="src/Services/Streaming/Streaming.API/Streaming.API.csproj" />
     <Project Path="src/Services/Streaming/Streaming.Application/Streaming.Application.csproj" />
+    <Project Path="src/Services/Streaming/Streaming.Contracts/Streaming.Contracts.csproj" />
+    <Project Path="src/Services/Streaming/Streaming.Transcoder/Streaming.Transcoder.csproj" />
     <Project Path="src/Services/Streaming/Streaming.Domain/Streaming.Domain.csproj" />
     <Project Path="src/Services/Streaming/Streaming.Infrastructure/Streaming.Infrastructure.csproj" />
     <Project Path="src/Services/Streaming/Streaming.Migrator/Streaming.Migrator.csproj" />
@@ -64,6 +66,7 @@
     <Project Path="tests/Services/Billing/Billing.IntegrationTests/Billing.IntegrationTests.csproj" />
   </Folder>
   <Folder Name="/tests/Services/Streaming/">
+    <Project Path="tests/Services/Streaming/Streaming.Domain.Tests/Streaming.Domain.Tests.csproj" />
     <Project Path="tests/Services/Streaming/Streaming.IntegrationTests/Streaming.IntegrationTests.csproj" />
   </Folder>
   <Folder Name="/tests/Services/Catalog/">

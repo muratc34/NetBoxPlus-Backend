@@ -81,7 +81,7 @@ public sealed class SeriesTests
 
         Assert.Equal(SeriesErrors.PublishedEpisodeRequired, series.Publish(TestContent.Now).Error);
 
-        series.PublishEpisode(episode.Id, TestContent.Now);
+        TestContent.Playable(series, episode.Id).PublishEpisode(episode.Id, TestContent.Now);
         Assert.True(series.Publish(TestContent.Now).IsSuccess);
     }
 
@@ -90,7 +90,7 @@ public sealed class SeriesTests
     {
         var (series, season) = TestContent.SeriesWithSeason();
         var episode = series.AddEpisode(season.Id, TestContent.Details()).Value;
-        series.PublishEpisode(episode.Id, TestContent.Now);
+        TestContent.Playable(series, episode.Id).PublishEpisode(episode.Id, TestContent.Now);
 
         Assert.Equal(ContentErrors.GenreRequired, series.Publish(TestContent.Now).Error);
     }
@@ -105,7 +105,7 @@ public sealed class SeriesTests
         Assert.False(added.IsPublished);
         Assert.True(series.IsPublished);
 
-        series.PublishEpisode(added.Id, TestContent.Now);
+        TestContent.Playable(series, added.Id).PublishEpisode(added.Id, TestContent.Now);
         Assert.True(added.IsPublished);
         Assert.Equal(TestContent.Now, added.PublishedAt);
     }
@@ -124,7 +124,7 @@ public sealed class SeriesTests
     {
         var (series, season, episode) = PublishedSeries();
         var second = series.AddEpisode(season.Id, TestContent.Details(2)).Value;
-        series.PublishEpisode(second.Id, TestContent.Now);
+        TestContent.Playable(series, second.Id).PublishEpisode(second.Id, TestContent.Now);
 
         Assert.True(series.UnpublishEpisode(episode.Id).IsSuccess);
         Assert.False(episode.IsPublished);
@@ -136,7 +136,7 @@ public sealed class SeriesTests
     {
         var (series, season) = TestContent.SeriesWithSeason();
         var episode = series.AddEpisode(season.Id, TestContent.Details()).Value;
-        series.PublishEpisode(episode.Id, TestContent.Now);
+        TestContent.Playable(series, episode.Id).PublishEpisode(episode.Id, TestContent.Now);
 
         Assert.True(series.UnpublishEpisode(episode.Id).IsSuccess);
     }
@@ -174,7 +174,7 @@ public sealed class SeriesTests
         var afterAdd = series.Version;
         series.ChangeEpisode(episode.Id, TestContent.Details(2));
         var afterChange = series.Version;
-        series.PublishEpisode(episode.Id, TestContent.Now);
+        TestContent.Playable(series, episode.Id).PublishEpisode(episode.Id, TestContent.Now);
         var afterPublish = series.Version;
 
         Assert.True(before < afterAdd && afterAdd < afterChange && afterChange < afterPublish);
@@ -204,7 +204,7 @@ public sealed class SeriesTests
     {
         var (series, season) = WithGenre();
         var episode = series.AddEpisode(season.Id, TestContent.Details()).Value;
-        series.PublishEpisode(episode.Id, TestContent.Now);
+        TestContent.Playable(series, episode.Id).PublishEpisode(episode.Id, TestContent.Now);
         series.Publish(TestContent.Now);
         return (series, season, episode);
     }

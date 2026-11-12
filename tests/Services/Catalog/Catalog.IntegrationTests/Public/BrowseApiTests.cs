@@ -249,11 +249,12 @@ public sealed class BrowseApiTests(CatalogApiFixture api)
         Assert.Equal(HttpStatusCode.Created, otherLanguage.StatusCode);
     }
 
-    private static async Task PublishMovieAsync(HttpClient admin, Guid movie)
+    private async Task PublishMovieAsync(HttpClient admin, Guid movie)
     {
         var upload = await TestImages.UploadAsync(admin, TestImages.Poster(), Json, Cancellation);
         var version = (await ReadAsync<MovieDetails>(await admin.GetAsync($"/admin/movies/{movie}", Cancellation))).Version;
         Assert.True((await admin.PutAsJsonAsync($"/admin/movies/{movie}/images/poster", new AttachImageRequest(upload, version), Json, Cancellation)).IsSuccessStatusCode);
+        await api.VideoReadyAsync("Movie", movie);
         Assert.True((await admin.PostAsync($"/admin/movies/{movie}/publish", null, Cancellation)).IsSuccessStatusCode);
     }
 
@@ -270,7 +271,7 @@ public sealed class BrowseApiTests(CatalogApiFixture api)
     private static async Task<Guid> PersonAsync(HttpClient admin)
         => await PostOkAsync(admin, "/admin/people", TestRequests.Person("Ada", null));
 
-    private static async Task<Guid> MovieAsync(HttpClient admin, string title, Guid genre, bool publish, Guid? person = null)
+    private async Task<Guid> MovieAsync(HttpClient admin, string title, Guid genre, bool publish, Guid? person = null)
     {
         object[] credits = person is { } id ? [new { personId = id, role = "Actor", order = 1 }] : [];
         var movie = await PostOkAsync(admin, "/admin/movies", new { translations = TestRequests.Text(title, "A journey."), releaseYear = 2024, ageRating = "Age13", runtimeMinutes = 120, genreIds = new[] { genre }, credits });
@@ -279,17 +280,19 @@ public sealed class BrowseApiTests(CatalogApiFixture api)
             var upload = await TestImages.UploadAsync(admin, TestImages.Poster(), Json, Cancellation);
             var version = (await ReadAsync<MovieDetails>(await admin.GetAsync($"/admin/movies/{movie}", Cancellation))).Version;
             Assert.True((await admin.PutAsJsonAsync($"/admin/movies/{movie}/images/poster", new AttachImageRequest(upload, version), Json, Cancellation)).IsSuccessStatusCode);
+            await api.VideoReadyAsync("Movie", movie);
             Assert.True((await admin.PostAsync($"/admin/movies/{movie}/publish", null, Cancellation)).IsSuccessStatusCode);
         }
 
         return movie;
     }
 
-    private static async Task<(Guid Id, Guid Season)> SeriesAsync(HttpClient admin, Guid genre, bool publishSeries)
+    private async Task<(Guid Id, Guid Season)> SeriesAsync(HttpClient admin, Guid genre, bool publishSeries)
     {
         var id = await PostOkAsync(admin, "/admin/series", new { translations = TestRequests.Text("Long Road", "A road."), releaseYear = 2023, ageRating = "Age16", genreIds = new[] { genre } });
         var season = await PostOkAsync(admin, $"/admin/series/{id}/seasons", TestRequests.Season(1, null, await VersionAsync(admin, id)));
         var episode = await PostOkAsync(admin, $"/admin/series/{id}/seasons/{season}/episodes", TestRequests.Episode(1, "Pilot", "Begins.", 45, await VersionAsync(admin, id)));
+        await api.VideoReadyAsync("Episode", episode);
         Assert.True((await admin.PostAsync($"/admin/series/{id}/episodes/{episode}/publish?version={await VersionAsync(admin, id)}", null, Cancellation)).IsSuccessStatusCode);
         if (publishSeries)
         {

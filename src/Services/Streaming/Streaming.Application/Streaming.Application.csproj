@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../Streaming.Domain/Streaming.Domain.csproj" />
+    <ProjectReference Include="../Streaming.Contracts/Streaming.Contracts.csproj" />
     <ProjectReference Include="../../../BuildingBlocks/Shared.Application/Shared.Application.csproj" />
   </ItemGroup>
 

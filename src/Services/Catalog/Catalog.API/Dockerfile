@@ -9,6 +9,8 @@ COPY global.json nuget.config Directory.Build.props Directory.Packages.props ./
 COPY src/Directory.Build.props src/
 COPY src/BuildingBlocks/ src/BuildingBlocks/
 COPY src/Services/Catalog/ src/Services/Catalog/
+# The one streaming project catalog may use: the events it consumes.
+COPY src/Services/Streaming/Streaming.Contracts/ src/Services/Streaming/Streaming.Contracts/
 
 RUN dotnet restore src/Services/Catalog/Catalog.API/Catalog.API.csproj
 

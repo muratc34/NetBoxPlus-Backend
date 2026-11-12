@@ -134,6 +134,12 @@ function Set-ServiceSecrets {
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
 
+    # Streaming videos: the local Azure Blob Storage emulator; the admin panel uploads, the app plays.
+    foreach ($secret in @(@('ConnectionStrings:Videos', 'UseDevelopmentStorage=true'), @('Videos:UploadOrigins:0', 'http://localhost:5174'), @('Videos:PlaybackOrigins:0', 'http://localhost:5173'))) {
+        & dotnet user-secrets set $secret[0] $secret[1] --id 'netboxplus-streaming' | Out-Null
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    }
+
     # Billing talks to Stripe only with a key; without one its payment endpoints answer 503.
     $stripeKey = $values['STRIPE_SECRET_KEY']
     if ($stripeKey) {

@@ -36,6 +36,8 @@ public sealed class Episode : Entity
 
     public IReadOnlyCollection<ContentTranslation> Translations => _translations.AsReadOnly();
 
+    public ContentVideo Video { get; private set; } = new();
+
     /// <summary>The text in the language, or in the default language when it has not been translated.</summary>
     public ContentTranslation TextFor(string language) => ContentTranslation.Pick(_translations, language);
 

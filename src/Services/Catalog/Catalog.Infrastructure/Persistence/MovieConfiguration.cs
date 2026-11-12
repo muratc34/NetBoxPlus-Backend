@@ -10,5 +10,6 @@ internal sealed class MovieConfiguration : IEntityTypeConfiguration<Movie>
     {
         builder.ToTable("Movies");
         builder.MapContentItem("MovieTranslations", "MovieGenres", "MovieCredits");
+        builder.ComplexProperty(movie => movie.Video, ContentItemMapping.MapVideo);
     }
 }

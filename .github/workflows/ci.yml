@@ -58,6 +58,10 @@ jobs:
             exit 1
           fi
 
+      # The streaming transcoder's tests run the real ffmpeg; like Docker, it is required here.
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends ffmpeg
+
       # Integration tests start PostgreSQL and RabbitMQ with Testcontainers. Locally they are
       # skipped without Docker; here a missing Docker fails them.
       - name: Test
@@ -94,6 +98,8 @@ jobs:
             dockerfile: src/Services/Billing/Billing.API/Dockerfile
           - name: streaming-api
             dockerfile: src/Services/Streaming/Streaming.API/Dockerfile
+          - name: streaming-transcoder
+            dockerfile: src/Services/Streaming/Streaming.Transcoder/Dockerfile
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

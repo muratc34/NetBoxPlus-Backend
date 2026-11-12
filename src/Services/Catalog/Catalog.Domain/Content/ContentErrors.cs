@@ -62,6 +62,10 @@ public static class ContentErrors
         "Content.PosterRequired",
         "Published content needs a poster.");
 
+    public static readonly Error VideoRequired = Error.Conflict(
+        "Content.VideoRequired",
+        "A video that is ready to play is required before publishing.");
+
     public static readonly Error MustBeUnpublished = Error.Conflict(
         "Content.MustBeUnpublished",
         "Published content must be unpublished first.");

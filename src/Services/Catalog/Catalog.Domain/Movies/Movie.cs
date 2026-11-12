@@ -20,6 +20,16 @@ public sealed class Movie : ContentItem
 
     public override ContentKind Kind => ContentKind.Movie;
 
+    public ContentVideo Video { get; private set; } = new();
+
+    /// <summary>
+    /// A report from the streaming service. Not an edit: the version stays, so that an admin who has
+    /// the movie open is not told it changed.
+    /// </summary>
+    public void ApplyVideo(Guid videoId, VideoState state, int revision) => Video.Apply(videoId, state, revision);
+
+    protected override Result CheckPlayable() => Video.IsPlayable ? Result.Success() : ContentErrors.VideoRequired;
+
     public static Result<Movie> Create(ContentInfo info, IReadOnlyDictionary<string, ContentText> texts, int runtimeMinutes)
     {
         ArgumentNullException.ThrowIfNull(info);

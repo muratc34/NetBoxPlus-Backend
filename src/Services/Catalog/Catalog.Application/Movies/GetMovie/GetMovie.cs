@@ -27,7 +27,9 @@ public sealed record MovieDetails(
     IReadOnlyList<GenreReference> Genres,
     IReadOnlyList<CreditResponse> Credits,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? ModifiedAt);
+    DateTimeOffset? ModifiedAt,
+    VideoState VideoStatus,
+    bool HasPlayableVideo);
 
 internal sealed class GetMovieHandler(ICatalogReadModel readModel, ContentReader reader) : IQueryHandler<GetMovieQuery, MovieDetails>
 {
@@ -56,6 +58,8 @@ internal sealed class GetMovieHandler(ICatalogReadModel readModel, ContentReader
             names.GenresOf(movie),
             names.CreditsOf(movie),
             movie.CreatedAt,
-            movie.ModifiedAt);
+            movie.ModifiedAt,
+            movie.Video.LatestState,
+            movie.Video.IsPlayable);
     }
 }

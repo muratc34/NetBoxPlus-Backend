@@ -28,6 +28,7 @@ public sealed class PersistenceTests(CatalogDatabaseFixture database)
         movie.SetGenres([genre.Id]);
         movie.SetCredits([new CreditInput(person.Id, CreditRole.Actor, "Hero", 1)]);
         movie.SetImage(ContentImageSlot.Poster, "poster.jpg");
+        movie.ApplyVideo(Guid.CreateVersion7(), VideoState.Ready, 2);
         movie.Publish(Now);
         await SaveAsync(services, context => context.AddRange(genre, person, movie));
 
@@ -77,6 +78,7 @@ public sealed class PersistenceTests(CatalogDatabaseFixture database)
         var series = Series.Create(Info(), Texts()).Value;
         var season = series.AddSeason(1, new Dictionary<string, string?> { ["tr"] = "İlk" }).Value;
         var episode = series.AddEpisode(season.Id, Details(1)).Value;
+        series.ApplyEpisodeVideo(episode.Id, Guid.CreateVersion7(), VideoState.Ready, 2);
         series.PublishEpisode(episode.Id, Now);
         await SaveAsync(services, context => context.Add(series));
 

@@ -22,7 +22,20 @@ internal static class TestContent
         return texts;
     }
 
-    public static Movie Movie() => Catalog.Domain.Movies.Movie.Create(Info(), Texts(), 120).Value;
+    /// <summary>A movie whose video is ready: publishing rules other than the video's are what tests look at.</summary>
+    public static Movie Movie()
+    {
+        var movie = Catalog.Domain.Movies.Movie.Create(Info(), Texts(), 120).Value;
+        movie.ApplyVideo(Guid.CreateVersion7(), VideoState.Ready, 2);
+        return movie;
+    }
+
+    /// <summary>Gives the episode a ready video and hands the series back, for a following call.</summary>
+    public static Series Playable(Series series, Guid episodeId)
+    {
+        series.ApplyEpisodeVideo(episodeId, Guid.CreateVersion7(), VideoState.Ready, 2);
+        return series;
+    }
 
     public static EpisodeDetails Details(int number = 1)
         => EpisodeDetails.Create(number, Texts($"Episode {number}"), 45).Value;

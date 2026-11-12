@@ -53,6 +53,7 @@ internal sealed class EpisodeConfiguration : IEntityTypeConfiguration<Episode>
         builder.Navigation(episode => episode.Translations).UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.Property(episode => episode.Status).HasConversion<string>().HasMaxLength(16);
         builder.Ignore(episode => episode.IsPublished);
+        builder.ComplexProperty(episode => episode.Video, ContentItemMapping.MapVideo);
         builder.HasIndex("SeasonId", nameof(Episode.Number)).IsUnique();
     }
 }
