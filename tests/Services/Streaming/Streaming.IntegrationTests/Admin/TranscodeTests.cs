@@ -82,7 +82,6 @@ public sealed class TranscodeTests(StreamingApiFixture api)
     [Fact]
     public async Task TwoWorkers_NeverTakeTheSameVideo()
     {
-        await DrainAsync();
         var id = await QueueAsync(await TestVideos.CreateAsync(320, 180, 1, audio: false));
 
         var results = await Task.WhenAll(ProcessAsync(), ProcessAsync());
@@ -94,7 +93,6 @@ public sealed class TranscodeTests(StreamingApiFixture api)
     [Fact]
     public async Task AVideoLeftByADeadWorker_IsTakenAgain()
     {
-        await DrainAsync();
         var id = await QueueAsync(await TestVideos.CreateAsync(320, 180, 1, audio: false));
         await using (var scope = api.CreateScope())
         {
@@ -118,7 +116,6 @@ public sealed class TranscodeTests(StreamingApiFixture api)
     public async Task TroubleAroundTheFile_IsTriedAgainLater_ThenGivenUp()
     {
         FfmpegAvailability.SkipUnlessAvailable();
-        await DrainAsync();
         var id = await QueueAsync([1, 2, 3]);
         await Uploads.GetBlobClient(id.ToString("N")).DeleteAsync(cancellationToken: Cancellation);
 
@@ -147,8 +144,10 @@ public sealed class TranscodeTests(StreamingApiFixture api)
         Assert.Equal((VideoStatus.Failed, $"Converting failed {TranscodeProcessor.MaxAttempts} times."), (details.Status, details.FailureReason));
     }
 
+    /// <summary>Queues the file as the only job, so that "the next" video is this test's; other tests leave theirs behind.</summary>
     private async Task<Guid> QueueAsync(byte[] file)
     {
+        await DrainAsync();
         using var admin = api.CreateClient("streaming:videos:read", "streaming:videos:write");
         var ticket = await TestVideos.StartAsync(admin, "Movie", Guid.CreateVersion7(), Json);
         await TestVideos.PutAsync(ticket.UploadAddress, file);
@@ -163,7 +162,7 @@ public sealed class TranscodeTests(StreamingApiFixture api)
         return await scope.ServiceProvider.GetRequiredService<TranscodeProcessor>().ProcessNextAsync(Cancellation);
     }
 
-    /// <summary>Other tests' videos out of the way, so that "the next" is this test's.</summary>
+    /// <summary>Removes every queued job.</summary>
     private async Task DrainAsync()
     {
         await using var scope = api.CreateScope();
