@@ -108,6 +108,40 @@ namespace Auth.Infrastructure.Persistence.Migrations
                     b.ToTable("Roles", (string)null);
                 });
 
+            modelBuilder.Entity("Auth.Domain.Users.Profile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("MaxAgeRating")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "NormalizedName")
+                        .IsUnique();
+
+                    b.ToTable("Profiles", (string)null);
+                });
+
             modelBuilder.Entity("Auth.Domain.Users.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -266,6 +300,15 @@ namespace Auth.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Auth.Domain.Users.Profile", b =>
+                {
+                    b.HasOne("Auth.Domain.Users.User", null)
+                        .WithMany("Profiles")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Auth.Domain.Users.UserRole", b =>
                 {
                     b.HasOne("Auth.Domain.Roles.Role", null)
@@ -283,6 +326,8 @@ namespace Auth.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Auth.Domain.Users.User", b =>
                 {
+                    b.Navigation("Profiles");
+
                     b.Navigation("Roles");
                 });
 #pragma warning restore 612, 618

@@ -4,14 +4,17 @@ using Yarp.ReverseProxy.Configuration;
 namespace Gateway.Routing;
 
 /// <summary>
-/// How a route maps paths, by the group conventions: the route matches
-/// <c>{GatewayPrefix}/{**catch-all}</c> and the service sees <c>{ServicePrefix}/{catch-all}</c>.
+/// How a route maps paths, by the group conventions: a service path <c>{ServicePrefix}/{rest}</c> is
+/// reached at <c>{GatewayPrefix}/{rest}</c>, and only paths under <paramref name="ServiceScope"/> belong
+/// to the route.
 /// <list type="bullet">
 /// <item>public: <c>/catalog/movies/1</c> → <c>/movies/1</c> (service prefix empty)</item>
 /// <item>admin: <c>/admin/catalog/movies/1</c> → <c>/admin/movies/1</c></item>
+/// <item>a narrower route, such as <c>/auth/profiles/{**remainder}</c> removing <c>/auth</c>: gateway
+/// prefix <c>/auth</c>, scope <c>/profiles</c>; the same holds for webhook routes.</item>
 /// </list>
 /// </summary>
-internal sealed partial record RoutePrefixes(string GatewayPrefix, string ServicePrefix)
+internal sealed partial record RoutePrefixes(string GatewayPrefix, string ServicePrefix, string ServiceScope = "")
 {
     public static bool TryParse(RouteConfig route, out RoutePrefixes prefixes)
     {
@@ -25,14 +28,20 @@ internal sealed partial record RoutePrefixes(string GatewayPrefix, string Servic
         }
 
         var prefix = match.Groups["prefix"].Value;
-        prefixes = group switch
+        if (group == RouteGroups.Admin)
         {
-            RouteGroups.Admin => new RoutePrefixes(prefix, RouteGroups.AdminPathPrefix),
+            prefixes = new RoutePrefixes(prefix, RouteGroups.AdminPathPrefix);
+            return true;
+        }
 
-            // "/billing/webhooks/{**remainder}" forwards as "/webhooks/{remainder}", like the public route.
-            RouteGroups.Webhooks => new RoutePrefixes(prefix[..prefix.IndexOf('/', 1)], string.Empty),
-            _ => new RoutePrefixes(prefix, string.Empty),
-        };
+        // A route that removes less than it matches ("/billing/webhooks/..." removing "/billing")
+        // keeps the rest of its match on the service side: that rest is its scope.
+        var removed = route.Transforms?
+            .Select(transform => transform.GetValueOrDefault("PathRemovePrefix"))
+            .FirstOrDefault(value => value is not null);
+        prefixes = removed is not null && prefix.StartsWith(removed + "/", StringComparison.OrdinalIgnoreCase)
+            ? new RoutePrefixes(removed, string.Empty, prefix[removed.Length..])
+            : new RoutePrefixes(prefix, string.Empty);
         return true;
     }
 
@@ -49,8 +58,13 @@ internal sealed partial record RoutePrefixes(string GatewayPrefix, string Servic
 
         if (ServicePrefix.Length == 0)
         {
-            // A public route never exposes the service's admin paths.
-            return RouteGroups.IsAdminPath(servicePath) ? null : GatewayPrefix + servicePath;
+            // A public route never exposes the service's admin paths, nor paths outside its scope.
+            if (RouteGroups.IsAdminPath(servicePath) || !InScope(servicePath))
+            {
+                return null;
+            }
+
+            return GatewayPrefix + servicePath;
         }
 
         return servicePath.Equals(ServicePrefix, StringComparison.OrdinalIgnoreCase)
@@ -58,6 +72,12 @@ internal sealed partial record RoutePrefixes(string GatewayPrefix, string Servic
             ? GatewayPrefix + servicePath[ServicePrefix.Length..]
             : null;
     }
+
+    private bool InScope(string servicePath)
+        => ServiceScope.Length == 0
+            || servicePath.Equals(ServiceScope, StringComparison.OrdinalIgnoreCase)
+            || servicePath.StartsWith(ServiceScope + "/", StringComparison.OrdinalIgnoreCase)
+            || servicePath.StartsWith(ServiceScope + "?", StringComparison.OrdinalIgnoreCase);
 
     // Literal segments followed by a single catch-all: "/admin/catalog/{**remainder}".
     [GeneratedRegex(@"^(?<prefix>(/[A-Za-z0-9._~-]+)+)/\{\*\*[A-Za-z][A-Za-z0-9]*\}$")]

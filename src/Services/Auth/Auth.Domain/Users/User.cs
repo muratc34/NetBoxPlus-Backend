@@ -13,7 +13,13 @@ public sealed class User : AggregateRoot, IAuditableEntity
 
     public static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
 
+    public const int MaxProfiles = 5;
+
+    /// <summary>The profile every account starts with.</summary>
+    public const string FirstProfileName = "Main";
+
     private readonly List<UserRole> _roles = [];
+    private readonly List<Profile> _profiles = [];
 
     private User(Guid id, EmailAddress email, string passwordHash)
         : base(id)
@@ -50,6 +56,8 @@ public sealed class User : AggregateRoot, IAuditableEntity
 
     public IReadOnlyCollection<UserRole> Roles => _roles.AsReadOnly();
 
+    public IReadOnlyCollection<Profile> Profiles => _profiles.AsReadOnly();
+
     public static User Register(EmailAddress email, string passwordHash)
     {
         ArgumentNullException.ThrowIfNull(email);
@@ -57,6 +65,7 @@ public sealed class User : AggregateRoot, IAuditableEntity
 
         var user = new User(Guid.CreateVersion7(), email, passwordHash);
         user.RaiseDomainEvent(new UserRegisteredDomainEvent(user.Id, email.Value));
+        user.AddProfile(FirstProfileName, AgeRating.Age18);
         return user;
     }
 
@@ -106,6 +115,92 @@ public sealed class User : AggregateRoot, IAuditableEntity
     }
 
     public void RemoveRole(Guid roleId) => _roles.RemoveAll(role => role.RoleId == roleId);
+
+    public Result<Profile> AddProfile(string? name, AgeRating maxAgeRating)
+    {
+        var checkedName = Profile.CheckName(name);
+        if (checkedName.IsFailure)
+        {
+            return checkedName.Error;
+        }
+
+        if (!Enum.IsDefined(maxAgeRating))
+        {
+            return ProfileErrors.AgeRatingInvalid;
+        }
+
+        if (_profiles.Count >= MaxProfiles)
+        {
+            return ProfileErrors.LimitReached;
+        }
+
+        if (IsNameTaken(checkedName.Value, exceptId: null))
+        {
+            return ProfileErrors.NameTaken;
+        }
+
+        var profile = Profile.Create(Id, checkedName.Value, maxAgeRating);
+        _profiles.Add(profile);
+        RaiseDomainEvent(new ProfileCreatedDomainEvent(Id, profile.Id, profile.MaxAgeRating, profile.Revision));
+        return profile;
+    }
+
+    public Result ChangeProfile(Guid profileId, string? name, AgeRating maxAgeRating)
+    {
+        var profile = _profiles.Find(item => item.Id == profileId);
+        if (profile is null)
+        {
+            return ProfileErrors.NotFound;
+        }
+
+        var checkedName = Profile.CheckName(name);
+        if (checkedName.IsFailure)
+        {
+            return checkedName.Error;
+        }
+
+        if (!Enum.IsDefined(maxAgeRating))
+        {
+            return ProfileErrors.AgeRatingInvalid;
+        }
+
+        if (IsNameTaken(checkedName.Value, profileId))
+        {
+            return ProfileErrors.NameTaken;
+        }
+
+        if (profile.Change(checkedName.Value, maxAgeRating))
+        {
+            RaiseDomainEvent(new ProfileChangedDomainEvent(Id, profile.Id, profile.MaxAgeRating, profile.Revision));
+        }
+
+        return Result.Success();
+    }
+
+    public Result RemoveProfile(Guid profileId)
+    {
+        var profile = _profiles.Find(item => item.Id == profileId);
+        if (profile is null)
+        {
+            return ProfileErrors.NotFound;
+        }
+
+        if (_profiles.Count == 1)
+        {
+            return ProfileErrors.LastProfile;
+        }
+
+        profile.MarkRemoved();
+        _profiles.Remove(profile);
+        RaiseDomainEvent(new ProfileRemovedDomainEvent(Id, profile.Id, profile.Revision));
+        return Result.Success();
+    }
+
+    private bool IsNameTaken(string name, Guid? exceptId)
+    {
+        var normalized = Profile.Normalize(name);
+        return _profiles.Exists(profile => profile.Id != exceptId && profile.NormalizedName == normalized);
+    }
 }
 
 public sealed record UserRegisteredDomainEvent(Guid UserId, string Email) : IDomainEvent;

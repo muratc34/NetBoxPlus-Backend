@@ -1,4 +1,6 @@
+using System.Text.Json.Serialization;
 using Auth.API.Admin;
+using Auth.API.Profiles;
 using Auth.API.Security;
 using Auth.API.Sessions;
 using Auth.API.WellKnown;
@@ -12,6 +14,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 builder.Services.AddJwtAuthentication();
 builder.Services.AddOpenApi();
+
+// Enums as names in JSON, as in every service: profile age ratings are read and written as "Age7".
+builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddAuthApplication();
 
 if (!BuildTimeOpenApi.IsGeneratingDocument)
@@ -35,6 +40,7 @@ app.MapWellKnownEndpoints();
 app.MapSessionEndpoints();
 app.MapUserAdminEndpoints();
 app.MapRoleAdminEndpoints();
+app.MapProfileEndpoints();
 app.MapDefaultEndpoints();
 
 app.Run();

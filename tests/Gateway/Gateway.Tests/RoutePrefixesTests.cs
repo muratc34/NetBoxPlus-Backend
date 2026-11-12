@@ -38,13 +38,29 @@ public sealed class RoutePrefixesTests
         Assert.Equal(expected, Admin.ToGatewayPath(servicePath));
     }
 
-    private static RoutePrefixes Parse(string path, string group)
+    [Theory]
+    [InlineData("/profiles", "/auth/profiles")]
+    [InlineData("/profiles/1", "/auth/profiles/1")]
+    [InlineData("/profiles?page=2", "/auth/profiles?page=2")]
+    [InlineData("/sign-in", null)]
+    [InlineData("/profilesx", null)]
+    [InlineData("/admin/profiles", null)]
+    public void ANarrowRoute_MapsOnlyItsScope(string servicePath, string? expected)
+    {
+        var narrow = Parse("/auth/profiles/{**remainder}", RouteGroups.Public, removePrefix: "/auth");
+
+        Assert.Equal(new RoutePrefixes("/auth", string.Empty, "/profiles"), narrow);
+        Assert.Equal(expected, narrow.ToGatewayPath(servicePath));
+    }
+
+    private static RoutePrefixes Parse(string path, string group, string? removePrefix = null)
     {
         var route = new RouteConfig
         {
             RouteId = "test",
             Match = new RouteMatch { Path = path },
             Metadata = new Dictionary<string, string> { [RouteGroups.MetadataKey] = group },
+            Transforms = removePrefix is null ? null : [new Dictionary<string, string> { ["PathRemovePrefix"] = removePrefix }],
         };
 
         Assert.True(RoutePrefixes.TryParse(route, out var prefixes));

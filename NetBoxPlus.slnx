@@ -52,9 +52,19 @@
     <Project Path="tests/Services/Auth/Auth.Domain.Tests/Auth.Domain.Tests.csproj" />
     <Project Path="tests/Services/Auth/Auth.IntegrationTests/Auth.IntegrationTests.csproj" />
   </Folder>
+  <Folder Name="/src/Services/Streaming/">
+    <Project Path="src/Services/Streaming/Streaming.API/Streaming.API.csproj" />
+    <Project Path="src/Services/Streaming/Streaming.Application/Streaming.Application.csproj" />
+    <Project Path="src/Services/Streaming/Streaming.Domain/Streaming.Domain.csproj" />
+    <Project Path="src/Services/Streaming/Streaming.Infrastructure/Streaming.Infrastructure.csproj" />
+    <Project Path="src/Services/Streaming/Streaming.Migrator/Streaming.Migrator.csproj" />
+  </Folder>
   <Folder Name="/tests/Services/Billing/">
     <Project Path="tests/Services/Billing/Billing.Domain.Tests/Billing.Domain.Tests.csproj" />
     <Project Path="tests/Services/Billing/Billing.IntegrationTests/Billing.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Services/Streaming/">
+    <Project Path="tests/Services/Streaming/Streaming.IntegrationTests/Streaming.IntegrationTests.csproj" />
   </Folder>
   <Folder Name="/tests/Services/Catalog/">
     <Project Path="tests/Services/Catalog/Catalog.Domain.Tests/Catalog.Domain.Tests.csproj" />

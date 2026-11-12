@@ -79,7 +79,8 @@ public sealed class UserTests
     {
         var user = NewUser();
 
-        var raised = Assert.IsType<UserRegisteredDomainEvent>(Assert.Single(user.DomainEvents));
+        // The first profile is announced alongside (see ProfileTests).
+        var raised = Assert.Single(user.DomainEvents.OfType<UserRegisteredDomainEvent>());
         Assert.Equal(user.Id, raised.UserId);
         Assert.Equal("jane@example.com", raised.Email);
         Assert.Equal(7, user.Id.Version);

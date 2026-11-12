@@ -27,6 +27,26 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasForeignKey(role => role.UserId)
             .OnDelete(DeleteBehavior.Cascade);
         builder.Navigation(user => user.Roles).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(user => user.Profiles)
+            .WithOne()
+            .HasForeignKey(profile => profile.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(user => user.Profiles).UsePropertyAccessMode(PropertyAccessMode.Field).AutoInclude();
+    }
+}
+
+internal sealed class ProfileConfiguration : IEntityTypeConfiguration<Profile>
+{
+    public void Configure(EntityTypeBuilder<Profile> builder)
+    {
+        builder.ToTable("Profiles");
+        builder.HasKey(profile => profile.Id);
+        builder.Property(profile => profile.Id).ValueGeneratedNever();
+        builder.Property(profile => profile.Name).HasMaxLength(Profile.NameMaxLength).IsRequired();
+        builder.Property(profile => profile.NormalizedName).HasMaxLength(Profile.NameMaxLength).IsRequired();
+        builder.Property(profile => profile.MaxAgeRating).HasConversion<string>().HasMaxLength(8);
+        builder.HasIndex(profile => new { profile.UserId, profile.NormalizedName }).IsUnique();
     }
 }
 
