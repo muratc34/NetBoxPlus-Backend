@@ -56,14 +56,15 @@ public static class StreamingInfrastructureServiceCollectionExtensions
         return services;
     }
 
-    /// <summary>Signing of playlist addresses (from <c>Playback:SigningKey</c>; the service does not start without it) and the cleanup of old sessions.</summary>
+    /// <summary>
+    /// The API's side of playback: the signing key is required (<c>Playback:SigningKey</c>; the
+    /// service does not start without it), and old sessions are cleaned up.
+    /// </summary>
     internal static IServiceCollection AddPlayback(this IServiceCollection services)
     {
         services.AddOptions<PlaybackOptions>()
-            .BindConfiguration(PlaybackOptions.SectionName)
             .Validate(options => options.IsValid, $"{PlaybackOptions.SectionName}:SigningKey must be at least 32 bytes in Base64. Locally, run ./deploy/dev.ps1 secrets.")
             .ValidateOnStart();
-        services.AddSingleton<IPlaybackSigner, HmacPlaybackSigner>();
         services.AddScoped<PlaybackSessionCleaner>();
         services.AddHostedService<PlaybackSessionCleanupService>();
         return services;
@@ -101,5 +102,10 @@ public static class StreamingInfrastructureServiceCollectionExtensions
         services.AddSingleton<VideoBlobStorage>();
         services.AddSingleton<IVideoStorage>(provider => provider.GetRequiredService<VideoBlobStorage>());
         services.AddScoped<ExpiredUploadCleaner>();
+
+        // Every handler of the application layer is registered in both processes, so what they need is
+        // too; the transcoder never signs an address and needs no key until one is asked for.
+        services.AddOptions<PlaybackOptions>().BindConfiguration(PlaybackOptions.SectionName);
+        services.AddSingleton<IPlaybackSigner, HmacPlaybackSigner>();
     }
 }
