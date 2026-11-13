@@ -14,6 +14,7 @@ using Microsoft.IdentityModel.Tokens;
 using NetBoxPlus.Testing;
 using Streaming.Infrastructure;
 using Streaming.Infrastructure.Media;
+using Streaming.Infrastructure.Playback;
 using Testcontainers.Azurite;
 using Testcontainers.PostgreSql;
 
@@ -127,6 +128,7 @@ public sealed class StreamingApiFixture : IAsyncLifetime
             builder.UseSetting("ConnectionStrings:Database", database);
             builder.UseSetting("Messaging:ConnectionString", "amqp://localhost:1/");
             builder.UseSetting("ConnectionStrings:Videos", videos);
+            builder.UseSetting("Playback:SigningKey", Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
             builder.UseSetting("Transcoder:FfmpegPath", FfmpegAvailability.FfmpegPath ?? "ffmpeg");
             builder.UseSetting("Transcoder:FfprobePath", FfmpegAvailability.FfprobePath ?? "ffprobe");
 
@@ -143,6 +145,7 @@ public sealed class StreamingApiFixture : IAsyncLifetime
 
                 // The cleanup runs when a test asks; the transcoder is a process of its own, driven by tests here.
                 services.Remove(services.Single(service => service.ImplementationType == typeof(ExpiredUploadCleanupService)));
+                services.Remove(services.Single(service => service.ImplementationType == typeof(PlaybackSessionCleanupService)));
                 services.AddTranscoding(new Microsoft.Extensions.Configuration.ConfigurationBuilder()
                     .AddInMemoryCollection(new Dictionary<string, string?>
                     {

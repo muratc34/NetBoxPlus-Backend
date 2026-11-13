@@ -6,9 +6,11 @@ using Shared.Infrastructure.Persistence;
 using Shared.Infrastructure.Persistence.Outbox;
 using Streaming.Application.Abstractions;
 using Streaming.Domain.Access;
+using Streaming.Domain.Playback;
 using Streaming.Domain.Videos;
 using Streaming.Infrastructure.Media;
 using Streaming.Infrastructure.Persistence;
+using Streaming.Infrastructure.Playback;
 
 namespace Streaming.Infrastructure;
 
@@ -25,6 +27,7 @@ public static class StreamingInfrastructureServiceCollectionExtensions
     {
         services.AddStreamingCore(configuration);
         services.AddHostedService<ExpiredUploadCleanupService>();
+        services.AddPlayback();
         services.AddRabbitMqMessaging();
         return services;
     }
@@ -53,6 +56,19 @@ public static class StreamingInfrastructureServiceCollectionExtensions
         return services;
     }
 
+    /// <summary>Signing of playlist addresses (from <c>Playback:SigningKey</c>; the service does not start without it) and the cleanup of old sessions.</summary>
+    internal static IServiceCollection AddPlayback(this IServiceCollection services)
+    {
+        services.AddOptions<PlaybackOptions>()
+            .BindConfiguration(PlaybackOptions.SectionName)
+            .Validate(options => options.IsValid, $"{PlaybackOptions.SectionName}:SigningKey must be at least 32 bytes in Base64. Locally, run ./deploy/dev.ps1 secrets.")
+            .ValidateOnStart();
+        services.AddSingleton<IPlaybackSigner, HmacPlaybackSigner>();
+        services.AddScoped<PlaybackSessionCleaner>();
+        services.AddHostedService<PlaybackSessionCleanupService>();
+        return services;
+    }
+
     /// <summary>The database and repositories; the integration tests use it on its own.</summary>
     internal static IServiceCollection AddStreamingPersistence(this IServiceCollection services, string connectionString)
     {
@@ -63,6 +79,8 @@ public static class StreamingInfrastructureServiceCollectionExtensions
         services.AddScoped<IProfileCopyRepository, ProfileCopyRepository>();
         services.AddScoped<IPlayableTitleRepository, PlayableTitleRepository>();
         services.AddScoped<ITranscodeQueue, EfTranscodeQueue>();
+        services.AddScoped<IViewerRepository, ViewerRepository>();
+        services.AddScoped<IPlaybackSessionRepository, PlaybackSessionRepository>();
         return services;
     }
 

@@ -35,6 +35,22 @@ internal sealed class VideoBlobStorage(BlobServiceClient blobs) : IVideoStorage
         }
     }
 
+    public async Task<string?> ReadTextAsync(Guid videoId, string path, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var content = await Videos.GetBlobClient($"{FolderOf(videoId)}/{path}").DownloadContentAsync(cancellationToken).ConfigureAwait(false);
+            return content.Value.Content.ToString();
+        }
+        catch (RequestFailedException exception) when (exception.Status == 404)
+        {
+            return null;
+        }
+    }
+
+    public Uri CreateReadAddress(Guid videoId, string path, DateTimeOffset expiresAt)
+        => Videos.GetBlobClient($"{FolderOf(videoId)}/{path}").GenerateSasUri(BlobSasPermissions.Read, expiresAt);
+
     public Task DownloadUploadAsync(Guid videoId, string path, CancellationToken cancellationToken)
         => Uploads.GetBlobClient(UploadName(videoId)).DownloadToAsync(path, cancellationToken);
 

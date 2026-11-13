@@ -93,3 +93,14 @@ public interface ISubscriptionCopyRepository
 
     void Add(SubscriptionCopy subscription);
 }
+
+public static class VideoQualities
+{
+    /// <summary>The tallest rendition a plan's quality allows: SD up to 480 lines, HD up to 1080, UHD all.</summary>
+    public static int MaxHeight(VideoQuality quality) => quality switch
+    {
+        VideoQuality.Sd => 480,
+        VideoQuality.Hd => 1080,
+        _ => int.MaxValue,
+    };
+}

@@ -38,6 +38,9 @@ public sealed class ProfileCopy : AggregateRoot
     /// <summary>The account service's revision of the state kept here; older news is ignored.</summary>
     public int Revision { get; private set; }
 
+    /// <summary>Whether this profile may watch a title meant for <paramref name="ageRating"/> and up.</summary>
+    public bool MayWatch(AgeRating ageRating) => !IsRemoved && ageRating <= MaxAgeRating;
+
     public static ProfileCopy Create(Guid profileId, Guid userId) => new(profileId, userId) { Revision = -1 };
 
     public bool Apply(AgeRating maxAgeRating, int revision)

@@ -200,6 +200,61 @@ namespace Streaming.Infrastructure.Persistence.Migrations
                     b.ToTable("Subscriptions", (string)null);
                 });
 
+            modelBuilder.Entity("Streaming.Domain.Playback.PlaybackSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ContentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("EndedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("LastHeartbeatAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("MaxHeight")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ProfileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TitleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("VideoId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LastHeartbeatAt");
+
+                    b.HasIndex("UserId", "LastHeartbeatAt");
+
+                    b.ToTable("PlaybackSessions", (string)null);
+                });
+
+            modelBuilder.Entity("Streaming.Domain.Playback.Viewer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Viewers", (string)null);
+                });
+
             modelBuilder.Entity("Streaming.Domain.Videos.Video", b =>
                 {
                     b.Property<Guid>("Id")
@@ -300,6 +355,15 @@ namespace Streaming.Infrastructure.Persistence.Migrations
                     b.Navigation("Items");
                 });
 
+            modelBuilder.Entity("Streaming.Domain.Playback.PlaybackSession", b =>
+                {
+                    b.HasOne("Streaming.Domain.Playback.Viewer", null)
+                        .WithMany("Sessions")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Streaming.Domain.Videos.Video", b =>
                 {
                     b.OwnsMany("Streaming.Domain.Videos.Rendition", "Renditions", b1 =>
@@ -339,6 +403,11 @@ namespace Streaming.Infrastructure.Persistence.Migrations
                         .HasForeignKey("VideoId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Streaming.Domain.Playback.Viewer", b =>
+                {
+                    b.Navigation("Sessions");
                 });
 #pragma warning restore 612, 618
         }

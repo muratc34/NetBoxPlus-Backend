@@ -170,6 +170,27 @@ function Set-ServiceSecrets {
     Write-Host 'User secrets set for gateway (id netboxplus-gateway).'
 
     Set-AuthSigningKey
+    Set-PlaybackSigningKey
+}
+
+function Set-PlaybackSigningKey {
+    $id = 'netboxplus-streaming'
+
+    # Created once: a new key would invalidate every playlist address handed out with the previous one.
+    $existing = & dotnet user-secrets list --id $id
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    if ($existing -cmatch '^Playback:SigningKey = ') {
+        Write-Host "Playback signing key already set for streaming (id $id)."
+        return
+    }
+
+    $bytes = New-Object byte[] 32
+    $random = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    $random.GetBytes($bytes)
+    $random.Dispose()
+    & dotnet user-secrets set 'Playback:SigningKey' ([Convert]::ToBase64String($bytes)) --id $id | Out-Null
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    Write-Host "Playback signing key created for streaming (id $id)."
 }
 
 function Set-AuthSigningKey {
