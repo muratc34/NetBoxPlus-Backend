@@ -255,6 +255,41 @@ namespace Streaming.Infrastructure.Persistence.Migrations
                     b.ToTable("Viewers", (string)null);
                 });
 
+            modelBuilder.Entity("Streaming.Domain.Playback.WatchProgress", b =>
+                {
+                    b.Property<Guid>("ProfileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ContentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Completed")
+                        .HasColumnType("boolean");
+
+                    b.Property<double>("DurationSeconds")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("PositionSeconds")
+                        .HasColumnType("double precision");
+
+                    b.Property<Guid>("TitleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("ProfileId", "ContentId");
+
+                    b.HasIndex("ProfileId", "TitleId");
+
+                    b.HasIndex("ProfileId", "UpdatedAt");
+
+                    b.ToTable("WatchProgress", (string)null);
+                });
+
             modelBuilder.Entity("Streaming.Domain.Videos.Video", b =>
                 {
                     b.Property<Guid>("Id")
@@ -335,6 +370,9 @@ namespace Streaming.Infrastructure.Persistence.Migrations
                         {
                             b1.Property<Guid>("ContentId")
                                 .HasColumnType("uuid");
+
+                            b1.Property<int>("Sequence")
+                                .HasColumnType("integer");
 
                             b1.Property<Guid>("TitleId")
                                 .HasColumnType("uuid");

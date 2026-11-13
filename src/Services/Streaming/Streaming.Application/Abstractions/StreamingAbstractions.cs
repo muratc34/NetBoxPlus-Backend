@@ -36,6 +36,8 @@ public interface IStreamingReadModel
 
     IQueryable<PlaybackSession> PlaybackSessions { get; }
 
+    IQueryable<WatchProgress> WatchProgress { get; }
+
     /// <summary>Copies of the billing service's subscriptions.</summary>
     IQueryable<SubscriptionCopy> Subscriptions { get; }
 

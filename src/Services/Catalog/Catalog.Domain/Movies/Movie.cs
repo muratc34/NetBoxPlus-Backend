@@ -39,7 +39,7 @@ public sealed class Movie : ContentItem
     protected override Result CheckPlayable() => Video.IsPlayable ? Result.Success() : ContentErrors.VideoRequired;
 
     protected override IReadOnlyList<PlayableVideo> PlayableVideos()
-        => Video.PlayableVideoId is { } videoId ? [new PlayableVideo(Id, videoId)] : [];
+        => Video.PlayableVideoId is { } videoId ? [new PlayableVideo(Id, videoId, 0)] : [];
 
     public static Result<Movie> Create(ContentInfo info, IReadOnlyDictionary<string, ContentText> texts, int runtimeMinutes)
     {

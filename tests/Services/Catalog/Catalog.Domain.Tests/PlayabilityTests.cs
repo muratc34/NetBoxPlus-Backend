@@ -53,7 +53,7 @@ public sealed class PlayabilityTests
         var playability = movie.Playability();
         Assert.Equal(revision + 1, playability.Revision);
         Assert.Equal((movie.Id, ContentKind.Movie, AgeRating.Age13), (playability.TitleId, playability.Kind, playability.AgeRating));
-        Assert.Equal([new PlayableVideo(movie.Id, movie.Video.PlayableVideoId!.Value)], playability.Videos);
+        Assert.Equal([new PlayableVideo(movie.Id, movie.Video.PlayableVideoId!.Value, 0)], playability.Videos);
     }
 
     [Fact]
@@ -139,7 +139,7 @@ public sealed class PlayabilityTests
         Assert.Equal(1, Announcements(series));
         var playability = series.Playability();
         Assert.Equal(ContentKind.Series, playability.Kind);
-        Assert.Equal([new PlayableVideo(first.Id, first.Video.PlayableVideoId!.Value)], playability.Videos);
+        Assert.Equal([new PlayableVideo(first.Id, first.Video.PlayableVideoId!.Value, PlayableVideo.SequenceOf(1, 1))], playability.Videos);
         Assert.DoesNotContain(playability.Videos, video => video.ContentId == second.Id);
     }
 
@@ -180,5 +180,49 @@ public sealed class PlayabilityTests
 
         Assert.Equal(1, Announcements(series));
         Assert.Equal(newer, Assert.Single(series.Playability().Videos).VideoId);
+    }
+
+    [Fact]
+    public void Episodes_ComeInSeasonAndEpisodeOrder()
+    {
+        var (series, firstSeason) = TestContent.SeriesWithSeason();
+        var secondSeason = series.AddSeason(2, null).Value;
+        var late = series.AddEpisode(secondSeason.Id, TestContent.Details(1)).Value;
+        var early = series.AddEpisode(firstSeason.Id, TestContent.Details(3)).Value;
+        TestContent.Playable(TestContent.Playable(series, late.Id), early.Id);
+        series.SetGenres([Guid.CreateVersion7()]);
+        series.SetImage(ContentImageSlot.Poster, "poster.jpg");
+        series.PublishEpisode(late.Id, TestContent.Now);
+        series.PublishEpisode(early.Id, TestContent.Now);
+        series.Publish(TestContent.Now);
+
+        var videos = series.Playability().Videos;
+
+        Assert.Equal([early.Id, late.Id], videos.Select(video => video.ContentId));
+        Assert.Equal([PlayableVideo.SequenceOf(1, 3), PlayableVideo.SequenceOf(2, 1)], videos.Select(video => video.Sequence));
+    }
+
+    [Fact]
+    public void RenumberingPublishedEpisodes_IsAnnounced_RenumberingHiddenOnesIsNot()
+    {
+        var (series, first, second) = SeriesWithTwoPlayableEpisodes();
+        series.PublishEpisode(first.Id, TestContent.Now);
+        series.Publish(TestContent.Now);
+        var season = Assert.Single(series.Seasons);
+        series.ClearDomainEvents();
+
+        series.ChangeEpisode(second.Id, TestContent.Details(5));
+        Assert.Equal(0, Announcements(series));
+
+        series.ChangeEpisode(first.Id, TestContent.Details(4));
+        Assert.Equal(1, Announcements(series));
+        Assert.Equal(PlayableVideo.SequenceOf(1, 4), Assert.Single(series.Playability().Videos).Sequence);
+        series.ClearDomainEvents();
+
+        series.ChangeSeason(season.Id, 1, null);
+        Assert.Equal(0, Announcements(series));
+        series.ChangeSeason(season.Id, 3, null);
+        Assert.Equal(1, Announcements(series));
+        Assert.Equal(PlayableVideo.SequenceOf(3, 4), Assert.Single(series.Playability().Videos).Sequence);
     }
 }

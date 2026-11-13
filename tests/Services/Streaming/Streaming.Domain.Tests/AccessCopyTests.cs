@@ -95,6 +95,19 @@ public sealed class AccessCopyTests
     }
 
     [Fact]
+    public void TheSameRevisionAgain_IsTaken_SoAnAnnouncementCarriesNewFields()
+    {
+        var title = PlayableTitle.Create(Guid.CreateVersion7(), TitleKind.Series);
+        var episode = Guid.CreateVersion7();
+        var video = Guid.CreateVersion7();
+        title.Replace(AgeRating.All, [new PlayableItem(episode, video)], 4);
+
+        Assert.True(title.Replace(AgeRating.All, [new PlayableItem(episode, video, 100_001)], 4));
+
+        Assert.Equal(100_001, Assert.Single(title.Items).Sequence);
+    }
+
+    [Fact]
     public void AnEmptyList_LeavesNothingToWatch()
     {
         var title = PlayableTitle.Create(Guid.CreateVersion7(), TitleKind.Movie);

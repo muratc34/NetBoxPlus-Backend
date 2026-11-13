@@ -13,6 +13,7 @@ public static class StreamingApplicationServiceCollectionExtensions
         services.AddCqrs(typeof(StreamingApplicationServiceCollectionExtensions).Assembly);
         services.AddScoped<PlaybackGate>();
         services.AddScoped<PlaylistSource>();
+        services.AddScoped<PlaybackPositions>();
         return services;
     }
 }

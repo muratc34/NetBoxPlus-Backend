@@ -94,7 +94,7 @@ internal sealed class FollowPlayables(IDispatcher dispatcher) : IIntegrationEven
             return Task.FromResult(Result.Failure(rating.Error));
         }
 
-        var items = integrationEvent.Items.Select(item => new Domain.Access.PlayableItem(item.ContentId, item.VideoId)).ToList();
+        var items = integrationEvent.Items.Select(item => new Domain.Access.PlayableItem(item.ContentId, item.VideoId, item.Sequence)).ToList();
         return dispatcher.Send(new ApplyPlayableCommand(integrationEvent.TitleId, kind.Value, rating.Value, items, integrationEvent.Revision), cancellationToken);
     }
 }

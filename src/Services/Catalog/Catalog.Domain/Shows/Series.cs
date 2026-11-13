@@ -80,6 +80,12 @@ public sealed class Series : ContentItem
             return SeriesErrors.SeasonNumberTaken;
         }
 
+        // The order of its published episodes changes with the season number.
+        if (IsPublished && season.Number != number && season.Episodes.Any(item => item.IsPublished))
+        {
+            PlayabilityChanged();
+        }
+
         season.Change(number, checkedTitle.Value);
         MarkChanged();
         return Result.Success();
@@ -134,6 +140,11 @@ public sealed class Series : ContentItem
         if (season.Episodes.Any(other => other.Id != episodeId && other.Number == details.Number))
         {
             return SeriesErrors.EpisodeNumberTaken;
+        }
+
+        if (IsPublished && episode.IsPublished && episode.Number != details.Number)
+        {
+            PlayabilityChanged();
         }
 
         episode.Change(details);
@@ -225,9 +236,11 @@ public sealed class Series : ContentItem
         => PublishedEpisodes().Any() ? Result.Success() : SeriesErrors.PublishedEpisodeRequired;
 
     protected override IReadOnlyList<PlayableVideo> PlayableVideos()
-        => PublishedEpisodes()
-            .Where(episode => episode.Video.PlayableVideoId is not null)
-            .Select(episode => new PlayableVideo(episode.Id, episode.Video.PlayableVideoId!.Value))
+        => _seasons
+            .SelectMany(season => season.Episodes.Select(episode => (season, episode)))
+            .Where(pair => pair.episode.IsPublished && pair.episode.Video.PlayableVideoId is not null)
+            .Select(pair => new PlayableVideo(pair.episode.Id, pair.episode.Video.PlayableVideoId!.Value, PlayableVideo.SequenceOf(pair.season.Number, pair.episode.Number)))
+            .OrderBy(video => video.Sequence)
             .ToList();
 
     private IEnumerable<Episode> PublishedEpisodes()

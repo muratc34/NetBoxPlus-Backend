@@ -18,4 +18,8 @@ public sealed record PlayableChanged(
 
 /// <param name="ContentId">The movie's id, or the episode's.</param>
 /// <param name="VideoId">The streaming service's video to play for it.</param>
-public sealed record PlayableItem(Guid ContentId, Guid VideoId);
+/// <param name="Sequence">
+/// The order of an episode in its series: season number * 100000 + episode number. 0 for a movie,
+/// and in messages from before it was added.
+/// </param>
+public sealed record PlayableItem(Guid ContentId, Guid VideoId, int Sequence = 0);

@@ -18,6 +18,8 @@ public sealed class StreamingDbContext(DbContextOptions<StreamingDbContext> opti
 
     public DbSet<PlaybackSession> PlaybackSessions => Set<PlaybackSession>();
 
+    public DbSet<WatchProgress> WatchProgress => Set<WatchProgress>();
+
     public DbSet<SubscriptionCopy> Subscriptions => Set<SubscriptionCopy>();
 
     public DbSet<ProfileCopy> Profiles => Set<ProfileCopy>();
@@ -27,6 +29,8 @@ public sealed class StreamingDbContext(DbContextOptions<StreamingDbContext> opti
     IQueryable<Video> IStreamingReadModel.Videos => Videos.AsNoTracking();
 
     IQueryable<PlaybackSession> IStreamingReadModel.PlaybackSessions => PlaybackSessions.AsNoTracking();
+
+    IQueryable<WatchProgress> IStreamingReadModel.WatchProgress => WatchProgress.AsNoTracking();
 
     IQueryable<SubscriptionCopy> IStreamingReadModel.Subscriptions => Subscriptions.AsNoTracking();
 

@@ -81,6 +81,7 @@ public static class StreamingInfrastructureServiceCollectionExtensions
         services.AddScoped<ITranscodeQueue, EfTranscodeQueue>();
         services.AddScoped<IViewerRepository, ViewerRepository>();
         services.AddScoped<IPlaybackSessionRepository, PlaybackSessionRepository>();
+        services.AddScoped<IWatchProgressRepository, WatchProgressRepository>();
         return services;
     }
 

@@ -64,3 +64,37 @@ internal sealed class PlaybackSessionRepository(StreamingDbContext context) : IP
         return await mine.AnyAsync(cancellationToken).ConfigureAwait(false);
     }
 }
+
+internal sealed class WatchProgressConfiguration : IEntityTypeConfiguration<WatchProgress>
+{
+    public void Configure(EntityTypeBuilder<WatchProgress> builder)
+    {
+        builder.ToTable("WatchProgress");
+        builder.HasKey(progress => new { progress.ProfileId, progress.ContentId });
+        builder.HasIndex(progress => new { progress.ProfileId, progress.UpdatedAt });
+        builder.HasIndex(progress => new { progress.ProfileId, progress.TitleId });
+    }
+}
+
+internal sealed class WatchProgressRepository(StreamingDbContext context) : IWatchProgressRepository
+{
+    public Task SaveAsync(WatchProgress progress, CancellationToken cancellationToken)
+        => context.Database.ExecuteSqlInterpolatedAsync(
+            $"""
+            INSERT INTO "WatchProgress" ("ProfileId", "ContentId", "UserId", "TitleId", "PositionSeconds", "DurationSeconds", "Completed", "UpdatedAt")
+            VALUES ({progress.ProfileId}, {progress.ContentId}, {progress.UserId}, {progress.TitleId}, {progress.PositionSeconds}, {progress.DurationSeconds}, {progress.Completed}, {progress.UpdatedAt})
+            ON CONFLICT ("ProfileId", "ContentId") DO UPDATE SET
+                "TitleId" = EXCLUDED."TitleId",
+                "PositionSeconds" = EXCLUDED."PositionSeconds",
+                "DurationSeconds" = EXCLUDED."DurationSeconds",
+                "Completed" = EXCLUDED."Completed",
+                "UpdatedAt" = EXCLUDED."UpdatedAt"
+            """,
+            cancellationToken);
+
+    public Task<WatchProgress?> FindAsync(Guid profileId, Guid contentId, CancellationToken cancellationToken)
+        => context.WatchProgress.AsNoTracking().FirstOrDefaultAsync(progress => progress.ProfileId == profileId && progress.ContentId == contentId, cancellationToken);
+
+    public async Task RemoveForProfileAsync(Guid profileId, CancellationToken cancellationToken)
+        => context.WatchProgress.RemoveRange(await context.WatchProgress.Where(progress => progress.ProfileId == profileId).ToListAsync(cancellationToken).ConfigureAwait(false));
+}

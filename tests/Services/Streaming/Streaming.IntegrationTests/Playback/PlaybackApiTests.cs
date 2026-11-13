@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Shared.Application.Cqrs;
 using Streaming.Application.Abstractions;
 using Streaming.Application.Access;
+using Streaming.Application.Playback.GetProgress;
 using Streaming.Application.Playback.StartPlayback;
 using Streaming.Domain.Access;
 using Streaming.Domain.Videos;
@@ -272,6 +273,81 @@ public sealed class PlaybackApiTests(StreamingApiFixture api)
         Assert.False(await context.PlaybackSessions.AnyAsync(session => session.Id == old.SessionId, Cancellation));
         Assert.True(await context.PlaybackSessions.AnyAsync(session => session.Id == recent.SessionId, Cancellation));
     }
+
+    [Fact]
+    public async Task Positions_ComeWithHeartbeatsAndTheEnd_AndTheNextSessionResumes()
+    {
+        var setup = await SetUpAsync(VideoQuality.Hd, screens: 1);
+        using var client = api.CreateClientFor(setup.User);
+        var first = await StartAsync(client, setup);
+        Assert.Equal(0d, first.ResumeFromSeconds);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync($"/playback-sessions/{first.SessionId}/heartbeat", new { positionSeconds = 95.5 }, Json, Cancellation)).StatusCode);
+        Assert.Equal(95.5, Assert.Single(await ProgressAsync(client, setup)).PositionSeconds);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync($"/playback-sessions/{first.SessionId}/heartbeat", null, Cancellation)).StatusCode);
+        Assert.Equal(95.5, Assert.Single(await ProgressAsync(client, setup)).PositionSeconds);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/playback-sessions/{first.SessionId}?positionSeconds=130", Cancellation)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/playback-sessions/{first.SessionId}?positionSeconds=400", Cancellation)).StatusCode);
+        var stopped = Assert.Single(await ProgressAsync(client, setup));
+        Assert.Equal((130d, 600d, false), (stopped.PositionSeconds, stopped.DurationSeconds, stopped.Completed));
+
+        var second = await StartAsync(client, setup);
+        Assert.Equal(130d, second.ResumeFromSeconds);
+        var item = Assert.Single(await ContinueWatchingAsync(client, setup.ProfileId));
+        Assert.Equal((setup.TitleId, TitleKind.Movie, setup.ContentId, 130d, 600d), (item.TitleId, item.Kind, item.ContentId, item.PositionSeconds, item.DurationSeconds));
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync($"/playback-sessions/{second.SessionId}/heartbeat", new { positionSeconds = 590 }, Json, Cancellation)).StatusCode);
+        Assert.True(Assert.Single(await ProgressAsync(client, setup)).Completed);
+        Assert.Empty(await ContinueWatchingAsync(client, setup.ProfileId));
+        await client.DeleteAsync($"/playback-sessions/{second.SessionId}", Cancellation);
+        Assert.Equal(0d, (await StartAsync(client, setup)).ResumeFromSeconds);
+    }
+
+    [Fact]
+    public async Task Positions_AreTheProfiles_AndCheckedForSense()
+    {
+        var setup = await SetUpAsync(VideoQuality.Hd, screens: 1);
+        using var client = api.CreateClientFor(setup.User);
+        var started = await StartAsync(client, setup);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync($"/playback-sessions/{started.SessionId}/heartbeat", new { positionSeconds = -1 }, Json, Cancellation)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.DeleteAsync($"/playback-sessions/{started.SessionId}?positionSeconds=-5", Cancellation)).StatusCode);
+        Assert.Empty(await ProgressAsync(client, setup));
+
+        using var stranger = api.CreateClientFor(Guid.CreateVersion7());
+        Assert.Equal("Playback.SessionEnded", await CodeAsync(await stranger.PostAsJsonAsync($"/playback-sessions/{started.SessionId}/heartbeat", new { positionSeconds = 50 }, Json, Cancellation)));
+        Assert.Equal("Playback.ProfileNotFound", await CodeAsync(await stranger.GetAsync($"/profiles/{setup.ProfileId}/continue-watching", Cancellation)));
+        Assert.Equal("Playback.ProfileNotFound", await CodeAsync(await stranger.GetAsync($"/profiles/{setup.ProfileId}/progress?titleId={setup.TitleId}", Cancellation)));
+        Assert.Empty(await ProgressAsync(client, setup));
+
+        await client.PostAsJsonAsync($"/playback-sessions/{started.SessionId}/heartbeat", new { positionSeconds = 50 }, Json, Cancellation);
+        await SendAsync(new ApplyProfileCommand(setup.ProfileId, setup.User, null, 2));
+        await using var scope = api.CreateScope();
+        Assert.False(await scope.ServiceProvider.GetRequiredService<IStreamingReadModel>().WatchProgress.AnyAsync(progress => progress.ProfileId == setup.ProfileId, Cancellation));
+    }
+
+    [Fact]
+    public async Task AFinishedEpisode_LeadsToTheNextOne()
+    {
+        var setup = await SetUpAsync(VideoQuality.Hd, screens: 1);
+        var series = Guid.CreateVersion7();
+        var (first, second) = (Guid.CreateVersion7(), Guid.CreateVersion7());
+        await SendAsync(new ApplyPlayableCommand(series, TitleKind.Series, AgeRating.Age7, [new PlayableItem(second, setup.VideoId, 100_002), new PlayableItem(first, setup.VideoId, 100_001)], 1));
+        using var client = api.CreateClientFor(setup.User);
+
+        var started = await VideoApiTests.ReadAsync<PlaybackStarted>(await client.PostAsJsonAsync("/playback-sessions", new { setup.ProfileId, contentId = first }, Json, Cancellation));
+        await client.DeleteAsync($"/playback-sessions/{started.SessionId}?positionSeconds=598", Cancellation);
+
+        var item = Assert.Single(await ContinueWatchingAsync(client, setup.ProfileId));
+        Assert.Equal((series, TitleKind.Series, second, 0d), (item.TitleId, item.Kind, item.ContentId, item.PositionSeconds));
+    }
+
+    private async Task<List<ProgressView>> ProgressAsync(HttpClient client, Setup setup)
+        => await VideoApiTests.ReadAsync<List<ProgressView>>(await client.GetAsync($"/profiles/{setup.ProfileId}/progress?titleId={setup.TitleId}", Cancellation));
+
+    private static async Task<List<ContinueWatchingItem>> ContinueWatchingAsync(HttpClient client, Guid profileId)
+        => await VideoApiTests.ReadAsync<List<ContinueWatchingItem>>(await client.GetAsync($"/profiles/{profileId}/continue-watching", Cancellation));
 
     private sealed record Setup(Guid User, Guid ProfileId, Guid SubscriptionId, Guid TitleId, Guid ContentId, Guid VideoId);
 

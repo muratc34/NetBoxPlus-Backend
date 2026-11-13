@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Shared.Application.Cqrs;
+using Shared.Application.Validation;
 using Shared.Domain;
 using Streaming.Application.Abstractions;
 using Streaming.Domain.Playback;
@@ -7,12 +8,23 @@ using Streaming.Domain.Playback;
 namespace Streaming.Application.Playback.Heartbeat;
 
 /// <summary>
-/// The player is still watching. The rules are checked again: a subscription that stopped, a title
-/// taken down or a profile removed ends the session.
+/// The player is still watching, at <paramref name="PositionSeconds"/> when it says so. The rules are
+/// checked again: a subscription that stopped, a title taken down or a profile removed ends the session.
 /// </summary>
-public sealed record HeartbeatCommand(Guid UserId, Guid SessionId) : ICommand;
+public sealed record HeartbeatCommand(Guid UserId, Guid SessionId, double? PositionSeconds = null) : ICommand;
 
-internal sealed class HeartbeatHandler(IStreamingReadModel readModel, PlaybackGate gate, IPlaybackSessionRepository sessions, TimeProvider timeProvider)
+internal sealed class HeartbeatValidator : IValidator<HeartbeatCommand>
+{
+    public IEnumerable<ValidationFailure> Validate(HeartbeatCommand instance)
+        => PlaybackPositions.Check(instance.PositionSeconds);
+}
+
+internal sealed class HeartbeatHandler(
+    IStreamingReadModel readModel,
+    PlaybackGate gate,
+    IPlaybackSessionRepository sessions,
+    PlaybackPositions positions,
+    TimeProvider timeProvider)
     : ICommandHandler<HeartbeatCommand>
 {
     public async Task<Result> Handle(HeartbeatCommand command, CancellationToken cancellationToken)
@@ -32,8 +44,12 @@ internal sealed class HeartbeatHandler(IStreamingReadModel readModel, PlaybackGa
             return access.Error;
         }
 
-        return await sessions.TryHeartbeatAsync(session.Id, command.UserId, now, cancellationToken).ConfigureAwait(false)
-            ? Result.Success()
-            : PlaybackErrors.SessionEnded;
+        if (!await sessions.TryHeartbeatAsync(session.Id, command.UserId, now, cancellationToken).ConfigureAwait(false))
+        {
+            return PlaybackErrors.SessionEnded;
+        }
+
+        await positions.RecordAsync(session, command.PositionSeconds, now, cancellationToken).ConfigureAwait(false);
+        return Result.Success();
     }
 }

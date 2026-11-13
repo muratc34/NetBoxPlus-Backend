@@ -78,8 +78,8 @@ public sealed class AccessEventTests(StreamingApiFixture api)
     {
         Assert.SkipUnless(api.IsAvailable, api.SkipReason);
         var series = Guid.CreateVersion7();
-        var first = new Catalog.Contracts.PlayableItem(Guid.CreateVersion7(), Guid.CreateVersion7());
-        var second = new Catalog.Contracts.PlayableItem(Guid.CreateVersion7(), Guid.CreateVersion7());
+        var first = new Catalog.Contracts.PlayableItem(Guid.CreateVersion7(), Guid.CreateVersion7(), 100_001);
+        var second = new Catalog.Contracts.PlayableItem(Guid.CreateVersion7(), Guid.CreateVersion7(), 100_002);
         var replacement = first with { VideoId = Guid.CreateVersion7() };
 
         await DeliverAsync(new PlayableChanged(series, "Series", "Age13", [first, second], 1, Now));
@@ -88,7 +88,7 @@ public sealed class AccessEventTests(StreamingApiFixture api)
 
         var title = await TitleAsync(series);
         Assert.Equal((TitleKind.Series, AgeRating.Age16, 2), (title.Kind, title.AgeRating, title.Revision));
-        Assert.Equal([new Domain.Access.PlayableItem(replacement.ContentId, replacement.VideoId)], title.Items);
+        Assert.Equal([new Domain.Access.PlayableItem(replacement.ContentId, replacement.VideoId, 100_001)], title.Items);
 
         await DeliverAsync(new PlayableChanged(series, "Series", "Age16", [], 3, Now));
         Assert.Empty((await TitleAsync(series)).Items);

@@ -19,7 +19,7 @@ internal static class PlayableEvents
             playability.TitleId,
             playability.Kind.ToString(),
             playability.AgeRating.ToString(),
-            playability.Videos.Select(video => new PlayableItem(video.ContentId, video.VideoId)).ToList(),
+            playability.Videos.Select(video => new PlayableItem(video.ContentId, video.VideoId, video.Sequence)).ToList(),
             playability.Revision,
             now);
 }

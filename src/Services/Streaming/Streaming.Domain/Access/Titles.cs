@@ -9,7 +9,8 @@ public enum TitleKind
 }
 
 /// <summary>A movie or an episode that can be watched, and its video.</summary>
-public sealed record PlayableItem(Guid ContentId, Guid VideoId);
+/// <param name="Sequence">Where an episode comes in its series, from the catalog; 0 for a movie.</param>
+public sealed record PlayableItem(Guid ContentId, Guid VideoId, int Sequence = 0);
 
 /// <summary>
 /// What the catalog says can be watched of a movie or series, kept from its events. Each event
@@ -46,7 +47,9 @@ public sealed class PlayableTitle : AggregateRoot
     {
         ArgumentNullException.ThrowIfNull(items);
 
-        if (revision <= Revision)
+        // The same revision is the same state, told again: taken, so that an announcement carries
+        // fields the contract gained since (such as the episode order) into copies made before.
+        if (revision < Revision)
         {
             return false;
         }

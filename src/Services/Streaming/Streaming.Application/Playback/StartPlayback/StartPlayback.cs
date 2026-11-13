@@ -13,7 +13,8 @@ public sealed record StartPlaybackCommand(Guid UserId, Guid ProfileId, Guid Cont
 /// The master playlist, relative to the address the session was started at; valid for a few minutes.
 /// </param>
 /// <param name="HeartbeatSeconds">How often the player must report that it is still watching.</param>
-public sealed record PlaybackStarted(Guid SessionId, string Playlist, int HeartbeatSeconds);
+/// <param name="ResumeFromSeconds">Where the profile stopped last time; 0 when new or watched to the end.</param>
+public sealed record PlaybackStarted(Guid SessionId, string Playlist, int HeartbeatSeconds, double ResumeFromSeconds);
 
 internal sealed class StartPlaybackValidator : IValidator<StartPlaybackCommand>
 {
@@ -35,7 +36,7 @@ internal sealed class StartPlaybackValidator : IValidator<StartPlaybackCommand>
     }
 }
 
-internal sealed class StartPlaybackHandler(PlaybackGate gate, IViewerRepository viewers, IPlaybackSigner signer, TimeProvider timeProvider)
+internal sealed class StartPlaybackHandler(PlaybackGate gate, IViewerRepository viewers, IWatchProgressRepository progress, IPlaybackSigner signer, TimeProvider timeProvider)
     : ICommandHandler<StartPlaybackCommand, PlaybackStarted>
 {
     public async Task<Result<PlaybackStarted>> Handle(StartPlaybackCommand command, CancellationToken cancellationToken)
@@ -62,10 +63,12 @@ internal sealed class StartPlaybackHandler(PlaybackGate gate, IViewerRepository 
         }
 
         var session = started.Value;
+        var resume = await progress.FindAsync(command.ProfileId, command.ContentId, cancellationToken).ConfigureAwait(false);
         var query = signer.Sign(session.Id, PlaybackLinks.MasterPlaylist, now + PlaybackLinks.MasterLifetime);
         return new PlaybackStarted(
             session.Id,
             $"playback/{session.Id}/{PlaybackLinks.MasterPlaylist}?{query}",
-            (int)PlaybackSession.HeartbeatInterval.TotalSeconds);
+            (int)PlaybackSession.HeartbeatInterval.TotalSeconds,
+            resume?.ResumeFromSeconds ?? 0);
     }
 }
