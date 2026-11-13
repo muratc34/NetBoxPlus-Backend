@@ -5,6 +5,7 @@ using Shared.Infrastructure.Messaging;
 using Shared.Infrastructure.Persistence;
 using Shared.Infrastructure.Persistence.Outbox;
 using Streaming.Application.Abstractions;
+using Streaming.Domain.Access;
 using Streaming.Domain.Videos;
 using Streaming.Infrastructure.Media;
 using Streaming.Infrastructure.Persistence;
@@ -58,6 +59,9 @@ public static class StreamingInfrastructureServiceCollectionExtensions
         services.AddPersistence<StreamingDbContext>(connectionString);
         services.AddScoped<IStreamingReadModel>(provider => provider.GetRequiredService<StreamingDbContext>());
         services.AddScoped<IVideoRepository, VideoRepository>();
+        services.AddScoped<ISubscriptionCopyRepository, SubscriptionCopyRepository>();
+        services.AddScoped<IProfileCopyRepository, ProfileCopyRepository>();
+        services.AddScoped<IPlayableTitleRepository, PlayableTitleRepository>();
         services.AddScoped<ITranscodeQueue, EfTranscodeQueue>();
         return services;
     }

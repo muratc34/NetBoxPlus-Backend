@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using Billing.API.Admin;
 using Billing.Application.Abstractions;
 using Billing.Application.Plans;
+using Billing.Application.Subscriptions.AnnounceSubscriptions;
 using Billing.Contracts;
 using Billing.Domain.Plans;
 using Billing.Domain.Subscriptions;
@@ -13,6 +14,7 @@ using Billing.Infrastructure.Persistence;
 using Billing.IntegrationTests.Admin;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Shared.Application.Cqrs;
 using Shared.Application.Messaging;
 using Stripe;
 
@@ -70,6 +72,31 @@ public sealed class PublishedEventTests : IDisposable
         Assert.Equal(2, Read<SubscriptionSuspended>(messages[1]).Revision);
         Assert.Equal(5, Read<SubscriptionCanceled>(messages[4]).Revision);
         Assert.Equal("Billing.Contracts.SubscriptionActivated", messages[0].Type);
+    }
+
+    [Fact]
+    public async Task TheAnnouncement_RepeatsEverySubscriptionsState_AsItIsNow()
+    {
+        var user = Guid.CreateVersion7();
+        var plan = await PlanAsync(VideoQuality.Hd, 2);
+        var id = NewId("sub");
+        foreach (var status in new[] { SubscriptionStatus.Active, SubscriptionStatus.PastDue })
+        {
+            _api.Payments.Subscriptions[id] = new SubscriptionSnapshot(id, NewId("cus"), status, plan.PriceId, PeriodEnd, false, user);
+            Assert.Equal(HttpStatusCode.OK, (await DeliverAsync(Event("customer.subscription.updated", id))).StatusCode);
+        }
+
+        await using (var scope = _api.CreateScope())
+        {
+            var announced = await scope.ServiceProvider.GetRequiredService<IDispatcher>().Send(new AnnounceSubscriptionsCommand(), Cancellation);
+            Assert.True(announced.Value >= 1);
+        }
+
+        var messages = await MessagesAsync(user);
+        Assert.Equal(3, messages.Count);
+        Assert.Equal("Billing.Contracts.SubscriptionSuspended", messages[^1].Type);
+        Assert.Equal(2, Read<SubscriptionSuspended>(messages[^1]).Revision);
+        Assert.Equal(Read<SubscriptionSuspended>(messages[1]).SubscriptionId, Read<SubscriptionSuspended>(messages[^1]).SubscriptionId);
     }
 
     [Fact]

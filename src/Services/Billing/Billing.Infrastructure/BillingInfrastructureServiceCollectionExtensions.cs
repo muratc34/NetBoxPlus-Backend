@@ -57,8 +57,8 @@ public static class BillingInfrastructureServiceCollectionExtensions
         return services;
     }
 
-    /// <summary>The database and repositories; the integration tests use it on its own.</summary>
-    internal static IServiceCollection AddBillingPersistence(this IServiceCollection services, string connectionString)
+    /// <summary>The database and repositories, without payments or messaging: what the migrator needs. The integration tests use it on its own too.</summary>
+    public static IServiceCollection AddBillingPersistence(this IServiceCollection services, string connectionString)
     {
         services.AddPersistence<BillingDbContext>(connectionString);
         services.AddScoped<IBillingReadModel>(provider => provider.GetRequiredService<BillingDbContext>());

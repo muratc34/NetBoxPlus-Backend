@@ -62,6 +62,19 @@ public sealed class ConsumerTests(RabbitMqFixture rabbit)
     }
 
     [Fact]
+    public async Task LostRace_IsRetried_NotDropped()
+    {
+        await using var host = await rabbit.StartHostAsync();
+        var reserved = new StockReserved(Guid.CreateVersion7());
+
+        await host.PublishAsync(reserved);
+        await host.Deliveries.WaitForAsync(1, Timeout);
+
+        Assert.Equal(reserved, Assert.Single(host.Deliveries.Received).Event);
+        Assert.Equal(0u, await host.WaitForMessagesAsync(host.DeadLetterQueue, 0, Timeout));
+    }
+
+    [Fact]
     public async Task UnreadablePayload_IsDeadLetteredWithoutRetrying()
     {
         await using var host = await rabbit.StartHostAsync();

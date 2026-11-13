@@ -117,6 +117,89 @@ namespace Streaming.Infrastructure.Persistence.Migrations
                     b.ToTable("OutboxMessages", (string)null);
                 });
 
+            modelBuilder.Entity("Streaming.Domain.Access.PlayableTitle", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AgeRating")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<int>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PlayableTitles", (string)null);
+                });
+
+            modelBuilder.Entity("Streaming.Domain.Access.ProfileCopy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsRemoved")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("MaxAgeRating")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<int>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Profiles", (string)null);
+                });
+
+            modelBuilder.Entity("Streaming.Domain.Access.SubscriptionCopy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("MaxScreens")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Quality")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<int>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Subscriptions", (string)null);
+                });
+
             modelBuilder.Entity("Streaming.Domain.Videos.Video", b =>
                 {
                     b.Property<Guid>("Id")
@@ -189,6 +272,32 @@ namespace Streaming.Infrastructure.Persistence.Migrations
                     b.HasIndex("AvailableAt");
 
                     b.ToTable("TranscodeJobs", (string)null);
+                });
+
+            modelBuilder.Entity("Streaming.Domain.Access.PlayableTitle", b =>
+                {
+                    b.OwnsMany("Streaming.Domain.Access.PlayableItem", "Items", b1 =>
+                        {
+                            b1.Property<Guid>("ContentId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<Guid>("TitleId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<Guid>("VideoId")
+                                .HasColumnType("uuid");
+
+                            b1.HasKey("ContentId");
+
+                            b1.HasIndex("TitleId");
+
+                            b1.ToTable("PlayableItems", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("TitleId");
+                        });
+
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("Streaming.Domain.Videos.Video", b =>

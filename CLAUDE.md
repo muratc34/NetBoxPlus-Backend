@@ -104,6 +104,11 @@ Streaming videoları transcode eden ayrı süreç (aynı database ve User Secret
 `Transcoder:FfmpegPath`/`FfprobePath`): `dotnet run --project src/Services/Streaming/Streaming.Transcoder`.
 RabbitMQ'ya bağlanmaz; event'lerini Streaming.API'nin outbox işlemcisi gönderir, o da çalışmalı.
 
+Başka servisin verisini kopyalayan bir tüketici sonradan açıldıysa, kaynak servisin Migrator'ı mevcut
+durumu yeniden yayınlar (outbox'ı servisin API'si gönderir): `-- announce-profiles` (Auth),
+`-- announce-subscriptions` (Billing), `-- announce-playable` (Catalog). Örnek:
+`dotnet run --project src/Services/Auth/Auth.Migrator -- announce-profiles`.
+
 Diğer servisler de aynı şekilde (`<S>.Migrator`, `<S>.API`). Gateway (`http://localhost:5100`;
 Development'ta Auth'a `localhost:5103`, Catalog'a `localhost:5104`, Billing'e `localhost:5105`, Streaming'e `localhost:5106` üzerinden gider; tarayıcı oturumları için Valkey ve Auth çalışmalı):
 
@@ -240,7 +245,8 @@ Migrator'daki seed):
   Event yayınlamak için `IIntegrationEventPublisher` — outbox'a yazar, doğrudan kuyruğa değil.
 - **Messaging:** `services.AddRabbitMqMessaging()`, ayarlar `Messaging` bölümünde. Integration
   event handler'ları `IIntegrationEventHandler<T>` implement eder ve `Task<Result>` döner: kalıcı
-  başarısızlık `Result.Failure`, geçici sorun exception (retry → DLQ). Her mesaj bir handler'a en
+  başarısızlık `Result.Failure`, geçici sorun exception (retry → DLQ). `Data.Conflict` (yarışı kaybeden kayıt)
+  geçici sayılır ve tekrar denenir. Her mesaj bir handler'a en
   fazla bir kez ulaşır (inbox). Broker'a ulaşılamazken outbox deneme saymaz, artan aralıkla
   bekler (`MessageTransportUnavailableException`); mesaj kesinti boyunca kaybolmaz.
 - **Zaman:** `DateTime.UtcNow` doğrudan çağrılmaz, `TimeProvider` kullanılır.
@@ -266,6 +272,7 @@ Migrator'daki seed):
 - **Profiller (Auth):** `User` aggregate'inde, hesap başına en fazla 5, ad + `MaxAgeRating` (Catalog'un yaş değerleri); kayıtta "Main". Event'ler `ProfileCreated`/`Changed`/`Removed` (`Revision`).
 - **Videolar (Streaming):** admin SAS ile `video-uploads`'a yükler, `/admin/videos/{id}/uploaded` ile onaylar → `TranscodeJobs` (Postgres, `SKIP LOCKED` + lease). `Streaming.Transcoder` HLS üretir (360/720/1080, kaynağı aşmadan) → private `videos/{id:N}/`. Event'ler `Streaming.Contracts`: `VideoQueued`/`Ready`/`Failed` (`Revision`). Storage CORS hesap geneli: kurallar eklenir, ezilmez (`StorageCors.MergeAsync`); origin'ler `Videos:UploadOrigins`/`PlaybackOrigins`, blob bağlantısı `ConnectionStrings:Videos`.
 - **Video durumu (Catalog):** `ContentVideo` event'lerle güncellenir, `Version`'ı artırmaz; film/bölüm oynatılabilir video olmadan yayınlanmaz (409 `Content.VideoRequired`).
+- **Yerel kopyalar (Streaming):** oynatma kararı için abonelik (`Subscriptions`, abonelik başına), profil (`Profiles`, silinen işaretli kalır) ve izlenebilir içerik (`PlayableTitles`/`PlayableItems`) kopyaları; sadece event'le değişir, revision büyükse uygulanır (`Revision` concurrency token). Catalog'un `PlayableChanged`'i (`Catalog.Contracts`) başlığın tam listesini taşır; `ContentItem.PlayabilityRevision` `Version`'dan ayrı.
 - **Eş zamanlı yazma:** kaydetmede yarışı kaybeden command (concurrency, unique, FK) 409 `Data.Conflict` alır. Düzenlenen
   aggregate'ler `Version` taşır; istemci yüklediği değeri geri gönderir (ör. Catalog `ContentItem`).
 - **Audit:** `IAuditedCommand` işaretli başarılı command'lar aynı transaction'da

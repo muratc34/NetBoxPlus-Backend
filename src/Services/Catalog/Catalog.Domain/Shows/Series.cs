@@ -170,6 +170,11 @@ public sealed class Series : ContentItem
             return ContentErrors.VideoRequired;
         }
 
+        if (IsPublished && !episode.IsPublished)
+        {
+            PlayabilityChanged();
+        }
+
         episode.Publish(now);
         MarkChanged();
         return Result.Success();
@@ -183,7 +188,13 @@ public sealed class Series : ContentItem
             return SeriesErrors.EpisodeNotFound;
         }
 
+        var playable = episode.Video.PlayableVideoId;
         episode.Video.Apply(videoId, state, revision);
+        if (IsPublished && episode.IsPublished && episode.Video.PlayableVideoId != playable)
+        {
+            PlayabilityChanged();
+        }
+
         return Result.Success();
     }
 
@@ -200,6 +211,11 @@ public sealed class Series : ContentItem
             return SeriesErrors.PublishedEpisodeRequired;
         }
 
+        if (IsPublished && episode.IsPublished)
+        {
+            PlayabilityChanged();
+        }
+
         episode.Unpublish();
         MarkChanged();
         return Result.Success();
@@ -207,6 +223,12 @@ public sealed class Series : ContentItem
 
     protected override Result CheckReadyToPublish()
         => PublishedEpisodes().Any() ? Result.Success() : SeriesErrors.PublishedEpisodeRequired;
+
+    protected override IReadOnlyList<PlayableVideo> PlayableVideos()
+        => PublishedEpisodes()
+            .Where(episode => episode.Video.PlayableVideoId is not null)
+            .Select(episode => new PlayableVideo(episode.Id, episode.Video.PlayableVideoId!.Value))
+            .ToList();
 
     private IEnumerable<Episode> PublishedEpisodes()
         => _seasons.SelectMany(season => season.Episodes).Where(episode => episode.IsPublished);

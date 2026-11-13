@@ -55,8 +55,8 @@ public static class CatalogInfrastructureServiceCollectionExtensions
         return services;
     }
 
-    /// <summary>The database and repositories; the integration tests use it on its own.</summary>
-    internal static IServiceCollection AddCatalogPersistence(this IServiceCollection services, string connectionString)
+    /// <summary>The database and repositories, without storage, search or messaging: what the migrator needs. The integration tests use it on its own too.</summary>
+    public static IServiceCollection AddCatalogPersistence(this IServiceCollection services, string connectionString)
     {
         services.AddPersistence<CatalogDbContext>(connectionString);
         services.AddScoped<ICatalogReadModel>(provider => provider.GetRequiredService<CatalogDbContext>());

@@ -97,6 +97,9 @@ namespace Catalog.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("ModifiedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("PlayabilityRevision")
+                        .HasColumnType("integer");
+
                     b.Property<string>("PosterImage")
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
@@ -275,6 +278,9 @@ namespace Catalog.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("PlayabilityRevision")
+                        .HasColumnType("integer");
 
                     b.Property<string>("PosterImage")
                         .HasMaxLength(64)

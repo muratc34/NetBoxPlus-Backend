@@ -1,4 +1,5 @@
 using Auth.Application;
+using Auth.Application.Profiles.AnnounceProfiles;
 using Auth.Application.Users.SeedAdministrator;
 using Auth.Infrastructure;
 using Auth.Infrastructure.Persistence;
@@ -10,7 +11,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Shared.Application.Cqrs;
 
-// Applies pending migrations, then seeds the administrator, and exits. Runs as its own step before
+// Applies pending migrations, then seeds the administrator, and exits. With the argument
+// "announce-profiles" it also publishes every profile, for a consumer that started after they were made. Runs as its own step before
 // the API starts, so schema changes never race between API replicas and a deploy can fail before
 // any traffic reaches the new version.
 var builder = Host.CreateApplicationBuilder(args);
@@ -64,6 +66,19 @@ await using (var scope = host.Services.CreateAsyncScope())
     }
 
     MigratorLog.Seeded(logger, result.Value.RoleChanged, result.Value.UserCreated, result.Value.RoleAssigned);
+}
+
+if (args.Contains("announce-profiles", StringComparer.Ordinal))
+{
+    await using var scope = host.Services.CreateAsyncScope();
+    var announced = await scope.ServiceProvider.GetRequiredService<IDispatcher>().Send(new AnnounceProfilesCommand());
+    if (announced.IsFailure)
+    {
+        MigratorLog.AnnounceFailed(logger, announced.Error.Code);
+        return 1;
+    }
+
+    MigratorLog.Announced(logger, announced.Value);
 }
 
 return 0;

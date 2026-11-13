@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Auth.API.Profiles;
 using Auth.API.Sessions;
+using Auth.Application.Profiles.AnnounceProfiles;
 using Auth.Application.Profiles.GetProfiles;
 using Auth.Application.Sessions;
 using Auth.Contracts;
@@ -13,6 +14,7 @@ using Auth.Infrastructure.Persistence;
 using Auth.IntegrationTests.Sessions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Shared.Application.Cqrs;
 using Shared.Application.Messaging;
 
 namespace Auth.IntegrationTests.Profiles;
@@ -35,6 +37,22 @@ public sealed class ProfileApiTests(AuthApiFixture api)
         Assert.Equal(("Main", AgeRating.Age18), (profile.Name, profile.MaxAgeRating));
         var created = Assert.Single(await PublishedAsync<ProfileCreated>(userId));
         Assert.Equal((profile.Id, "Age18", 1), (created.ProfileId, created.MaxAgeRating, created.Revision));
+    }
+
+    [Fact]
+    public async Task TheAnnouncement_RepeatsEveryProfile_AsItIsNow()
+    {
+        var (client, userId) = await SignedInAsync();
+        var profile = Assert.Single(await ProfilesAsync(client));
+
+        await using (var scope = api.CreateScope())
+        {
+            var announced = await scope.ServiceProvider.GetRequiredService<IDispatcher>().Send(new AnnounceProfilesCommand(), Cancellation);
+            Assert.True(announced.Value >= 1);
+        }
+
+        var repeated = Assert.Single(await PublishedAsync<ProfileChanged>(userId));
+        Assert.Equal((profile.Id, "Age18", 1), (repeated.ProfileId, repeated.MaxAgeRating, repeated.Revision));
     }
 
     [Fact]

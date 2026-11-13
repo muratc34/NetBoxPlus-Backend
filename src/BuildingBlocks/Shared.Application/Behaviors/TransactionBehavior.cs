@@ -13,10 +13,6 @@ internal sealed class TransactionBehavior<TRequest, TResponse>(IUnitOfWork unitO
     where TRequest : ICommandBase
     where TResponse : Result, IFailureResult<TResponse>
 {
-    private static readonly Error Conflict = Error.Conflict(
-        "Data.Conflict",
-        "The change conflicts with another one made at the same time. Reload and try again.");
-
     public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
     {
         var result = await next(cancellationToken).ConfigureAwait(false);
@@ -32,7 +28,7 @@ internal sealed class TransactionBehavior<TRequest, TResponse>(IUnitOfWork unitO
         }
         catch (DataConflictException)
         {
-            return TResponse.Failure(Conflict);
+            return TResponse.Failure(DataErrors.Conflict);
         }
 
         return result;

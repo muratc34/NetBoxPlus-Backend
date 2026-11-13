@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using Shared.Application;
 using Shared.Application.Messaging;
 using Shared.Domain;
 
@@ -11,6 +12,8 @@ namespace MessagingTests.Contracts
     public sealed record ShipmentDelayed(Guid OrderId);
 
     public sealed record PaymentRejected(Guid OrderId, string Reason);
+
+    public sealed record StockReserved(Guid OrderId);
 }
 
 namespace Shared.Infrastructure.Messaging.Tests
@@ -22,6 +25,7 @@ namespace Shared.Infrastructure.Messaging.Tests
     {
         private readonly ConcurrentQueue<(object Event, ActivityTraceId TraceId)> _received = new();
         private int _shipmentAttempts;
+        private int _stockAttempts;
 
         public IReadOnlyCollection<(object Event, ActivityTraceId TraceId)> Received => _received;
 
@@ -31,6 +35,8 @@ namespace Shared.Infrastructure.Messaging.Tests
             => _received.Enqueue((integrationEvent, Activity.Current?.TraceId ?? default));
 
         public void RecordShipmentAttempt() => Interlocked.Increment(ref _shipmentAttempts);
+
+        public int RecordStockAttempt() => Interlocked.Increment(ref _stockAttempts);
 
         public async Task WaitForAsync(int count, TimeSpan timeout)
         {
@@ -66,6 +72,21 @@ namespace Shared.Infrastructure.Messaging.Tests
         {
             deliveries.Record(integrationEvent);
             return Task.FromResult(Result.Failure(Error.Conflict("Order.AlreadyCancelled", "The order is already cancelled.")));
+        }
+    }
+
+    /// <summary>Loses a race on its first attempt, as a save that hit another write would.</summary>
+    internal sealed class StockReservedHandler(Deliveries deliveries) : IIntegrationEventHandler<StockReserved>
+    {
+        public Task<Result> Handle(StockReserved integrationEvent, CancellationToken cancellationToken)
+        {
+            if (deliveries.RecordStockAttempt() == 1)
+            {
+                return Task.FromResult(Result.Failure(DataErrors.Conflict));
+            }
+
+            deliveries.Record(integrationEvent);
+            return Task.FromResult(Result.Success());
         }
     }
 

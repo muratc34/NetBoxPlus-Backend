@@ -36,6 +36,12 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
     /// </summary>
     public int Version { get; private set; }
 
+    /// <summary>
+    /// Grows with every change of what can be watched (<see cref="Playability"/>); separate from
+    /// <see cref="Version"/>, which guards the editor's form and must not move with video reports.
+    /// </summary>
+    public int PlayabilityRevision { get; private set; }
+
     public bool IsPublished => Status == PublicationStatus.Published;
 
     public abstract ContentKind Kind { get; }
@@ -62,6 +68,11 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
     public void Describe(ContentInfo info)
     {
         ArgumentNullException.ThrowIfNull(info);
+        if (IsPublished && info.AgeRating != Info.AgeRating)
+        {
+            PlayabilityChanged();
+        }
+
         Info = info;
         MarkChanged();
     }
@@ -200,6 +211,7 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
         Status = PublicationStatus.Published;
         PublishedAt = now;
         MarkChanged();
+        PlayabilityChanged();
         return Result.Success();
     }
 
@@ -210,6 +222,7 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
             Status = PublicationStatus.Draft;
             PublishedAt = null;
             MarkChanged();
+            PlayabilityChanged();
         }
     }
 
@@ -244,6 +257,23 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
 
         MarkChanged();
     }
+
+    /// <summary>What customers can watch of this title now.</summary>
+    public Playability Playability()
+        => new(Id, Kind, Info.AgeRating, IsPublished && !IsDeleted ? PlayableVideos() : [], PlayabilityRevision);
+
+    /// <summary>For changes to what can be watched; once per save, however many changes it carries.</summary>
+    protected void PlayabilityChanged()
+    {
+        if (!DomainEvents.OfType<PlayabilityChangedDomainEvent>().Any())
+        {
+            PlayabilityRevision++;
+            RaiseDomainEvent(new PlayabilityChangedDomainEvent(this));
+        }
+    }
+
+    /// <summary>The published videos of the title, as if it were published itself.</summary>
+    protected abstract IReadOnlyList<PlayableVideo> PlayableVideos();
 
     /// <summary>For changes a derived aggregate makes to its own parts.</summary>
     protected void MarkChanged()

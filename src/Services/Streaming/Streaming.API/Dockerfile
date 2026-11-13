@@ -9,6 +9,10 @@ COPY global.json nuget.config Directory.Build.props Directory.Packages.props ./
 COPY src/Directory.Build.props src/
 COPY src/BuildingBlocks/ src/BuildingBlocks/
 COPY src/Services/Streaming/ src/Services/Streaming/
+# The only projects of other services it is built with: their published events.
+COPY src/Services/Auth/Auth.Contracts/ src/Services/Auth/Auth.Contracts/
+COPY src/Services/Billing/Billing.Contracts/ src/Services/Billing/Billing.Contracts/
+COPY src/Services/Catalog/Catalog.Contracts/ src/Services/Catalog/Catalog.Contracts/
 
 RUN dotnet restore src/Services/Streaming/Streaming.API/Streaming.API.csproj
 

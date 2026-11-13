@@ -24,4 +24,10 @@ internal static partial class MigratorLog
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Rebuilt the search index with {Count} titles")]
     public static partial void Reindexed(ILogger logger, int count);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Announced what can be watched of {Count} titles")]
+    public static partial void Announced(ILogger logger, int count);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Announcing the titles failed with {ErrorCode}")]
+    public static partial void AnnounceFailed(ILogger logger, string errorCode);
 }

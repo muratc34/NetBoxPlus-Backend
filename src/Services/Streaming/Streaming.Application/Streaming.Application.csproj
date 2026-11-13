@@ -7,6 +7,10 @@
   <ItemGroup>
     <ProjectReference Include="../Streaming.Domain/Streaming.Domain.csproj" />
     <ProjectReference Include="../Streaming.Contracts/Streaming.Contracts.csproj" />
+    <!-- The only projects other services may be referenced through: their published events. -->
+    <ProjectReference Include="../../Auth/Auth.Contracts/Auth.Contracts.csproj" />
+    <ProjectReference Include="../../Billing/Billing.Contracts/Billing.Contracts.csproj" />
+    <ProjectReference Include="../../Catalog/Catalog.Contracts/Catalog.Contracts.csproj" />
     <ProjectReference Include="../../../BuildingBlocks/Shared.Application/Shared.Application.csproj" />
   </ItemGroup>
 

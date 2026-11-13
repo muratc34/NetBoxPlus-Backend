@@ -26,9 +26,20 @@ public sealed class Movie : ContentItem
     /// A report from the streaming service. Not an edit: the version stays, so that an admin who has
     /// the movie open is not told it changed.
     /// </summary>
-    public void ApplyVideo(Guid videoId, VideoState state, int revision) => Video.Apply(videoId, state, revision);
+    public void ApplyVideo(Guid videoId, VideoState state, int revision)
+    {
+        var playable = Video.PlayableVideoId;
+        Video.Apply(videoId, state, revision);
+        if (IsPublished && Video.PlayableVideoId != playable)
+        {
+            PlayabilityChanged();
+        }
+    }
 
     protected override Result CheckPlayable() => Video.IsPlayable ? Result.Success() : ContentErrors.VideoRequired;
+
+    protected override IReadOnlyList<PlayableVideo> PlayableVideos()
+        => Video.PlayableVideoId is { } videoId ? [new PlayableVideo(Id, videoId)] : [];
 
     public static Result<Movie> Create(ContentInfo info, IReadOnlyDictionary<string, ContentText> texts, int runtimeMinutes)
     {

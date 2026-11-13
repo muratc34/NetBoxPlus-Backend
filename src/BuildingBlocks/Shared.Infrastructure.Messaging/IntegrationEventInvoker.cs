@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Shared.Application;
 using Shared.Application.Messaging;
 
 namespace Shared.Infrastructure.Messaging;
@@ -60,6 +61,13 @@ internal sealed class IntegrationEventInvoker<TEvent> : IntegrationEventInvoker
                 async token =>
                 {
                     var result = await handler.Handle(integrationEvent, token).ConfigureAwait(false);
+
+                    // A lost race is not the message's fault: retried, it sees the other write and settles.
+                    if (result.IsFailure && result.Error == DataErrors.Conflict)
+                    {
+                        throw new DataConflictRetryException(handlerName, messageId);
+                    }
+
                     if (result.IsFailure)
                     {
                         LogRejected(logger, handlerName, messageId, result.Error.Code);
@@ -76,3 +84,7 @@ internal sealed class IntegrationEventInvoker<TEvent> : IntegrationEventInvoker
         }
     }
 }
+
+/// <summary>A handler's save lost a race; thrown so that the message goes the retry way instead of being dropped.</summary>
+internal sealed class DataConflictRetryException(string handler, Guid messageId)
+    : Exception($"{handler} lost a race with another write while handling message {messageId}; it is retried.");

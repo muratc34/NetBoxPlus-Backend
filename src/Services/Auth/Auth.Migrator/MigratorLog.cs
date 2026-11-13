@@ -21,4 +21,10 @@ internal static partial class MigratorLog
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Seeding the administrator failed with {ErrorCode}")]
     public static partial void SeedFailed(ILogger logger, string errorCode);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Announced {Count} profiles")]
+    public static partial void Announced(ILogger logger, int count);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Announcing the profiles failed with {ErrorCode}")]
+    public static partial void AnnounceFailed(ILogger logger, string errorCode);
 }
