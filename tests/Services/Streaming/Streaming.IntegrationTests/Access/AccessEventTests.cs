@@ -117,12 +117,18 @@ public sealed class AccessEventTests(StreamingApiFixture api)
         Assert.SkipUnless(api.IsAvailable, api.SkipReason);
         var (profile, user) = (Guid.CreateVersion7(), Guid.CreateVersion7());
 
-        // Both see no copy yet and insert one: the primary key lets one through.
-        var first = await Task.WhenAll(
-            SendAsync(new ApplyProfileCommand(profile, user, AgeRating.Age7, 1)),
-            SendAsync(new ApplyProfileCommand(profile, user, AgeRating.Age13, 2)));
-        Assert.Single(first, result => result.IsSuccess);
-        Assert.Single(first, result => result.IsFailure && result.Error == DataErrors.Conflict);
+        // The later message looks first and finds no copy; the earlier one inserts its copy meanwhile.
+        await using (var late = api.CreateScope())
+        {
+            var profiles = late.ServiceProvider.GetRequiredService<IProfileCopyRepository>();
+            Assert.Null(await profiles.GetByIdAsync(profile, Cancellation));
+            Assert.True((await SendAsync(new ApplyProfileCommand(profile, user, AgeRating.Age7, 1))).IsSuccess);
+
+            var copy = ProfileCopy.Create(profile, user);
+            copy.Apply(AgeRating.Age13, 2);
+            profiles.Add(copy);
+            await Assert.ThrowsAsync<DataConflictException>(() => late.ServiceProvider.GetRequiredService<IUnitOfWork>().SaveChangesAsync(Cancellation));
+        }
 
         // The messaging layer retries the loser; it now compares with the winner.
         Assert.True((await SendAsync(new ApplyProfileCommand(profile, user, AgeRating.Age13, 2))).IsSuccess);
