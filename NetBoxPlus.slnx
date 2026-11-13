@@ -62,6 +62,17 @@
     <Project Path="src/Services/Streaming/Streaming.Infrastructure/Streaming.Infrastructure.csproj" />
     <Project Path="src/Services/Streaming/Streaming.Migrator/Streaming.Migrator.csproj" />
   </Folder>
+  <Folder Name="/src/Services/Notification/">
+    <Project Path="src/Services/Notification/Notification.API/Notification.API.csproj" />
+    <Project Path="src/Services/Notification/Notification.Application/Notification.Application.csproj" />
+    <Project Path="src/Services/Notification/Notification.Domain/Notification.Domain.csproj" />
+    <Project Path="src/Services/Notification/Notification.Infrastructure/Notification.Infrastructure.csproj" />
+    <Project Path="src/Services/Notification/Notification.Migrator/Notification.Migrator.csproj" />
+  </Folder>
+  <Folder Name="/tests/Services/Notification/">
+    <Project Path="tests/Services/Notification/Notification.Domain.Tests/Notification.Domain.Tests.csproj" />
+    <Project Path="tests/Services/Notification/Notification.IntegrationTests/Notification.IntegrationTests.csproj" />
+  </Folder>
   <Folder Name="/tests/Services/Billing/">
     <Project Path="tests/Services/Billing/Billing.Domain.Tests/Billing.Domain.Tests.csproj" />
     <Project Path="tests/Services/Billing/Billing.IntegrationTests/Billing.IntegrationTests.csproj" />

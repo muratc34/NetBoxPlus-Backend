@@ -39,7 +39,7 @@ $envFile = Join-Path $deployDir '.env'
 $envExample = Join-Path $deployDir '.env.example'
 
 # Services whose projects use the user secrets id "netboxplus-<name>" and own a database "<name>".
-$services = @('auth', 'catalog', 'billing', 'streaming')
+$services = @('auth', 'catalog', 'billing', 'streaming', 'notification')
 
 function Get-DockerExecutable {
     $command = Get-Command docker -ErrorAction SilentlyContinue
@@ -140,6 +140,23 @@ function Set-ServiceSecrets {
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
 
+    # Notification sends e-mail through Brevo when deploy/.env has its key and sender; otherwise to Mailpit.
+    $brevo = $values['BREVO_API_KEY']
+    $from = $values['EMAIL_FROM']
+    if ($brevo -and $from) {
+        $email = @(@('Email:Provider', 'Brevo'), @('Email:Brevo:ApiKey', $brevo), @('Email:From', $from))
+        Write-Host 'Brevo set for notification.'
+    }
+    else {
+        $email = @(@('Email:Provider', 'Smtp'), @('Email:Smtp:Host', 'localhost'), @('Email:Smtp:Port', '1025'), @('Email:From', 'no-reply@netboxplus.local'))
+        & dotnet user-secrets remove 'Email:Brevo:ApiKey' --id 'netboxplus-notification' | Out-Null
+        Write-Host 'No BREVO_API_KEY and EMAIL_FROM in deploy/.env; notification sends to Mailpit.'
+    }
+    foreach ($secret in $email) {
+        & dotnet user-secrets set $secret[0] $secret[1] --id 'netboxplus-notification' | Out-Null
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    }
+
     # Billing talks to Stripe only with a key; without one its payment endpoints answer 503.
     $stripeKey = $values['STRIPE_SECRET_KEY']
     if ($stripeKey) {
@@ -234,11 +251,14 @@ Initialize-EnvFile
 switch ($Command) {
     'up' {
         Invoke-Compose @('up', '--detach', '--wait')
+        # A database added to NETBOXPLUS_DATABASES after the volume was created: made now, data kept.
+        Invoke-Compose @('exec', '-T', 'postgres', 'sh', '/docker-entrypoint-initdb.d/01-service-databases.sh')
         Write-Host ''
         Write-Host 'Aspire dashboard:  http://localhost:18888'
         Write-Host 'RabbitMQ:          http://localhost:15672 (user and password in deploy/.env)'
         Write-Host 'Postgres:          localhost:5432, one database and role per service'
         Write-Host 'Valkey:            localhost:6379'
+        Write-Host 'Mailpit:           http://localhost:8025 (e-mails sent locally)'
         if ($Search) { Write-Host 'Elasticsearch:     http://localhost:9200' }
     }
     'down' {

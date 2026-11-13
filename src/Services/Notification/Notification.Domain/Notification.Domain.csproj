@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Notification service domain model: recipients and the e-mails sent to them.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../BuildingBlocks/Shared.Domain/Shared.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

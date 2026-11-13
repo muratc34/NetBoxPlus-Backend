@@ -5,7 +5,7 @@ mikroservisler, servis başına Clean Architecture, ortak kod `src/BuildingBlock
 Her geliştirmeden sonra bu dosya ve ilgili doküman güncellenir.
 
 - Kararlar ve gerekçeleri: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- Aktif faz ve iş dökümü: [docs/PHASE-4.md](docs/PHASE-4.md) (bitenler: [docs/PHASE-0.md](docs/PHASE-0.md), [docs/PHASE-1.md](docs/PHASE-1.md), [docs/PHASE-2.md](docs/PHASE-2.md), [docs/PHASE-3.md](docs/PHASE-3.md))
+- Aktif faz ve iş dökümü: [docs/PHASE-5.md](docs/PHASE-5.md) (bitenler: [docs/PHASE-0.md](docs/PHASE-0.md), [docs/PHASE-1.md](docs/PHASE-1.md), [docs/PHASE-2.md](docs/PHASE-2.md), [docs/PHASE-3.md](docs/PHASE-3.md), [docs/PHASE-4.md](docs/PHASE-4.md))
 
 Bu dokümanlar **sadece lokalde** durur, repoya commit edilmez (`.gitignore`'da `/docs/*.md`).
 GitHub'da yokturlar; commit'lenen hiçbir dosya (README dahil) onlara link vermez.
@@ -68,7 +68,7 @@ ya da PATH (`tests/TestSupport/FfmpegAvailability.cs`); yoksa lokalde atlanır, 
 kurulur) kırar. Lokalde `winget install Gyan.FFmpeg`. Action'lar commit SHA'sıyla sabit; Dependabot (actions + NuGet)
 haftalık PR'ları `v2`'ye açar.
 
-Lokal bağımlılıklar (Postgres, RabbitMQ, Valkey, Azurite, Aspire dashboard; `-Search` ile Elasticsearch):
+Lokal bağımlılıklar (Postgres, RabbitMQ, Valkey, Azurite, Mailpit, Aspire dashboard; `-Search` ile Elasticsearch):
 
 ```powershell
 ./deploy/dev.ps1 up
@@ -81,8 +81,10 @@ Lokal bağımlılıklar (Postgres, RabbitMQ, Valkey, Azurite, Aspire dashboard; 
   eşler ve `tr-TR`'de `I` harfi `[A-Z]` ile eşleşmez.
 - `dev.ps1`'i `2>&1` ile çağırma: Windows PowerShell docker'ın stderr'deki ilerleme çıktısını
   hataya çevirir ve script durur.
-- `NETBOXPLUS_DATABASES`'e eklenen database sadece boş volume'da oluşur: ekledikten sonra
-  `./deploy/dev.ps1 reset -Force` (lokal veri silinir), sonra `up` ve `secrets`.
+- `NETBOXPLUS_DATABASES`'e eklenen database ve rolü bir sonraki `up`'ta mevcut volume'da oluşur
+  (`deploy/postgres/init/01-service-databases.sh` idempotent, `up` onu tekrar çalıştırır); veri silinmez.
+- E-postalar lokalde Mailpit'e gider (SMTP 1025, arayüz ve API http://localhost:8025). `.env`'de
+  `BREVO_API_KEY` ve `EMAIL_FROM` varsa `secrets` Notification'ı Brevo'ya geçirir.
 
 Bir servisi lokalde çalıştırmak (örnek: Auth):
 
@@ -157,7 +159,7 @@ Migrator'daki seed):
   (`/<s>/{**remainder}`, `PathRemovePrefix: /<s>`, `RouteGroup: public`) ve, admin endpoint'i
   varsa, `<s>-admin` (`/admin/<s>/{**remainder}`, `PathPattern: /admin/{**remainder}`,
   `RouteGroup: admin`); cluster adresi base'de compose adı, `appsettings.Development.json`'da
-  `localhost` portu. Portlar: gateway 5100, Auth 5103, Catalog 5104, Billing 5105, Streaming 5106; sıradaki servis 5107.
+  `localhost` portu. Portlar: gateway 5100, Auth 5103, Catalog 5104, Billing 5105, Streaming 5106, Notification 5107; sıradaki servis 5108.
 - Admin yazma command'ları `IAuditedCommand` implement eder (`AuditTargetId` explicit, JSON'a
   girmesin) ve secret taşımaz; liste endpoint'leri `Shared.Application.Paging` (`page`,
   `pageSize`, en fazla 100).
@@ -275,6 +277,7 @@ Migrator'daki seed):
 - **Yerel kopyalar (Streaming):** oynatma kararı için abonelik (`Subscriptions`, abonelik başına), profil (`Profiles`, silinen işaretli kalır) ve izlenebilir içerik (`PlayableTitles`/`PlayableItems`) kopyaları; sadece event'le değişir, revision büyükse uygulanır (`Revision` concurrency token). Catalog'un `PlayableChanged`'i (`Catalog.Contracts`) başlığın tam listesini taşır; `ContentItem.PlayabilityRevision` `Version`'dan ayrı.
 - **Playback (Streaming):** `POST /playback-sessions` kuralları kopyalardan kontrol eder (profil → abonelik → içerik → yaş), ekran sınırı `Viewer` aggregate'inde (`Version` token); heartbeat (30 sn, 2 dk sessizlik oturumu bitirir) kuralları yeniden kontrol eder, heartbeat ve bitirme `ExecuteUpdate`. Playlist'ler `/playback/{id}/...m3u8` token'sız, HMAC imzalı (`Playback:SigningKey`, `dev.ps1 secrets` bir kez üretir); segmentler `videos`'tan okuma SAS'ı. Plan kalitesi yüksekliği sınırlar (Sd ≤480, Hd ≤1080).
 - **İzleme konumu (Streaming):** heartbeat/bitirme `positionSeconds` taşır → `WatchProgress` (profil + içerik, upsert); oturum yanıtında `resumeFromSeconds`; `GET /profiles/{id}/progress?titleId=` ve `/continue-watching` (en fazla 20, sonraki bölüm `PlayableItem.Sequence` ile). Başlık kopyası eşit revision'ı yeniden uygular (contract'a eklenen alan backfill'le gelsin).
+- **Notification:** tamamen event'le (port 5107, `notification` DB); alıcı kopyası `Recipients` (`UserRegistered`). E-posta `IEmailSender` arkasında: SMTP (MailKit; lokalde Mailpit) veya Brevo (düz HTTP, `Email:Brevo:ApiKey`); ayarlar `Email` bölümünde, geçersizse servis başlamaz. Sonuç gönderildi / tekrar dene (ulaşılamadı, 4xx SMTP, 429, 5xx) / reddedildi (5xx SMTP, diğer 4xx); adres ve anahtar loglanmaz.
 - **Eş zamanlı yazma:** kaydetmede yarışı kaybeden command (concurrency, unique, FK) 409 `Data.Conflict` alır. Düzenlenen
   aggregate'ler `Version` taşır; istemci yüklediği değeri geri gönderir (ör. Catalog `ContentItem`).
 - **Audit:** `IAuditedCommand` işaretli başarılı command'lar aynı transaction'da
