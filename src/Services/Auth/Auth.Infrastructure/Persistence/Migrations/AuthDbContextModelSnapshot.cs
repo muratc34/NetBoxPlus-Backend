@@ -291,6 +291,8 @@ namespace Auth.Infrastructure.Persistence.Migrations
                     b.HasKey("MessageId", "Consumer")
                         .HasName("PK_InboxMessages");
 
+                    b.HasIndex("ProcessedAt");
+
                     b.ToTable("InboxMessages", (string)null);
                 });
 
@@ -330,6 +332,9 @@ namespace Auth.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("OccurredAt")
                         .HasFilter("\"ProcessedAt\" IS NULL");
+
+                    b.HasIndex("ProcessedAt")
+                        .HasFilter("\"ProcessedAt\" IS NOT NULL");
 
                     b.ToTable("OutboxMessages", (string)null);
                 });

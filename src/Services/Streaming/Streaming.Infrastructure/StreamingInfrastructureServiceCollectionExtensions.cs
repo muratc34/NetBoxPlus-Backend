@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Shared.Infrastructure.Messaging;
 using Shared.Infrastructure.Persistence;
 using Shared.Infrastructure.Persistence.Outbox;
+using Shared.Infrastructure.Persistence.Retention;
 using Streaming.Application.Abstractions;
 using Streaming.Domain.Access;
 using Streaming.Domain.Playback;
@@ -44,6 +45,9 @@ public static class StreamingInfrastructureServiceCollectionExtensions
 
         // Whatever the configuration says: this process has no broker to send to.
         services.PostConfigure<OutboxOptions>(outbox => outbox.Enabled = false);
+
+        // The API cleans the shared database's outbox and inbox; one process doing it is enough.
+        services.PostConfigure<MessageRetentionOptions>(retention => retention.Enabled = false);
         return services;
     }
 

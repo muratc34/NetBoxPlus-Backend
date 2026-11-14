@@ -12,6 +12,7 @@ using Shared.Infrastructure.Persistence.Auditing;
 using Shared.Infrastructure.Persistence.Inbox;
 using Shared.Infrastructure.Persistence.Interceptors;
 using Shared.Infrastructure.Persistence.Outbox;
+using Shared.Infrastructure.Persistence.Retention;
 
 namespace Shared.Infrastructure.Persistence;
 
@@ -23,7 +24,7 @@ public static class PersistenceServiceCollectionExtensions
     /// <summary>
     /// Registers <typeparamref name="TContext"/> on PostgreSQL with the shared interceptors
     /// (domain events, soft delete, auditing — in that order), the unit of work, the outbox
-    /// publisher and processor, the inbox, the audit log, a readiness health check and Npgsql tracing.
+    /// publisher and processor, the inbox, the clean-up of old outbox and inbox rows, the audit log, a readiness health check and Npgsql tracing.
     /// </summary>
     /// <remarks>Requires <c>AddCqrs</c> for the domain event dispatcher.</remarks>
     public static IServiceCollection AddPersistence<TContext>(
@@ -58,6 +59,12 @@ public static class PersistenceServiceCollectionExtensions
             .Validate(o => o.BatchSize > 0 && o.MaxAttempts > 0 && o.PollingInterval > TimeSpan.Zero, "Outbox settings must be positive.")
             .ValidateOnStart();
         services.AddHostedService<OutboxProcessor<TContext>>();
+
+        services.AddOptions<MessageRetentionOptions>()
+            .BindConfiguration(MessageRetentionOptions.SectionName)
+            .Validate(o => o.IsValid(), "Message retention settings must be positive.")
+            .ValidateOnStart();
+        services.AddHostedService<MessageRetentionService<TContext>>();
 
         services.AddHealthChecks().AddDbContextCheck<TContext>("database", tags: [ReadyTag]);
         services.ConfigureOpenTelemetryTracerProvider(tracing => tracing.AddNpgsql());

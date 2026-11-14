@@ -21,6 +21,10 @@ internal sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outb
         // The processor only ever looks for unprocessed messages, oldest first.
         builder.HasIndex(message => message.OccurredAt)
             .HasFilter($"\"{nameof(OutboxMessage.ProcessedAt)}\" IS NULL");
+
+        // The clean-up deletes sent messages by when they were sent.
+        builder.HasIndex(message => message.ProcessedAt)
+            .HasFilter($"\"{nameof(OutboxMessage.ProcessedAt)}\" IS NOT NULL");
     }
 }
 
@@ -34,6 +38,9 @@ internal sealed class InboxMessageConfiguration : IEntityTypeConfiguration<Inbox
         builder.HasKey(message => new { message.MessageId, message.Consumer }).HasName(PrimaryKeyName);
 
         builder.Property(message => message.Consumer).HasMaxLength(500);
+
+        // The clean-up deletes records by when the message was processed.
+        builder.HasIndex(message => message.ProcessedAt);
     }
 }
 

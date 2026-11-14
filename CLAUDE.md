@@ -247,6 +247,10 @@ Migrator'daki seed):
 - **Persistence:** servisin DbContext'i `ServiceDbContext`'ten türer, modelini `ConfigureModel`'da
   kurar (`OnModelCreating` sealed). Kayıt: `services.AddPersistence<TContext>(connectionString)`.
   Event yayınlamak için `IIntegrationEventPublisher` — outbox'a yazar, doğrudan kuyruğa değil.
+  `MessageRetentionService` gönderilmiş outbox satırlarını 7 gün, inbox satırlarını 30 gün sonra siler
+  (saatte bir, 1000'lik parçalar; gönderilmemiş/bırakılmış outbox satırı silinmez; ayarlar `MessageRetention`;
+  Transcoder'da kapalı). Paylaşılan tablolara (outbox, inbox, audit) dokunan değişiklik beş servise de migration
+  ister; `Architecture.Tests/MigrationTests` unutulanı yakalar.
 - **Messaging:** `services.AddRabbitMqMessaging()`, ayarlar `Messaging` bölümünde. Integration
   event handler'ları `IIntegrationEventHandler<T>` implement eder ve `Task<Result>` döner: kalıcı
   başarısızlık `Result.Failure`, geçici sorun exception (retry → DLQ). `Data.Conflict` (yarışı kaybeden kayıt)
