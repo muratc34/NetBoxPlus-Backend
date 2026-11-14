@@ -40,12 +40,14 @@ internal sealed class AnnounceSubscriptionsHandler(IBillingReadModel readModel, 
                         plans[subscription.PlanId].MaxScreens,
                         subscription.CurrentPeriodEnd,
                         subscription.Revision,
-                        now),
+                        now,
+                        Reason: null,
+                        Replayed: true),
                     cancellationToken),
                 SubscriptionStatus.PastDue => publisher.PublishAsync(
-                    new SubscriptionSuspended(subscription.Id, subscription.UserId, subscription.Revision, now), cancellationToken),
+                    new SubscriptionSuspended(subscription.Id, subscription.UserId, subscription.Revision, now, Replayed: true), cancellationToken),
                 _ => publisher.PublishAsync(
-                    new SubscriptionCanceled(subscription.Id, subscription.UserId, subscription.CanceledAt ?? now, subscription.Revision, now), cancellationToken),
+                    new SubscriptionCanceled(subscription.Id, subscription.UserId, subscription.CanceledAt ?? now, subscription.Revision, now, Replayed: true), cancellationToken),
             };
 
             await publishing.ConfigureAwait(false);

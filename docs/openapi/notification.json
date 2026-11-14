@@ -312,7 +312,11 @@
           "Welcome",
           "EmailVerification",
           "PasswordReset",
-          "PasswordChanged"
+          "PasswordChanged",
+          "SubscriptionStarted",
+          "SubscriptionResumed",
+          "PaymentFailed",
+          "SubscriptionEnded"
         ]
       },
       "EmailStatus": {

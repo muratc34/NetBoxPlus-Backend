@@ -17,8 +17,27 @@ public static class SubscriptionErrors
     public static readonly Error None = Error.Conflict("Subscription.None", "There is nothing to manage yet: no subscription has been started.");
 }
 
+/// <summary>Why a subscription became active, for telling the customer.</summary>
+public enum ActivationReason
+{
+    /// <summary>The first payment went through.</summary>
+    Started,
+
+    /// <summary>A failed payment was paid after all.</summary>
+    Resumed,
+
+    /// <summary>Another plan while it was already active.</summary>
+    PlanChanged,
+}
+
 /// <summary>The subscription now gives access (first payment, recovery, or a new plan while active).</summary>
-public sealed record SubscriptionActivatedDomainEvent(Guid SubscriptionId, Guid UserId, Guid PlanId, DateTimeOffset? CurrentPeriodEnd, int Revision) : IDomainEvent;
+public sealed record SubscriptionActivatedDomainEvent(
+    Guid SubscriptionId,
+    Guid UserId,
+    Guid PlanId,
+    DateTimeOffset? CurrentPeriodEnd,
+    int Revision,
+    ActivationReason Reason) : IDomainEvent;
 
 /// <summary>A payment failed; no access until it is paid.</summary>
 public sealed record SubscriptionSuspendedDomainEvent(Guid SubscriptionId, Guid UserId, int Revision) : IDomainEvent;
@@ -106,7 +125,12 @@ public sealed class Subscription : AggregateRoot, IAuditableEntity
         switch (Status)
         {
             case SubscriptionStatus.Active:
-                RaiseDomainEvent(new SubscriptionActivatedDomainEvent(Id, UserId, PlanId, CurrentPeriodEnd, Revision));
+                RaiseDomainEvent(new SubscriptionActivatedDomainEvent(Id, UserId, PlanId, CurrentPeriodEnd, Revision, previousStatus switch
+                {
+                    SubscriptionStatus.Active => ActivationReason.PlanChanged,
+                    SubscriptionStatus.PastDue => ActivationReason.Resumed,
+                    _ => ActivationReason.Started,
+                }));
                 break;
             case SubscriptionStatus.PastDue when previousStatus != SubscriptionStatus.PastDue:
                 RaiseDomainEvent(new SubscriptionSuspendedDomainEvent(Id, UserId, Revision));

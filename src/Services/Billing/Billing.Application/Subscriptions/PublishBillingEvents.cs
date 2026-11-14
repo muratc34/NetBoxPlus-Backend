@@ -26,7 +26,8 @@ internal sealed class PublishSubscriptionActivated(IIntegrationEventPublisher pu
                 plan.MaxScreens,
                 domainEvent.CurrentPeriodEnd,
                 domainEvent.Revision,
-                timeProvider.GetUtcNow()),
+                timeProvider.GetUtcNow(),
+                domainEvent.Reason.ToString()),
             cancellationToken).ConfigureAwait(false);
     }
 }

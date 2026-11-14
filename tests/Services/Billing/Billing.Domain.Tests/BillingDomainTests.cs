@@ -247,6 +247,27 @@ public sealed class SubscriptionEventTests
     }
 
     [Fact]
+    public void EachActivation_SaysWhy()
+    {
+        var subscription = Subscription.Start(Guid.NewGuid(), "sub_1", State(SubscriptionStatus.Incomplete), Now);
+
+        subscription.Apply(State(SubscriptionStatus.Active), Now);
+        subscription.Apply(State(SubscriptionStatus.PastDue), Now);
+        subscription.Apply(State(SubscriptionStatus.Active), Now);
+        subscription.Apply(State(SubscriptionStatus.Active, Premium), Now);
+
+        Assert.Equal(
+            [ActivationReason.Started, ActivationReason.Resumed, ActivationReason.PlanChanged],
+            subscription.DomainEvents.OfType<SubscriptionActivatedDomainEvent>().Select(activated => activated.Reason));
+    }
+
+    [Fact]
+    public void StartingActive_IsAStart()
+        => Assert.Equal(
+            ActivationReason.Started,
+            Assert.IsType<SubscriptionActivatedDomainEvent>(Assert.Single(Subscription.Start(Guid.NewGuid(), "sub_1", State(SubscriptionStatus.Active), Now).DomainEvents)).Reason);
+
+    [Fact]
     public void APlanChangeWhileSuspended_IsNotASecondSuspension()
     {
         var subscription = Subscription.Start(Guid.NewGuid(), "sub_1", State(SubscriptionStatus.PastDue), Now);

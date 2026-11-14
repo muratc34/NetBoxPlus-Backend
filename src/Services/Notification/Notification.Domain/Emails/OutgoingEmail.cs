@@ -9,6 +9,10 @@ public enum EmailKind
     EmailVerification,
     PasswordReset,
     PasswordChanged,
+    SubscriptionStarted,
+    SubscriptionResumed,
+    PaymentFailed,
+    SubscriptionEnded,
 }
 
 public enum EmailStatus

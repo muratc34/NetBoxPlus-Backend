@@ -66,6 +66,79 @@ internal static class EmailTemplates
             ("Şifremi sıfırla", reset));
     }
 
+    /// <param name="videoQuality">The plan's quality as the billing service names it: <c>Sd</c>, <c>Hd</c> or <c>Uhd</c>.</param>
+    /// <param name="nextPayment">When the next payment is due, if known; shown as a UTC date.</param>
+    public static EmailContent SubscriptionStarted(string videoQuality, int maxScreens, DateTimeOffset? nextPayment, Uri home)
+    {
+        ArgumentNullException.ThrowIfNull(home);
+        var paragraphs = new List<string>
+        {
+            "Ödemen alındı ve NetBoxPlus aboneliğin başladı.",
+            $"Planın: {QualityName(videoQuality)} görüntü, aynı anda {maxScreens} ekran.",
+        };
+        if (nextPayment is { } due)
+        {
+            paragraphs.Add($"Sonraki ödeme {Date(due)} tarihinde alınacak.");
+        }
+
+        return Render("Aboneliğin başladı", paragraphs, ("İzlemeye başla", home));
+    }
+
+    public static EmailContent SubscriptionResumed(Uri home)
+    {
+        ArgumentNullException.ThrowIfNull(home);
+        return Render(
+            "Ödemen alındı",
+            ["Bekleyen ödemen alındı ve aboneliğin yeniden aktif.", "İzlemeye kaldığın yerden devam edebilirsin."],
+            ("İzlemeye devam et", home));
+    }
+
+    /// <param name="amountMinor">The amount in the currency's smallest unit (kuruş for TRY).</param>
+    public static EmailContent PaymentFailed(long amountMinor, string currency, Uri account)
+    {
+        ArgumentNullException.ThrowIfNull(account);
+        return Render(
+            "Ödemen alınamadı",
+            [
+                $"Aboneliğinin {Money(amountMinor, currency)} tutarındaki ödemesi alınamadı.",
+                "Ödeme yapılana kadar izleme duraklatıldı. Ödeme birkaç gün içinde yeniden denenecek; ödeme bilgilerini güncellersen hemen alınır.",
+            ],
+            ("Ödeme bilgilerini güncelle", account));
+    }
+
+    /// <param name="endedAt">Shown as a UTC date.</param>
+    public static EmailContent SubscriptionEnded(DateTimeOffset endedAt, Uri plans)
+    {
+        ArgumentNullException.ThrowIfNull(plans);
+        return Render(
+            "Aboneliğin sona erdi",
+            [
+                $"NetBoxPlus aboneliğin {Date(endedAt)} tarihinde sona erdi.",
+                "Seni yeniden görmek isteriz; dilediğin zaman yeni bir plan seçebilirsin.",
+            ],
+            ("Planları gör", plans));
+    }
+
+    private static string QualityName(string videoQuality) => videoQuality switch
+    {
+        "Sd" => "SD",
+        "Hd" => "HD",
+        "Uhd" => "Ultra HD",
+        _ => videoQuality,
+    };
+
+    private static string Date(DateTimeOffset value) => value.ToUniversalTime().ToString("dd.MM.yyyy", CultureInfo.InvariantCulture);
+
+    /// <summary>Turkish style, two decimals (every supported currency has them): <c>1.249,99 TL</c>.</summary>
+    private static string Money(long amountMinor, string currency)
+    {
+        var format = (NumberFormatInfo)CultureInfo.InvariantCulture.NumberFormat.Clone();
+        format.NumberDecimalSeparator = ",";
+        format.NumberGroupSeparator = ".";
+        var amount = (amountMinor / 100m).ToString("N2", format);
+        return $"{amount} {(currency == "TRY" ? "TL" : currency)}";
+    }
+
     private static EmailContent Render(string subject, IReadOnlyList<string> paragraphs, (string Label, Uri Address)? action = null)
     {
         var html = new StringBuilder();

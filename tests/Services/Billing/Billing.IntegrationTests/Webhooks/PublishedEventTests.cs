@@ -71,6 +71,10 @@ public sealed class PublishedEventTests : IDisposable
         Assert.Equal((premium.Id, "Uhd", 4, 4), (upgraded.PlanId, upgraded.VideoQuality, upgraded.MaxScreens, upgraded.Revision));
         Assert.Equal(2, Read<SubscriptionSuspended>(messages[1]).Revision);
         Assert.Equal(5, Read<SubscriptionCanceled>(messages[4]).Revision);
+        Assert.Equal(
+            ["Started", "Resumed", "PlanChanged"],
+            new[] { messages[0], messages[2], messages[3] }.Select(message => Read<SubscriptionActivated>(message).Reason));
+        Assert.DoesNotContain(messages, message => JsonDocument.Parse(message.Payload).RootElement.GetProperty("replayed").GetBoolean());
         Assert.Equal("Billing.Contracts.SubscriptionActivated", messages[0].Type);
     }
 
@@ -97,6 +101,32 @@ public sealed class PublishedEventTests : IDisposable
         Assert.Equal("Billing.Contracts.SubscriptionSuspended", messages[^1].Type);
         Assert.Equal(2, Read<SubscriptionSuspended>(messages[^1]).Revision);
         Assert.Equal(Read<SubscriptionSuspended>(messages[1]).SubscriptionId, Read<SubscriptionSuspended>(messages[^1]).SubscriptionId);
+        Assert.True(Read<SubscriptionSuspended>(messages[^1]).Replayed);
+        Assert.False(Read<SubscriptionSuspended>(messages[1]).Replayed);
+    }
+
+    [Fact]
+    public async Task TheAnnouncement_OfActiveAndCanceledSubscriptions_IsMarkedAsReplayed_WithoutAReason()
+    {
+        var user = Guid.CreateVersion7();
+        var plan = await PlanAsync(VideoQuality.Hd, 2);
+        var active = NewId("sub");
+        var canceled = NewId("sub");
+        _api.Payments.Subscriptions[canceled] = new SubscriptionSnapshot(canceled, NewId("cus"), SubscriptionStatus.Canceled, plan.PriceId, PeriodEnd, false, user);
+        await DeliverAsync(Event("customer.subscription.updated", canceled));
+        _api.Payments.Subscriptions[active] = new SubscriptionSnapshot(active, NewId("cus"), SubscriptionStatus.Active, plan.PriceId, PeriodEnd, false, user);
+        await DeliverAsync(Event("customer.subscription.updated", active));
+
+        await using (var scope = _api.CreateScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<IDispatcher>().Send(new AnnounceSubscriptionsCommand(), Cancellation);
+        }
+
+        var replayed = (await MessagesAsync(user)).Where(message => JsonDocument.Parse(message.Payload).RootElement.GetProperty("replayed").GetBoolean()).ToList();
+        Assert.Equal(2, replayed.Count);
+        var activated = Read<SubscriptionActivated>(Assert.Single(replayed, message => message.Type.EndsWith(nameof(SubscriptionActivated), StringComparison.Ordinal)));
+        Assert.Null(activated.Reason);
+        Assert.Contains(replayed, message => message.Type.EndsWith(nameof(SubscriptionCanceled), StringComparison.Ordinal));
     }
 
     [Fact]

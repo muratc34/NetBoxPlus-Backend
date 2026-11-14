@@ -9,8 +9,9 @@ COPY global.json nuget.config Directory.Build.props Directory.Packages.props ./
 COPY src/Directory.Build.props src/
 COPY src/BuildingBlocks/ src/BuildingBlocks/
 COPY src/Services/Notification/ src/Services/Notification/
-# The one auth project notification may use: the events it consumes.
+# The only projects of other services notification may use: the events it consumes.
 COPY src/Services/Auth/Auth.Contracts/ src/Services/Auth/Auth.Contracts/
+COPY src/Services/Billing/Billing.Contracts/ src/Services/Billing/Billing.Contracts/
 
 RUN dotnet restore src/Services/Notification/Notification.API/Notification.API.csproj
 
