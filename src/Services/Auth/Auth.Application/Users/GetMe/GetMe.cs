@@ -10,7 +10,7 @@ namespace Auth.Application.Users.GetMe;
 public sealed record GetMeQuery(Guid UserId) : IQuery<MeResponse>;
 
 /// <summary>The caller's account as stored now, which can be newer than the claims in their access token.</summary>
-public sealed record MeResponse(Guid Id, string Email, IReadOnlyList<string> Roles, IReadOnlyList<string> Permissions);
+public sealed record MeResponse(Guid Id, string Email, bool EmailVerified, IReadOnlyList<string> Roles, IReadOnlyList<string> Permissions);
 
 internal sealed class GetMeHandler(IAuthReadModel readModel, SessionTokens sessions) : IQueryHandler<GetMeQuery, MeResponse>
 {
@@ -27,6 +27,6 @@ internal sealed class GetMeHandler(IAuthReadModel readModel, SessionTokens sessi
         }
 
         var grants = await sessions.GetGrantsAsync(user, cancellationToken).ConfigureAwait(false);
-        return new MeResponse(user.Id, user.Email.Value, grants.Roles, grants.Permissions);
+        return new MeResponse(user.Id, user.Email.Value, user.IsEmailVerified, grants.Roles, grants.Permissions);
     }
 }

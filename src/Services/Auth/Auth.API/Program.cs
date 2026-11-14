@@ -41,6 +41,7 @@ app.MapSessionEndpoints();
 app.MapUserAdminEndpoints();
 app.MapRoleAdminEndpoints();
 app.MapProfileEndpoints();
+app.MapEmailVerificationEndpoints();
 app.MapDefaultEndpoints();
 
 app.Run();

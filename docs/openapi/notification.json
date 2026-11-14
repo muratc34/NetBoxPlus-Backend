@@ -309,7 +309,8 @@
       },
       "EmailKind": {
         "enum": [
-          "Welcome"
+          "Welcome",
+          "EmailVerification"
         ]
       },
       "EmailStatus": {

@@ -6,6 +6,7 @@ namespace Notification.Domain.Emails;
 public enum EmailKind
 {
     Welcome,
+    EmailVerification,
 }
 
 public enum EmailStatus

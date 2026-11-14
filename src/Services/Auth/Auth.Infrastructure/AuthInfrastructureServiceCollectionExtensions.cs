@@ -2,6 +2,7 @@ using Auth.Application.Abstractions;
 using Auth.Domain.RefreshTokens;
 using Auth.Domain.Roles;
 using Auth.Domain.Users;
+using Auth.Domain.UserTokens;
 using Auth.Infrastructure.Persistence;
 using Auth.Infrastructure.Security;
 using Auth.Infrastructure.Security.Tokens;
@@ -48,6 +49,7 @@ public static class AuthInfrastructureServiceCollectionExtensions
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddScoped<IUserTokenRepository, UserTokenRepository>();
 
         services.Configure<PasswordHasherOptions>(options =>
         {

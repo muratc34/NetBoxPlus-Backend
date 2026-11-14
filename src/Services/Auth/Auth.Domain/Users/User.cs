@@ -50,6 +50,11 @@ public sealed class User : AggregateRoot, IAuditableEntity
     /// <summary>Disabled by an administrator: no sign-in until enabled again.</summary>
     public bool IsDisabled { get; private set; }
 
+    /// <summary>When the user proved they own the address by following the e-mailed link; not required to use the service.</summary>
+    public DateTimeOffset? EmailVerifiedAt { get; private set; }
+
+    public bool IsEmailVerified => EmailVerifiedAt is not null;
+
     public DateTimeOffset CreatedAt { get; private set; }
 
     public DateTimeOffset? ModifiedAt { get; private set; }
@@ -93,6 +98,9 @@ public sealed class User : AggregateRoot, IAuditableEntity
         ArgumentException.ThrowIfNullOrWhiteSpace(passwordHash);
         PasswordHash = passwordHash;
     }
+
+    /// <summary>Records the verification; verifying again keeps the first time.</summary>
+    public void VerifyEmail(DateTimeOffset now) => EmailVerifiedAt ??= now;
 
     public void Disable() => IsDisabled = true;
 

@@ -1,3 +1,4 @@
+using Auth.Application.EmailVerification;
 using Auth.Application.Sessions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -14,6 +15,7 @@ public static class AuthApplicationServiceCollectionExtensions
 
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<SessionTokens>();
+        services.AddScoped<EmailVerificationTokens>();
         services.AddSingleton<UnknownUserPassword>();
 
         return services;

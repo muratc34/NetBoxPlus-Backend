@@ -47,11 +47,15 @@ public sealed class MailpitFixture : IAsyncLifetime
     }
 
     /// <summary>The e-mail sent to the address, waiting a moment for it to arrive.</summary>
-    public async Task<Received?> FindAsync(string to, CancellationToken cancellationToken)
+    public Task<Received?> FindAsync(string to, CancellationToken cancellationToken) => FindAsync(to, subject: null, cancellationToken);
+
+    /// <summary>The e-mail sent to the address with this subject, waiting a moment for it to arrive.</summary>
+    public async Task<Received?> FindAsync(string to, string? subject, CancellationToken cancellationToken)
     {
         for (var attempt = 0; attempt < 20; attempt++)
         {
-            var list = await Api.GetFromJsonAsync<MessageList>($"api/v1/search?query={Uri.EscapeDataString("to:" + to)}", cancellationToken);
+            var query = subject is null ? "to:" + to : $"to:{to} subject:\"{subject}\"";
+            var list = await Api.GetFromJsonAsync<MessageList>($"api/v1/search?query={Uri.EscapeDataString(query)}", cancellationToken);
             if (list?.Messages.FirstOrDefault() is { } summary)
             {
                 return await Api.GetFromJsonAsync<Received>($"api/v1/message/{summary.Id}", cancellationToken);

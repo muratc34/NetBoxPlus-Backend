@@ -2,6 +2,7 @@ using Auth.Application.Abstractions;
 using Auth.Domain.RefreshTokens;
 using Auth.Domain.Roles;
 using Auth.Domain.Users;
+using Auth.Domain.UserTokens;
 using Microsoft.EntityFrameworkCore;
 using Shared.Infrastructure.Persistence;
 
@@ -18,6 +19,8 @@ public sealed class AuthDbContext(DbContextOptions<AuthDbContext> options)
     public DbSet<Role> Roles => Set<Role>();
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
+    public DbSet<UserToken> UserTokens => Set<UserToken>();
 
     IQueryable<User> IAuthReadModel.Users => Users.AsNoTracking();
 

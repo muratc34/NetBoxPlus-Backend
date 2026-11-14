@@ -39,7 +39,7 @@ public sealed class AuthDatabaseFixture : IAsyncLifetime
     }
 
     /// <summary>The auth service's persistence on a fresh, migrated database.</summary>
-    public async Task<ServiceProvider> CreateServicesAsync()
+    public async Task<ServiceProvider> CreateServicesAsync(Action<IServiceCollection>? configure = null)
     {
         Assert.SkipUnless(IsAvailable, SkipReason);
 
@@ -55,6 +55,7 @@ public sealed class AuthDatabaseFixture : IAsyncLifetime
         services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
         services.AddAuthApplication();
         services.AddAuthPersistence(connectionString);
+        configure?.Invoke(services);
 
         var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
 

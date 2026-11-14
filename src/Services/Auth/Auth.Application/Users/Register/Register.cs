@@ -1,4 +1,5 @@
 using Auth.Application.Abstractions;
+using Auth.Application.EmailVerification;
 using Auth.Domain.Users;
 using Shared.Application.Cqrs;
 using Shared.Application.Validation;
@@ -27,10 +28,11 @@ internal sealed class RegisterValidator : IValidator<RegisterCommand>
 }
 
 /// <summary>
-/// Creates the account; the caller signs in next. A taken address is reported (409): without
-/// e-mail verification there is no way to hide it, so the gateway rate-limits this route.
+/// Creates the account and its first e-mail verification token; the caller signs in next. A taken
+/// address is reported (409): verification is not required, so it cannot be hidden, and the gateway
+/// rate-limits this route.
 /// </summary>
-internal sealed class RegisterHandler(IUserRepository users, IPasswordHasher hasher) : ICommandHandler<RegisterCommand, Guid>
+internal sealed class RegisterHandler(IUserRepository users, IPasswordHasher hasher, EmailVerificationTokens verificationTokens) : ICommandHandler<RegisterCommand, Guid>
 {
     public async Task<Result<Guid>> Handle(RegisterCommand command, CancellationToken cancellationToken)
     {
@@ -43,6 +45,7 @@ internal sealed class RegisterHandler(IUserRepository users, IPasswordHasher has
 
         var user = User.Register(email, hasher.Hash(command.Password));
         users.Add(user);
+        verificationTokens.Issue(user.Id);
 
         return user.Id;
     }

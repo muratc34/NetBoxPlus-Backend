@@ -19,6 +19,21 @@ internal static class EmailTemplates
             ("NetBoxPlus'a git", home));
     }
 
+    /// <param name="validFor">How long the link still works; shown in whole hours, at least one.</param>
+    public static EmailContent EmailVerification(Uri link, TimeSpan validFor)
+    {
+        ArgumentNullException.ThrowIfNull(link);
+        var hours = Math.Max(1, (int)Math.Round(validFor.TotalHours, MidpointRounding.AwayFromZero));
+        return Render(
+            "E-posta adresini doğrula",
+            [
+                "NetBoxPlus hesabının e-posta adresini doğrulamak için aşağıdaki bağlantıyı aç.",
+                $"Bağlantı {hours} saat geçerli ve yalnızca bir kez kullanılabilir. Süresi geçerse hesabından yenisini isteyebilirsin.",
+                "Bu hesabı sen açmadıysan bu e-postayı yok sayabilirsin.",
+            ],
+            ("E-postamı doğrula", link));
+    }
+
     private static EmailContent Render(string subject, IReadOnlyList<string> paragraphs, (string Label, Uri Address)? action = null)
     {
         var html = new StringBuilder();

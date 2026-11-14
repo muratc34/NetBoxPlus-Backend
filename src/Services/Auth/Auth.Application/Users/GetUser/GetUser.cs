@@ -11,6 +11,7 @@ public sealed record GetUserQuery(Guid UserId) : IQuery<UserDetails>;
 public sealed record UserDetails(
     Guid Id,
     string Email,
+    bool EmailVerified,
     bool IsDisabled,
     DateTimeOffset? LockedOutUntil,
     int FailedSignInCount,
@@ -45,6 +46,7 @@ internal sealed class GetUserHandler(IAuthReadModel readModel) : IQueryHandler<G
         return new UserDetails(
             user.Id,
             user.Email.Value,
+            user.IsEmailVerified,
             user.IsDisabled,
             user.LockedOutUntil,
             user.FailedSignInCount,

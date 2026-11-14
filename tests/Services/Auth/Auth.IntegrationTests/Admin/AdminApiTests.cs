@@ -97,6 +97,7 @@ public sealed class AdminApiTests(AuthApiFixture api)
         var user = await ReadAsync<UserDetails>(await SendAsync(client, HttpMethod.Get, $"/admin/users/{id}", token));
 
         Assert.Equal(email, user.Email);
+        Assert.False(user.EmailVerified);
         Assert.Equal(1, user.FailedSignInCount);
         Assert.Equal(roleId, Assert.Single(user.Roles).Id);
         Assert.Equal(HttpStatusCode.NotFound, (await SendAsync(client, HttpMethod.Get, $"/admin/users/{Guid.CreateVersion7()}", token)).StatusCode);
