@@ -52,6 +52,12 @@ public static partial class Permissions
         public const string VideosWrite = "streaming:videos:write";
     }
 
+    public static class Notification
+    {
+        public const string EmailsRead = "notification:emails:read";
+        public const string EmailsWrite = "notification:emails:write";
+    }
+
     /// <summary>Every constant declared above, collected once.</summary>
     public static IReadOnlySet<string> All { get; } = typeof(Permissions)
         .GetNestedTypes()

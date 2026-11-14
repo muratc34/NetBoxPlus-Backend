@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Notification.API.Admin;
 using Notification.Application;
 using Notification.Infrastructure;
 using Shared.Infrastructure.API.Hosting;
@@ -30,6 +31,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.MapEmailAdminEndpoints();
 app.MapDefaultEndpoints();
 
 app.Run();

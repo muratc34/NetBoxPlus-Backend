@@ -63,6 +63,12 @@ public sealed class MailpitFixture : IAsyncLifetime
         return null;
     }
 
+    public async Task<int> CountAsync(string to, CancellationToken cancellationToken)
+    {
+        var list = await Api.GetFromJsonAsync<MessageList>($"api/v1/search?query={Uri.EscapeDataString("to:" + to)}", cancellationToken);
+        return list?.Messages.Count ?? 0;
+    }
+
     public async ValueTask DisposeAsync()
     {
         Api.Dispose();

@@ -15,6 +15,7 @@ public sealed class HostTests
             ["ConnectionStrings:Database"] = "Host=nowhere",
             ["Email:From"] = "no-reply@netboxplus.test",
             ["Email:Smtp:Host"] = "localhost",
+            ["Notification:WebBaseUrl"] = "https://app.netboxplus.test",
         }).Build();
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(configuration);

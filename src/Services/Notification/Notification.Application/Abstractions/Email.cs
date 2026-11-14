@@ -1,3 +1,5 @@
+using Notification.Domain.Emails;
+
 namespace Notification.Application.Abstractions;
 
 /// <summary>One e-mail to one address, with an HTML and a plain text body.</summary>
@@ -28,4 +30,17 @@ public sealed record EmailDelivery(EmailDeliveryOutcome Outcome, string? Detail 
 public interface IEmailSender
 {
     Task<EmailDelivery> SendAsync(EmailMessage message, CancellationToken cancellationToken);
+}
+
+/// <summary>Where the links in e-mails go: the customer web app.</summary>
+public interface IEmailLinks
+{
+    /// <summary>An address in the web app, such as <c>verify-email?token=…</c>, relative to its root.</summary>
+    Uri To(string relative);
+}
+
+/// <summary>Untracked queryable views for query handlers.</summary>
+public interface INotificationReadModel
+{
+    IQueryable<OutgoingEmail> Emails { get; }
 }

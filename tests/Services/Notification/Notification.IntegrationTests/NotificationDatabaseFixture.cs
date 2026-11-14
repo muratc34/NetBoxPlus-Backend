@@ -38,7 +38,8 @@ public sealed class NotificationDatabaseFixture : IAsyncLifetime
         }
     }
 
-    public async Task<ServiceProvider> CreateServicesAsync()
+    /// <param name="settings">On top of the defaults: an SMTP server that is not there, and the web app at app.netboxplus.test.</param>
+    public async Task<ServiceProvider> CreateServicesAsync(IReadOnlyDictionary<string, string?>? settings = null)
     {
         Assert.SkipUnless(IsAvailable, SkipReason);
 
@@ -48,12 +49,26 @@ public sealed class NotificationDatabaseFixture : IAsyncLifetime
         }.ConnectionString;
 
         var services = new ServiceCollection();
-        services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Outbox:Enabled"] = "false" })
-            .Build());
+        var values = new Dictionary<string, string?>
+        {
+            ["Outbox:Enabled"] = "false",
+            ["Email:From"] = "NetBoxPlus <no-reply@netboxplus.test>",
+            ["Email:Smtp:Host"] = "127.0.0.1",
+            ["Email:Smtp:Port"] = "1",
+            ["Notification:WebBaseUrl"] = "https://app.netboxplus.test",
+        };
+        foreach (var (key, value) in settings ?? new Dictionary<string, string?>())
+        {
+            values[key] = value;
+        }
+
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
+        services.AddSingleton<IConfiguration>(configuration);
         services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
         services.AddNotificationApplication();
         services.AddNotificationPersistence(connectionString);
+        services.AddEmail(configuration);
+        services.AddEmailSending();
 
         var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
 

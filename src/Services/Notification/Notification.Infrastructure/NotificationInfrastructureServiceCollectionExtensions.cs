@@ -1,8 +1,11 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Notification.Application.Abstractions;
+using Notification.Domain.Emails;
 using Notification.Domain.Recipients;
 using Notification.Infrastructure.Email;
+using Notification.Infrastructure.Emails;
 using Notification.Infrastructure.Persistence;
 using Shared.Infrastructure.Messaging;
 using Shared.Infrastructure.Persistence;
@@ -25,6 +28,7 @@ public static class NotificationInfrastructureServiceCollectionExtensions
 
         services.AddNotificationPersistence(connectionString);
         services.AddEmail(configuration);
+        services.AddEmailSending();
         services.AddRabbitMqMessaging();
 
         return services;
@@ -35,7 +39,23 @@ public static class NotificationInfrastructureServiceCollectionExtensions
     {
         services.AddPersistence<NotificationDbContext>(connectionString);
         services.AddScoped<IRecipientRepository, RecipientRepository>();
+        services.AddScoped<IOutgoingEmailRepository, OutgoingEmailRepository>();
+        services.AddScoped<INotificationReadModel>(provider => provider.GetRequiredService<NotificationDbContext>());
 
+        return services;
+    }
+
+    /// <summary>Links in e-mails (from <c>Notification:WebBaseUrl</c>), the dispatcher and the worker that sends.</summary>
+    internal static IServiceCollection AddEmailSending(this IServiceCollection services)
+    {
+        services.AddOptions<NotificationOptions>()
+            .BindConfiguration(NotificationOptions.SectionName)
+            .Validate(options => options.IsValid, $"{NotificationOptions.SectionName}:WebBaseUrl must be an absolute http(s) address.")
+            .ValidateOnStart();
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddSingleton<IEmailLinks, EmailLinks>();
+        services.AddScoped<EmailDispatcher>();
+        services.AddHostedService<EmailSendingService>();
         return services;
     }
 
