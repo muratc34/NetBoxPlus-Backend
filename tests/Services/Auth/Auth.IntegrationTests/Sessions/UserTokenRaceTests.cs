@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using Auth.Application.EmailVerification.ConfirmEmail;
+using Auth.Application.PasswordReset.ResetPassword;
 using Auth.Domain.Users;
 using Auth.Domain.UserTokens;
 using Auth.Infrastructure.Persistence;
@@ -15,7 +16,7 @@ namespace Auth.IntegrationTests.Sessions;
 /// hoping concurrent requests overlap.
 /// </summary>
 [Collection(nameof(AuthDatabaseCollection))]
-public sealed class EmailVerificationRaceTests(AuthDatabaseFixture database)
+public sealed class UserTokenRaceTests(AuthDatabaseFixture database)
 {
     private const string Value = "the-token-value";
 
@@ -56,13 +57,38 @@ public sealed class EmailVerificationRaceTests(AuthDatabaseFixture database)
         Assert.False(user.IsEmailVerified);
     }
 
-    private static async Task<(Guid UserId, Guid TokenId)> SeedAsync(ServiceProvider services, bool revoke = false)
+    [Fact]
+    public async Task AResetTokenUsedBetweenReadingAndUsingIt_LeavesThePassword()
+    {
+        await using var services = await database.CreateServicesAsync(collection =>
+        {
+            collection.AddScoped<UserTokenRepositoryProbe>();
+            collection.AddScoped<IUserTokenRepository>(provider => provider.GetRequiredService<UserTokenRepositoryProbe>());
+        });
+        var (userId, _) = await SeedAsync(services, purpose: UserTokenPurpose.PasswordReset);
+
+        await using var scope = services.CreateAsyncScope();
+        var result = await scope.ServiceProvider.GetRequiredService<IDispatcher>().Send(new ResetPasswordCommand(Value, "a brand new passphrase"), Cancellation);
+
+        Assert.Equal("PasswordReset.TokenInvalid", result.Error.Code);
+        await using var check = services.CreateAsyncScope();
+        var user = await check.ServiceProvider.GetRequiredService<AuthDbContext>().Users.AsNoTracking().SingleAsync(item => item.Id == userId, Cancellation);
+        Assert.Equal("hash", user.PasswordHash);
+    }
+
+    private static async Task<(Guid UserId, Guid TokenId)> SeedAsync(
+        ServiceProvider services,
+        bool revoke = false,
+        UserTokenPurpose purpose = UserTokenPurpose.EmailVerification)
     {
         await using var scope = services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
         var user = User.Register(EmailAddress.Create($"user-{Guid.NewGuid():N}@example.com").Value, "hash");
         var value = revoke ? Value + Guid.NewGuid().ToString("N") : Value;
-        var token = UserToken.IssueEmailVerification(user.Id, value, SHA256.HashData(Encoding.UTF8.GetBytes(value)), DateTimeOffset.UtcNow);
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(value));
+        var token = purpose == UserTokenPurpose.PasswordReset
+            ? UserToken.IssuePasswordReset(user.Id, value, hash, DateTimeOffset.UtcNow)
+            : UserToken.IssueEmailVerification(user.Id, value, hash, DateTimeOffset.UtcNow);
         if (revoke)
         {
             token.Revoke(DateTimeOffset.UtcNow);

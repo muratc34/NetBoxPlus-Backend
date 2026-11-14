@@ -46,6 +46,12 @@ internal sealed partial class AuthClient(IHttpClientFactory httpClientFactory, I
     public Task<AuthResult> ChangePasswordAsync(string accessToken, string? currentPassword, string? newPassword, CancellationToken cancellationToken)
         => SendAsync(HttpMethod.Post, "/me/password", new { currentPassword, newPassword }, accessToken, cancellationToken);
 
+    public Task<AuthResult> RequestPasswordResetAsync(string? email, CancellationToken cancellationToken)
+        => SendAsync(HttpMethod.Post, "/password-reset", new { email }, null, cancellationToken);
+
+    public Task<AuthResult> ResetPasswordAsync(string? token, string? newPassword, CancellationToken cancellationToken)
+        => SendAsync(HttpMethod.Post, "/password-reset/confirm", new { token, newPassword }, null, cancellationToken);
+
     private async Task<AuthResult> SendAsync(HttpMethod method, string path, object body, string? accessToken, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) };

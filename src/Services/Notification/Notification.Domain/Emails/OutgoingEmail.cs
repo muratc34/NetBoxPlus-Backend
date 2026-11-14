@@ -7,6 +7,8 @@ public enum EmailKind
 {
     Welcome,
     EmailVerification,
+    PasswordReset,
+    PasswordChanged,
 }
 
 public enum EmailStatus

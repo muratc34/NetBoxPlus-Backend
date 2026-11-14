@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text;
 using Notification.Domain.Emails;
@@ -32,6 +33,37 @@ internal static class EmailTemplates
                 "Bu hesabı sen açmadıysan bu e-postayı yok sayabilirsin.",
             ],
             ("E-postamı doğrula", link));
+    }
+
+    /// <param name="validFor">How long the link still works; shown in whole minutes, at least one.</param>
+    public static EmailContent PasswordReset(Uri link, TimeSpan validFor)
+    {
+        ArgumentNullException.ThrowIfNull(link);
+        var minutes = Math.Max(1, (int)Math.Round(validFor.TotalMinutes, MidpointRounding.AwayFromZero));
+        return Render(
+            "Şifreni sıfırla",
+            [
+                "NetBoxPlus hesabın için şifre sıfırlama isteği aldık. Yeni şifreni belirlemek için aşağıdaki bağlantıyı aç.",
+                $"Bağlantı {minutes} dakika geçerli ve yalnızca bir kez kullanılabilir. Şifren değişince tüm cihazlarda oturumun kapanır.",
+                "Bu isteği sen yapmadıysan bu e-postayı yok sayabilirsin; şifren değişmez.",
+            ],
+            ("Şifremi sıfırla", link));
+    }
+
+    /// <param name="changedAt">Shown in UTC: users have no time zone preference yet.</param>
+    /// <param name="reset">Where to reset the password if it was not the user who changed it.</param>
+    public static EmailContent PasswordChanged(DateTimeOffset changedAt, Uri reset)
+    {
+        ArgumentNullException.ThrowIfNull(reset);
+        var when = changedAt.ToUniversalTime().ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
+        return Render(
+            "Şifren değiştirildi",
+            [
+                $"NetBoxPlus hesabının şifresi {when} (UTC) tarihinde değiştirildi ve tüm cihazlarda oturumun kapatıldı.",
+                "Bunu sen yaptıysan başka bir şey yapmana gerek yok.",
+                "Sen yapmadıysan hemen şifreni sıfırla.",
+            ],
+            ("Şifremi sıfırla", reset));
     }
 
     private static EmailContent Render(string subject, IReadOnlyList<string> paragraphs, (string Label, Uri Address)? action = null)

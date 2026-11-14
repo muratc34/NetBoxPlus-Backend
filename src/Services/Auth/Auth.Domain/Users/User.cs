@@ -93,10 +93,33 @@ public sealed class User : AggregateRoot, IAuditableEntity
         LockedOutUntil = null;
     }
 
-    public void ChangePasswordHash(string passwordHash)
+    /// <summary>
+    /// Stores the same password hashed with newer parameters, after a successful sign-in. Not a
+    /// password change: the user is not told.
+    /// </summary>
+    public void RehashPassword(string passwordHash)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(passwordHash);
         PasswordHash = passwordHash;
+    }
+
+    /// <summary>A new password chosen by the user; the user is told by e-mail.</summary>
+    public void ChangePassword(string passwordHash, DateTimeOffset now)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(passwordHash);
+        PasswordHash = passwordHash;
+        RaiseDomainEvent(new PasswordChangedDomainEvent(Id, Guid.CreateVersion7(), now));
+    }
+
+    /// <summary>
+    /// A new password set with an e-mailed reset link. Following the link proves the address, so it
+    /// counts as verified, and it lifts a lockout as a successful sign-in does.
+    /// </summary>
+    public void ResetPassword(string passwordHash, DateTimeOffset now)
+    {
+        ChangePassword(passwordHash, now);
+        RecordSuccessfulSignIn();
+        VerifyEmail(now);
     }
 
     /// <summary>Records the verification; verifying again keeps the first time.</summary>
@@ -212,3 +235,6 @@ public sealed class User : AggregateRoot, IAuditableEntity
 }
 
 public sealed record UserRegisteredDomainEvent(Guid UserId, string Email) : IDomainEvent;
+
+/// <param name="ChangeId">Identifies this change, so the notice is e-mailed once per change.</param>
+public sealed record PasswordChangedDomainEvent(Guid UserId, Guid ChangeId, DateTimeOffset ChangedAt) : IDomainEvent;

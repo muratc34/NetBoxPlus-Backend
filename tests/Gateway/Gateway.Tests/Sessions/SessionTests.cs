@@ -315,6 +315,46 @@ public sealed class SessionTests(ValkeyFixture valkey)
     }
 
     [Fact]
+    public async Task PasswordReset_NeedsNoSession_AndPassesTheAuthAnswerThrough()
+    {
+        await using var harness = await SessionHarness.StartAsync(valkey);
+        var browser = harness.NewBrowser();
+
+        var requested = await browser.SendAsync(HttpMethod.Post, "/session/password-reset", new { email = "forgot@example.com" });
+        var reset = await browser.SendAsync(HttpMethod.Post, "/session/password-reset/confirm", new { token = FakeAuthService.ResetToken, newPassword = "another long password" });
+        var invalid = await browser.SendAsync(HttpMethod.Post, "/session/password-reset/confirm", new { token = "unknown", newPassword = "another long password" });
+
+        Assert.Equal(HttpStatusCode.Accepted, requested.StatusCode);
+        Assert.Equal("forgot@example.com", Assert.Single(harness.Auth.PasswordResetRequests));
+        Assert.Equal(HttpStatusCode.NoContent, reset.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        Assert.Equal("PasswordReset.TokenInvalid", await CodeAsync(invalid));
+        Assert.Empty(browser.Cookies);
+    }
+
+    [Fact]
+    public async Task PasswordReset_HasTheCredentialLimit_AndRefusesForeignOrigins()
+    {
+        await using var harness = await SessionHarness.StartAsync(valkey, new Dictionary<string, string?>
+        {
+            ["RateLimiting:Credentials:PermitLimit"] = "2",
+            ["RateLimiting:Credentials:Window"] = "00:10:00",
+        });
+        var foreign = harness.NewBrowser();
+        foreign.Origin = "https://evil.test";
+        var browser = harness.NewBrowser();
+
+        var refused = await foreign.SendAsync(HttpMethod.Post, "/session/password-reset", new { email = "forgot@example.com" });
+        await browser.SendAsync(HttpMethod.Post, "/session/password-reset", new { email = "forgot@example.com" });
+        var limited = await browser.SendAsync(HttpMethod.Post, "/session/password-reset/confirm", new { token = FakeAuthService.ResetToken, newPassword = "another long password" });
+
+        Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+        Assert.Equal("Origin.NotAllowed", await CodeAsync(refused));
+        Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+        Assert.Single(harness.Auth.PasswordResetRequests);
+    }
+
+    [Fact]
     public async Task PasswordChange_ContinuesTheSessionWithTheNewTokens()
     {
         await using var harness = await SessionHarness.StartAsync(valkey);

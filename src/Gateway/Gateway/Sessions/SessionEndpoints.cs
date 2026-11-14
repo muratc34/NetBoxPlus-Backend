@@ -9,6 +9,10 @@ public sealed record CredentialsRequest(string? Email, string? Password);
 
 public sealed record PasswordChangeRequest(string? CurrentPassword, string? NewPassword);
 
+public sealed record PasswordResetRequest(string? Email);
+
+public sealed record PasswordResetConfirmRequest(string? Token, string? NewPassword);
+
 /// <summary>
 /// The signed-in user as the session's access token describes them, and the CSRF token for
 /// changing requests. Tokens themselves never leave the gateway.
@@ -32,6 +36,16 @@ internal static class SessionEndpoints
             .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(RouteGroups.Public, next));
 
         customer.MapPost("/password", ChangePasswordAsync)
+            .RequireRateLimiting(RateLimitingServiceCollectionExtensions.CredentialsPolicy)
+            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(RouteGroups.Public, next));
+
+        // No session and no cookie: the browser of someone who forgot the password. Rate-limited like
+        // sign-in, since one sends e-mails and the other sets a password.
+        customer.MapPost("/password-reset", RequestPasswordResetAsync)
+            .RequireRateLimiting(RateLimitingServiceCollectionExtensions.CredentialsPolicy)
+            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(RouteGroups.Public, next));
+
+        customer.MapPost("/password-reset/confirm", ResetPasswordAsync)
             .RequireRateLimiting(RateLimitingServiceCollectionExtensions.CredentialsPolicy)
             .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(RouteGroups.Public, next));
 
@@ -184,6 +198,23 @@ internal static class SessionEndpoints
             },
             whenGone: GatewayProblem.AuthUnavailable);
     }
+
+    /// <summary>Passes the auth service's answer on: 202 whether or not the address has an account.</summary>
+    private static async Task<IResult> RequestPasswordResetAsync(
+        [FromBody] PasswordResetRequest request,
+        [FromServices] AuthClient auth,
+        CancellationToken cancellationToken)
+        => new AuthProblemResult(await auth.RequestPasswordResetAsync(request.Email, cancellationToken));
+
+    /// <summary>
+    /// Sets the new password; the auth service ends every session of the account, and the browser
+    /// signs in again. A session cookie this browser may hold is left alone: it ends at its next refresh.
+    /// </summary>
+    private static async Task<IResult> ResetPasswordAsync(
+        [FromBody] PasswordResetConfirmRequest request,
+        [FromServices] AuthClient auth,
+        CancellationToken cancellationToken)
+        => new AuthProblemResult(await auth.ResetPasswordAsync(request.Token, request.NewPassword, cancellationToken));
 
     private static IResult Ended(HttpContext context, SessionKind kind, bool hadCookie)
     {

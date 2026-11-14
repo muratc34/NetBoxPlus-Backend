@@ -88,7 +88,7 @@ internal sealed class SignInHandler(
         user.RecordSuccessfulSignIn();
         if (check == PasswordCheck.SucceededRehashNeeded)
         {
-            user.ChangePasswordHash(hasher.Hash(command.Password));
+            user.RehashPassword(hasher.Hash(command.Password));
         }
 
         return sessions.Start(user, command.Kind, grants);

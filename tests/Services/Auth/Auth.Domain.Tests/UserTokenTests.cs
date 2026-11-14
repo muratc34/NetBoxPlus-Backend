@@ -22,6 +22,27 @@ public sealed class UserTokenTests
     }
 
     [Fact]
+    public void IssuePasswordReset_LivesAnHour_AndHandsTheValueOnlyToItsEvent()
+    {
+        var token = UserToken.IssuePasswordReset(UserId, "raw-value", Hash(2), Now);
+
+        Assert.Equal((UserId, UserTokenPurpose.PasswordReset, Now, Now + TimeSpan.FromHours(1)), (token.UserId, token.Purpose, token.CreatedAt, token.ExpiresAt));
+        Assert.Equal(Hash(2), token.TokenHash);
+        Assert.True(token.IsActive(token.ExpiresAt.AddTicks(-1)));
+        Assert.False(token.IsActive(token.ExpiresAt));
+        var issued = Assert.IsType<PasswordResetTokenIssuedDomainEvent>(Assert.Single(token.DomainEvents));
+        Assert.Equal(new PasswordResetTokenIssuedDomainEvent(UserId, token.Id, "raw-value", token.ExpiresAt), issued);
+    }
+
+    [Fact]
+    public void APasswordResetTokenWithoutValidInput_IsAProgrammingError()
+    {
+        Assert.ThrowsAny<ArgumentException>(() => UserToken.IssuePasswordReset(UserId, " ", Hash(1), Now));
+        Assert.ThrowsAny<ArgumentException>(() => UserToken.IssuePasswordReset(Guid.Empty, "raw-value", Hash(1), Now));
+        Assert.Throws<ArgumentException>(() => UserToken.IssuePasswordReset(UserId, "raw-value", new byte[31], Now));
+    }
+
+    [Fact]
     public void ATokenAtItsExpiry_IsNoLongerActive()
     {
         var token = UserToken.IssueEmailVerification(UserId, "raw-value", Hash(1), Now);

@@ -1,3 +1,4 @@
+using Auth.Application.UserTokens;
 using Auth.Domain.Users;
 using Auth.Domain.UserTokens;
 using Shared.Application.Cqrs;
@@ -16,18 +17,15 @@ public sealed record ConfirmEmailCommand(string? Token) : ICommand;
 internal sealed class ConfirmEmailHandler(IUserTokenRepository tokens, IUserRepository users, TimeProvider timeProvider)
     : ICommandHandler<ConfirmEmailCommand>
 {
-    /// <summary>Far above a real token (43 characters); longer input is not worth hashing.</summary>
-    public const int MaxTokenLength = 256;
-
     public async Task<Result> Handle(ConfirmEmailCommand command, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(command.Token) || command.Token.Length > MaxTokenLength)
+        if (string.IsNullOrWhiteSpace(command.Token) || command.Token.Length > UserTokenIssuer.MaxValueLength)
         {
             return UserTokenErrors.EmailVerificationInvalid;
         }
 
         var now = timeProvider.GetUtcNow();
-        var token = await tokens.GetByHashAsync(EmailVerificationTokens.Hash(command.Token), cancellationToken).ConfigureAwait(false);
+        var token = await tokens.GetByHashAsync(UserTokenIssuer.Hash(command.Token), cancellationToken).ConfigureAwait(false);
 
         if (token is null || token.Purpose != UserTokenPurpose.EmailVerification || !token.IsActive(now))
         {

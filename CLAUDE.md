@@ -192,7 +192,9 @@ Migrator'daki seed):
   `__Host-nbp-session` / `__Host-nbp-admin` cookie'si gider. Route grubu kendi cookie'sini okur,
   servise `Authorization: Bearer` ekler, `Cookie` ve `X-CSRF-Token`'ı servise iletmez. Cookie'li
   değiştiren istek `X-CSRF-Token` ister. Refresh oturum başına tek (Valkey kilidi) ve asla tekrar
-  denenmez. Ayarlar `ConnectionStrings:Valkey`, `Session`, `RateLimiting:Credentials`.
+  denenmez. Şifre sıfırlama da burada (`/session/password-reset`, `/confirm`): oturum ve cookie
+  istemez, Auth'un yanıtını aynen geçirir. Parola alan veya e-posta gönderen uçlar `Credentials`
+  limitindedir. Ayarlar `ConnectionStrings:Valkey`, `Session`, `RateLimiting:Credentials`.
 
 ## Çalışma kuralları
 
@@ -261,7 +263,8 @@ Migrator'daki seed):
   `[PersonalData]` / `[SecretData]` ile işaretlenir (projede `Microsoft.Extensions.Telemetry.Abstractions`
   doğrudan referanslı olmalı).
 - **Auth endpoint'leri:** `/register`, `/sign-in`, `/sign-in/admin`, `/refresh`, `/sign-out`, `/me`,
-  `/me/password`, `/email-verification` (GET durum, POST yeniden gönder), `/email-verification/confirm` — token dönenler gateway'den proxy'lenmez, onları sadece gateway çağırır. Giriş hatası her durumda `User.InvalidCredentials` (hesabın varlığı ve kilidi
+  `/me/password`, `/email-verification` (GET durum, POST yeniden gönder), `/email-verification/confirm`,
+  `/password-reset`, `/password-reset/confirm` — token dönenler gateway'den proxy'lenmez, onları sadece gateway çağırır. Giriş hatası her durumda `User.InvalidCredentials` (hesabın varlığı ve kilidi
   belli olmaz); bilinmeyen e-postada da bir hash doğrulanır. Tekrar kullanılan refresh token ailenin
   tamamını iptal eder.
 - **Admin (Auth):** `/admin/users`, `/admin/roles`, `/admin/permissions`. Bir rolü oluşturan,
@@ -273,6 +276,7 @@ Migrator'daki seed):
 - **Billing:** Stripe gerçeğin kaynağı; `Subscription` ve `Invoice` onun aynası. Tutarlar `long` kuruş (`AmountMinor`). Kullanıcı başına tek canlı abonelik DB'de filtreli unique index. Kart için sadece marka ve son 4 hane saklanır (`CardSummary`). Stripe `IPaymentGateway` arkasında; anahtar (`Billing:Stripe:SecretKey`, lokalde `deploy/.env`'deki `STRIPE_SECRET_KEY`) yoksa ödeme uçları 503. Ödeme `POST`'ları `Idempotency-Key` ister (`IdempotencyFilter`; sadece 2xx saklanır, farklı gövde 422, eş zamanlı 409). Event'ler `Billing.Contracts`: `SubscriptionActivated`/`Suspended`/`Canceled` (artan `Revision` taşır; tüketici eskisini yok sayar) ve `PaymentFailed`. Stripe webhook'u `POST /webhooks/stripe`: imza (`Billing:Stripe:WebhookSecret`, lokalde `STRIPE_WEBHOOK_SECRET`), inbox, nesne Stripe'tan güncel haliyle okunup aynalanır; geçici hatada inbox'a yazılmaz, Stripe tekrar dener. 422 `Error.Unprocessable`, 502 `Error.UpstreamFailure`.
 - **Profiller (Auth):** `User` aggregate'inde, hesap başına en fazla 5, ad + `MaxAgeRating` (Catalog'un yaş değerleri); kayıtta "Main". Event'ler `ProfileCreated`/`Changed`/`Removed` (`Revision`).
 - **E-posta doğrulama (Auth):** `UserTokens` (sadece SHA-256 hash, tek kullanımlık `ExecuteUpdate`, 24 saat); kayıtta ve `POST /email-verification` (oturum açık, 60 sn'de bir, öncekiler iptal) ile `EmailVerificationRequested` (ham token, token id) yayınlanır, Notification e-postalar. `POST /email-verification/confirm` anonim; her hata aynı 400 `EmailVerification.TokenInvalid`. Durum `User.EmailVerifiedAt`, `/me`'de `emailVerified`, tarayıcı için `GET /email-verification`; zorunlu değil.
+- **Şifre sıfırlama (Auth):** aynı `UserTokens` (`PasswordReset`, 1 saat). `POST /password-reset` anonim, hesap olsun olmasın (kapalı, 60 sn içinde tekrar) hep 202; sadece bozuk adres 400. Onay `POST /password-reset/confirm`: önce şifre kuralı (alan hatası), sonra her token hatası aynı 400 `PasswordReset.TokenInvalid`; başarıda şifre değişir, refresh token'ların hepsi hemen iptal, kilit kalkar, e-posta doğrulanmış sayılır, oturum açılmaz. Şifre her değiştiğinde (`ChangePassword` veya sıfırlama; giriş sırasındaki rehash değil) `PasswordChanged` (`ChangeId`) yayınlanır, Notification bildirim e-postası gönderir.
 - **Videolar (Streaming):** admin SAS ile `video-uploads`'a yükler, `/admin/videos/{id}/uploaded` ile onaylar → `TranscodeJobs` (Postgres, `SKIP LOCKED` + lease). `Streaming.Transcoder` HLS üretir (360/720/1080, kaynağı aşmadan) → private `videos/{id:N}/`. Event'ler `Streaming.Contracts`: `VideoQueued`/`Ready`/`Failed` (`Revision`). Storage CORS hesap geneli: kurallar eklenir, ezilmez (`StorageCors.MergeAsync`); origin'ler `Videos:UploadOrigins`/`PlaybackOrigins`, blob bağlantısı `ConnectionStrings:Videos`.
 - **Video durumu (Catalog):** `ContentVideo` event'lerle güncellenir, `Version`'ı artırmaz; film/bölüm oynatılabilir video olmadan yayınlanmaz (409 `Content.VideoRequired`).
 - **Yerel kopyalar (Streaming):** oynatma kararı için abonelik (`Subscriptions`, abonelik başına), profil (`Profiles`, silinen işaretli kalır) ve izlenebilir içerik (`PlayableTitles`/`PlayableItems`) kopyaları; sadece event'le değişir, revision büyükse uygulanır (`Revision` concurrency token). Catalog'un `PlayableChanged`'i (`Catalog.Contracts`) başlığın tam listesini taşır; `ContentItem.PlayabilityRevision` `Version`'dan ayrı.

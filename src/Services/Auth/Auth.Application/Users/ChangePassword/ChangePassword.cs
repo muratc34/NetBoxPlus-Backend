@@ -35,7 +35,7 @@ internal sealed class ChangePasswordValidator : IValidator<ChangePasswordCommand
 /// <summary>
 /// Changes the password after checking the current one, which counts as a sign-in attempt: a stolen
 /// access token alone is not enough to guess it. Every session of the user ends; the caller gets a
-/// new pair to continue with. Access tokens already issued stay valid until they expire.
+/// new pair to continue with, and an e-mail notice. Access tokens already issued stay valid until they expire.
 /// </summary>
 internal sealed class ChangePasswordHandler(
     IUserRepository users,
@@ -66,7 +66,7 @@ internal sealed class ChangePasswordHandler(
             return UserErrors.PasswordIncorrect;
         }
 
-        user.ChangePasswordHash(hasher.Hash(command.NewPassword));
+        user.ChangePassword(hasher.Hash(command.NewPassword), now);
         user.RecordSuccessfulSignIn();
 
         // At once, like every revocation: the new pair below is added afterwards and saved with the command.

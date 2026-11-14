@@ -1,3 +1,4 @@
+using Auth.Application.UserTokens;
 using Auth.Domain.Users;
 using Auth.Domain.UserTokens;
 using Shared.Application.Cqrs;
@@ -15,7 +16,7 @@ public sealed record ResendVerificationCommand(Guid UserId) : ICommand;
 internal sealed class ResendVerificationHandler(
     IUserRepository users,
     IUserTokenRepository tokens,
-    EmailVerificationTokens verificationTokens,
+    UserTokenIssuer tokenIssuer,
     TimeProvider timeProvider) : ICommandHandler<ResendVerificationCommand>
 {
     public async Task<Result> Handle(ResendVerificationCommand command, CancellationToken cancellationToken)
@@ -44,7 +45,7 @@ internal sealed class ResendVerificationHandler(
             previous.Revoke(now);
         }
 
-        verificationTokens.Issue(user.Id);
+        tokenIssuer.IssueEmailVerification(user.Id);
         return Result.Success();
     }
 }

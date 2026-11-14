@@ -13,7 +13,7 @@ internal static partial class RateLimitingServiceCollectionExtensions
 {
     public const string ExceededCode = "RateLimit.Exceeded";
 
-    /// <summary>For endpoints that take a password: sign-in, registration, password change.</summary>
+    /// <summary>For endpoints that take a password or send e-mail: sign-in, registration, password change and reset.</summary>
     public const string CredentialsPolicy = "credentials";
 
     /// <summary>

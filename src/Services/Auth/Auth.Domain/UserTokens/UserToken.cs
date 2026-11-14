@@ -6,10 +6,11 @@ namespace Auth.Domain.UserTokens;
 public enum UserTokenPurpose
 {
     EmailVerification,
+    PasswordReset,
 }
 
 /// <summary>
-/// A single-use token sent to the user by e-mail, such as an e-mail verification link. Only the
+/// A single-use token sent to the user by e-mail: an e-mail verification or a password reset link. Only the
 /// SHA-256 hash of its value is stored; the value itself leaves in the domain event and reaches the
 /// user only through the notification service.
 /// </summary>
@@ -22,6 +23,14 @@ public sealed class UserToken : AggregateRoot
 
     /// <summary>A new e-mail verification token cannot be asked for sooner than this after the last one.</summary>
     public static readonly TimeSpan EmailVerificationCooldown = TimeSpan.FromSeconds(60);
+
+    public static readonly TimeSpan PasswordResetLifetime = TimeSpan.FromHours(1);
+
+    /// <summary>
+    /// A new password reset token is not issued sooner than this after the last one. Unlike the
+    /// verification cooldown, the caller is not told: the request answers the same either way.
+    /// </summary>
+    public static readonly TimeSpan PasswordResetCooldown = TimeSpan.FromSeconds(60);
 
     private UserToken(Guid id, Guid userId, UserTokenPurpose purpose, byte[] tokenHash, DateTimeOffset createdAt, DateTimeOffset expiresAt)
         : base(id)
@@ -50,7 +59,7 @@ public sealed class UserToken : AggregateRoot
 
     public DateTimeOffset? UsedAt { get; private set; }
 
-    /// <summary>Set when a newer token of the same purpose replaced it.</summary>
+    /// <summary>Set when a newer token of the same purpose replaced it, or another one was used.</summary>
     public DateTimeOffset? RevokedAt { get; private set; }
 
     /// <summary>
@@ -68,10 +77,25 @@ public sealed class UserToken : AggregateRoot
         return token;
     }
 
+    /// <summary>
+    /// A new password reset token. <paramref name="value"/> is only carried by the domain event, which
+    /// hands it on to be e-mailed; it is never stored.
+    /// </summary>
+    public static UserToken IssuePasswordReset(Guid userId, string value, byte[] tokenHash, DateTimeOffset now)
+    {
+        Ensure.NotEmpty(userId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(value);
+        CheckHash(tokenHash);
+
+        var token = new UserToken(Guid.CreateVersion7(), userId, UserTokenPurpose.PasswordReset, tokenHash, now, now + PasswordResetLifetime);
+        token.RaiseDomainEvent(new PasswordResetTokenIssuedDomainEvent(userId, token.Id, value, token.ExpiresAt));
+        return token;
+    }
+
     /// <summary>Not used, not revoked and not expired.</summary>
     public bool IsActive(DateTimeOffset now) => UsedAt is null && RevokedAt is null && ExpiresAt > now;
 
-    /// <summary>A newer token replaces this one; a used or revoked token stays as it is.</summary>
+    /// <summary>A newer or another used token replaces this one; a used or revoked token stays as it is.</summary>
     public void Revoke(DateTimeOffset now)
     {
         if (UsedAt is null && RevokedAt is null)
@@ -94,6 +118,9 @@ public sealed class UserToken : AggregateRoot
 /// <summary>Carries the token value, in memory only, to the handler that publishes it for the e-mail.</summary>
 public sealed record EmailVerificationTokenIssuedDomainEvent(Guid UserId, Guid TokenId, string Token, DateTimeOffset ExpiresAt) : IDomainEvent;
 
+/// <summary>Carries the token value, in memory only, to the handler that publishes it for the e-mail.</summary>
+public sealed record PasswordResetTokenIssuedDomainEvent(Guid UserId, Guid TokenId, string Token, DateTimeOffset ExpiresAt) : IDomainEvent;
+
 public static class UserTokenErrors
 {
     /// <summary>
@@ -108,6 +135,14 @@ public static class UserTokenErrors
     public static readonly Error RequestedRecently = Error.Conflict(
         "EmailVerification.RequestedRecently",
         "A verification e-mail was sent moments ago. Wait a minute before asking again.");
+
+    /// <summary>
+    /// Unknown, expired, used or replaced, or the account is disabled: the caller cannot tell which,
+    /// and asks for a new link.
+    /// </summary>
+    public static readonly Error PasswordResetInvalid = Error.Validation(
+        "PasswordReset.TokenInvalid",
+        "The password reset link is not valid or has expired. Ask for a new one.");
 }
 
 /// <summary>

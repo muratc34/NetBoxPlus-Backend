@@ -1,5 +1,5 @@
 using Auth.Application.Abstractions;
-using Auth.Application.EmailVerification;
+using Auth.Application.UserTokens;
 using Auth.Domain.Users;
 using Shared.Application.Cqrs;
 using Shared.Application.Validation;
@@ -32,7 +32,7 @@ internal sealed class RegisterValidator : IValidator<RegisterCommand>
 /// address is reported (409): verification is not required, so it cannot be hidden, and the gateway
 /// rate-limits this route.
 /// </summary>
-internal sealed class RegisterHandler(IUserRepository users, IPasswordHasher hasher, EmailVerificationTokens verificationTokens) : ICommandHandler<RegisterCommand, Guid>
+internal sealed class RegisterHandler(IUserRepository users, IPasswordHasher hasher, UserTokenIssuer tokenIssuer) : ICommandHandler<RegisterCommand, Guid>
 {
     public async Task<Result<Guid>> Handle(RegisterCommand command, CancellationToken cancellationToken)
     {
@@ -45,7 +45,7 @@ internal sealed class RegisterHandler(IUserRepository users, IPasswordHasher has
 
         var user = User.Register(email, hasher.Hash(command.Password));
         users.Add(user);
-        verificationTokens.Issue(user.Id);
+        tokenIssuer.IssueEmailVerification(user.Id);
 
         return user.Id;
     }

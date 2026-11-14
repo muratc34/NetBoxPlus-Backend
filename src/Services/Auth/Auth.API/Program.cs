@@ -42,6 +42,7 @@ app.MapUserAdminEndpoints();
 app.MapRoleAdminEndpoints();
 app.MapProfileEndpoints();
 app.MapEmailVerificationEndpoints();
+app.MapPasswordResetEndpoints();
 app.MapDefaultEndpoints();
 
 app.Run();

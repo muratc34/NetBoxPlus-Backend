@@ -310,7 +310,9 @@
       "EmailKind": {
         "enum": [
           "Welcome",
-          "EmailVerification"
+          "EmailVerification",
+          "PasswordReset",
+          "PasswordChanged"
         ]
       },
       "EmailStatus": {

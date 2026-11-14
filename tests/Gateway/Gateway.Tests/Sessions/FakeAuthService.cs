@@ -57,6 +57,12 @@ public sealed class FakeAuthService : IAsyncDisposable
     /// <summary>Bearer tokens that came with password changes.</summary>
     public ConcurrentQueue<string> PasswordChanges { get; } = new();
 
+    /// <summary>Addresses for which a password reset was asked.</summary>
+    public ConcurrentQueue<string?> PasswordResetRequests { get; } = new();
+
+    /// <summary>The token the fake accepts for a password reset.</summary>
+    public const string ResetToken = "valid-reset-token";
+
     public static async Task<FakeAuthService> StartAsync(TimeProvider time)
     {
         var builder = WebApplication.CreateSlimBuilder();
@@ -84,6 +90,15 @@ public sealed class FakeAuthService : IAsyncDisposable
                 ? Results.Ok(service.Issue(new Account(new JsonWebToken(bearer).Subject, "customer@example.com", false), service.RefreshedAccessTokenLifetime))
                 : Problem(400, "User.PasswordIncorrect");
         });
+
+        app.MapPost("/password-reset", (ResetRequest request) =>
+        {
+            service.PasswordResetRequests.Enqueue(request.Email);
+            return Results.Accepted();
+        });
+        app.MapPost("/password-reset/confirm", (ResetConfirmRequest request) => request.Token == ResetToken
+            ? Results.NoContent()
+            : Problem(400, "PasswordReset.TokenInvalid"));
 
         await app.StartAsync();
         service.Address = app.Services.GetRequiredService<IServer>().Features.GetRequiredFeature<IServerAddressesFeature>().Addresses.Single();
@@ -152,4 +167,8 @@ public sealed class FakeAuthService : IAsyncDisposable
     public sealed record RefreshRequest(string RefreshToken);
 
     public sealed record PasswordRequest(string? CurrentPassword, string? NewPassword);
+
+    public sealed record ResetRequest(string? Email);
+
+    public sealed record ResetConfirmRequest(string? Token, string? NewPassword);
 }

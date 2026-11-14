@@ -140,13 +140,71 @@ public sealed class UserTests
     }
 
     [Fact]
-    public void ChangePasswordHash_ReplacesTheHash()
+    public void RehashPassword_ReplacesTheHash_WithoutTellingTheUser()
     {
         var user = NewUser();
+        user.ClearDomainEvents();
 
-        user.ChangePasswordHash("new-hash");
+        user.RehashPassword("new-hash");
 
         Assert.Equal("new-hash", user.PasswordHash);
+        Assert.Empty(user.DomainEvents);
+    }
+
+    [Fact]
+    public void ChangePassword_ReplacesTheHash_AndAnnouncesTheChange()
+    {
+        var user = NewUser();
+        user.ClearDomainEvents();
+        var now = new DateTimeOffset(2026, 11, 14, 12, 0, 0, TimeSpan.Zero);
+
+        user.ChangePassword("new-hash", now);
+
+        Assert.Equal("new-hash", user.PasswordHash);
+        Assert.False(user.IsEmailVerified);
+        var changed = Assert.IsType<PasswordChangedDomainEvent>(Assert.Single(user.DomainEvents));
+        Assert.Equal((user.Id, now), (changed.UserId, changed.ChangedAt));
+        Assert.NotEqual(Guid.Empty, changed.ChangeId);
+    }
+
+    [Fact]
+    public void EachPasswordChange_HasItsOwnId()
+    {
+        var user = NewUser();
+        user.ClearDomainEvents();
+        var now = new DateTimeOffset(2026, 11, 14, 12, 0, 0, TimeSpan.Zero);
+
+        user.ChangePassword("hash-1", now);
+        user.ChangePassword("hash-2", now);
+
+        var ids = user.DomainEvents.OfType<PasswordChangedDomainEvent>().Select(changed => changed.ChangeId).ToList();
+        Assert.Equal(2, ids.Distinct().Count());
+    }
+
+    [Fact]
+    public void ResetPassword_ChangesThePassword_AndVerifiesTheAddress()
+    {
+        var user = NewUser();
+        user.ClearDomainEvents();
+        var now = new DateTimeOffset(2026, 11, 14, 12, 0, 0, TimeSpan.Zero);
+
+        user.ResetPassword("new-hash", now);
+
+        Assert.Equal(("new-hash", now), (user.PasswordHash, user.EmailVerifiedAt));
+        Assert.IsType<PasswordChangedDomainEvent>(Assert.Single(user.DomainEvents));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    public void AnEmptyHash_IsAProgrammingError(string hash)
+    {
+        var user = NewUser();
+        var now = new DateTimeOffset(2026, 11, 14, 12, 0, 0, TimeSpan.Zero);
+
+        Assert.ThrowsAny<ArgumentException>(() => user.RehashPassword(hash));
+        Assert.ThrowsAny<ArgumentException>(() => user.ChangePassword(hash, now));
+        Assert.ThrowsAny<ArgumentException>(() => user.ResetPassword(hash, now));
     }
 
     private static User NewUser() => User.Register(EmailAddress.Create("jane@example.com").Value, "hash");
