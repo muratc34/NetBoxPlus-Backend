@@ -324,6 +324,22 @@ services:
     ports:
       - "127.0.0.1:5100:8080"
 
+  # Demo content through the gateway's admin API: ./deploy/dev.ps1 seed (needs up -App running).
+  demo-seed:
+    profiles: ["tools"]
+    image: netboxplus/demo-seed:local
+    build: { context: .., dockerfile: src/Tools/NetBoxPlus.DemoSeeder/Dockerfile }
+    restart: "no"
+    environment:
+      Seeder__Gateway: http://gateway:8080
+      Seeder__AdminEmail: ${AUTH_ADMIN_EMAIL}
+      Seeder__AdminPassword: ${AUTH_ADMIN_PASSWORD}
+      Seeder__StripeSecretKey: ${STRIPE_SECRET_KEY:-}
+      # Upload addresses are handed out for browsers (127.0.0.1); inside this network that is the
+      # container itself, so the seeder sends them to azurite instead.
+      Seeder__PublicStorageEndpoint: http://127.0.0.1:10000
+      Seeder__StorageEndpoint: http://azurite:10000
+
 volumes:
   postgres-data:
   rabbitmq-data:

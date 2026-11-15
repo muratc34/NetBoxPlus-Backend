@@ -12,6 +12,7 @@
     ./deploy/dev.ps1 up            # Postgres, RabbitMQ, Valkey, Aspire dashboard
     ./deploy/dev.ps1 up -Search    # ... plus Elasticsearch
     ./deploy/dev.ps1 up -App       # ... plus every service and the gateway in containers (http://localhost:5100)
+    ./deploy/dev.ps1 seed          # demo movies, series and plans through the gateway (after up -App)
     ./deploy/dev.ps1 secrets       # connection settings and signing keys for running services and the gateway from the IDE
     ./deploy/dev.ps1 status
     ./deploy/dev.ps1 down          # stop, keep data
@@ -20,7 +21,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('up', 'down', 'status', 'logs', 'reset', 'secrets')]
+    [ValidateSet('up', 'down', 'status', 'logs', 'reset', 'secrets', 'seed')]
     [string]$Command = 'status',
 
     # Also start Elasticsearch (compose profile "search").
@@ -380,5 +381,18 @@ switch ($Command) {
     }
     'secrets' {
         Set-ServiceSecrets
+    }
+    'seed' {
+        # The seeder uses the gateway's admin API like the admin panel, so the system must be up.
+        try {
+            Invoke-WebRequest -Uri 'http://localhost:5100/health/ready' -UseBasicParsing -TimeoutSec 5 | Out-Null
+        }
+        catch {
+            throw 'The gateway is not running. Start the system first: ./deploy/dev.ps1 up -App'
+        }
+        # Safe to run again: it finishes what is missing and leaves the rest as it is.
+        Invoke-Compose @('run', '--rm', '--build', 'demo-seed') @('tools')
+        Write-Host ''
+        Write-Host 'Demo content is in place: http://localhost:5100/catalog/titles'
     }
 }

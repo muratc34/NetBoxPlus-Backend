@@ -31,6 +31,7 @@ Frontend ayrı repoda: `NetBoxPlus-Frontend` (web + admin).
 src/BuildingBlocks/   Shared.Domain, Shared.Application, Shared.Infrastructure.{API,Persistence,Messaging}
 src/Services/<S>/     <S>.Domain, .Application, .Infrastructure, .API, .Contracts
 src/Gateway/          YARP
+src/Tools/            NetBoxPlus.DemoSeeder (demo verisi; servis koduna referans yok)
 tests/                src/ ile aynı düzen
 deploy/               compose, observability konfigürasyonu
 docs/                 ARCHITECTURE.md, PHASE-*.md, openapi/
@@ -63,7 +64,7 @@ ile yapar (`tests/TestSupport/DockerAvailability.cs`, csproj'a link'lenir). Test
 **CI** (`.github/workflows/ci.yml`, `v2` ve `master`'a push ve PR'larda): Release build (uyarı =
 hata) → `docs/openapi` build çıktısıyla aynı değilse kırılır → tüm testler (Docker zorunlu) →
 paralel olarak her Dockerfile'ın image build'i (push yok). API değiştiyse build'i lokalde çalıştırıp
-`docs/openapi/*.json`'ı da commit'le. Transcode testleri gerçek **ffmpeg** ister: `FFMPEG_DIRECTORY`
+`docs/openapi/*.json`'ı da commit'le. Transcode ve demo seeder testleri gerçek **ffmpeg** ister (seeder Linux'ta `fonts-dejavu-core` da): `FFMPEG_DIRECTORY`
 ya da PATH (`tests/TestSupport/FfmpegAvailability.cs`); yoksa lokalde atlanır, CI'da (ffmpeg `apt` ile
 kurulur) kırar. Lokalde `winget install Gyan.FFmpeg`. Action'lar commit SHA'sıyla sabit; Dependabot (actions + NuGet)
 haftalık PR'ları `v2`'ye açar.
@@ -101,6 +102,23 @@ Transcoder ve gateway; compose `app` profili, image'lar `netboxplus/<ad>:local` 
 - İmza anahtarları (`AUTH_TOKEN_KEY_ID`, `AUTH_TOKEN_SIGNING_KEY`, `PLAYBACK_SIGNING_KEY`) `.env`'de;
   ilk çalıştırmada üretilir (varsa User Secrets'takiler taşınır) ve hem `secrets` hem compose oradan okur.
 - `down`, `ps`, `logs`, `reset` app container'larını da kapsar.
+
+Demo verisi (`up -App` çalışırken; compose `tools` profili, `demo-seed` image'ı):
+
+```powershell
+./deploy/dev.ps1 seed
+```
+
+- `src/Tools/NetBoxPlus.DemoSeeder` admin panelinin yaptığını yapar: gateway'den admin girişi, uydurma 6 tür,
+  10 kişi, 6 film, 2 dizi (2 sezon × 3 bölüm), ffmpeg ile sentetik görsel ve 30 sn'lik video, transcode bekleme,
+  yayınlama. Veritabanına ve servis koduna dokunmaz. Yaklaşık 4 dakika.
+- İdempotent: her adım önce mevcut durumu kontrol eder (eşleştirme Türkçe başlık + `originalTitle`, kişi adı,
+  türün Türkçe adı); ikinci çalıştırma değişiklik yapmaz, yarıda kalan devam eder. Gateway'in 429'una
+  `Retry-After` ile uyar.
+- `STRIPE_SECRET_KEY` varsa (sadece `sk_test_`/`rk_test_`) Stripe'ta aylık fiyat açar (`lookup_key`
+  `netboxplus-demo-*`) ve Temel (Sd, 1 ekran) / Premium (Hd, 4 ekran) planlarını ekleyip aktifler; yoksa atlar.
+- Host'tan da çalışır: `dotnet run --project src/Tools/NetBoxPlus.DemoSeeder` ve `Seeder__AdminEmail`,
+  `Seeder__AdminPassword`, gerekirse `Seeder__FfmpegPath`, `Seeder__StripeSecretKey`.
 
 Bir servisi lokalde çalıştırmak (örnek: Auth):
 

@@ -35,6 +35,9 @@
     <Project Path="src/Services/Catalog/Catalog.Infrastructure/Catalog.Infrastructure.csproj" />
     <Project Path="src/Services/Catalog/Catalog.Migrator/Catalog.Migrator.csproj" />
   </Folder>
+  <Folder Name="/src/Tools/">
+    <Project Path="src/Tools/NetBoxPlus.DemoSeeder/NetBoxPlus.DemoSeeder.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Architecture.Tests/Architecture.Tests.csproj" />
   </Folder>
@@ -84,5 +87,8 @@
   <Folder Name="/tests/Services/Catalog/">
     <Project Path="tests/Services/Catalog/Catalog.Domain.Tests/Catalog.Domain.Tests.csproj" />
     <Project Path="tests/Services/Catalog/Catalog.IntegrationTests/Catalog.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Tools/">
+    <Project Path="tests/Tools/NetBoxPlus.DemoSeeder.Tests/NetBoxPlus.DemoSeeder.Tests.csproj" />
   </Folder>
 </Solution>

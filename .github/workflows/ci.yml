@@ -58,9 +58,10 @@ jobs:
             exit 1
           fi
 
-      # The streaming transcoder's tests run the real ffmpeg; like Docker, it is required here.
+      # The streaming transcoder's and the demo seeder's tests run the real ffmpeg; like Docker, it
+      # is required here. The seeder draws titles with the DejaVu font, as in its image.
       - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends ffmpeg
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends ffmpeg fonts-dejavu-core
 
       # Integration tests start PostgreSQL and RabbitMQ with Testcontainers. Locally they are
       # skipped without Docker; here a missing Docker fails them.
@@ -112,6 +113,8 @@ jobs:
             dockerfile: src/Services/Streaming/Streaming.Migrator/Dockerfile
           - name: notification-migrator
             dockerfile: src/Services/Notification/Notification.Migrator/Dockerfile
+          - name: demo-seed
+            dockerfile: src/Tools/NetBoxPlus.DemoSeeder/Dockerfile
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
