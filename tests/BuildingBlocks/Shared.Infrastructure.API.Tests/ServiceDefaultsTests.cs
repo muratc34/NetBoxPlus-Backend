@@ -59,6 +59,21 @@ public sealed partial class ServiceDefaultsTests
         Assert.Contains("web", record.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task ADegradedCheck_IsNotLoggedOnEveryProbe_AnUnhealthyOneIs()
+    {
+        await using var app = await TestApp.StartAsync(_ => { }, configure: builder => builder.Services.AddHealthChecks()
+            .AddCheck("dead-letters", () => HealthCheckResult.Degraded("1 message is in the dead-letter queue."), tags: [HealthTags.Ready])
+            .AddCheck("database", () => HealthCheckResult.Unhealthy("The database is down."), tags: [HealthTags.Ready]));
+
+        await app.Client.GetAsync(ServiceDefaultsExtensions.ReadinessPath, TestContext.Current.CancellationToken);
+        await app.Client.GetAsync(ServiceDefaultsExtensions.ReadinessPath, TestContext.Current.CancellationToken);
+
+        var records = app.Services.GetFakeLogCollector().GetSnapshot().Where(r => r.Category == ServiceDefaultsExtensions.HealthCheckLogCategory).ToList();
+        Assert.DoesNotContain(records, r => r.Message.Contains("dead-letters", StringComparison.Ordinal));
+        Assert.Contains(records, r => r.Level == LogLevel.Error && r.Message.Contains("database", StringComparison.Ordinal));
+    }
+
     [LoggerMessage(Level = LogLevel.Information, Message = "User {Email} signed in with {Password} from {Client}")]
     private static partial void LogSignIn(ILogger logger, [PersonalData] string email, [SecretData] string password, string client);
 }

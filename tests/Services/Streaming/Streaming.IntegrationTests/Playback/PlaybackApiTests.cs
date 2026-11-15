@@ -1,3 +1,4 @@
+using System.Diagnostics.Metrics;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
@@ -6,13 +7,17 @@ using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.Metrics.Testing;
+using Microsoft.Extensions.Hosting;
 using Shared.Application.Cqrs;
+using Streaming.Application;
 using Streaming.Application.Abstractions;
 using Streaming.Application.Access;
 using Streaming.Application.Playback.GetProgress;
 using Streaming.Application.Playback.StartPlayback;
 using Streaming.Domain.Access;
 using Streaming.Domain.Videos;
+using Streaming.Infrastructure;
 using Streaming.Infrastructure.Media;
 using Streaming.Infrastructure.Persistence;
 using Streaming.IntegrationTests.Admin;
@@ -144,6 +149,46 @@ public sealed class PlaybackApiTests(StreamingApiFixture api)
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
         using var anonymous = api.CreateAnonymousClient();
         Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.PostAsJsonAsync("/playback-sessions", new { setup.ProfileId, setup.ContentId }, Json, Cancellation)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Starts_AreCounted_AndActiveSessionsGauged()
+    {
+        var setup = await SetUpAsync(VideoQuality.Hd, screens: 1);
+        using var client = api.CreateClientFor(setup.User);
+        using var starts = StartsCollector();
+        var before = await ActiveSessionsAsync();
+
+        var first = await StartAsync(client, setup);
+        Assert.Equal(before + 1, await ActiveSessionsAsync());
+        Assert.Equal("Playback.TooManyScreens", await StartCodeAsync(client, setup.ProfileId, setup.ContentId));
+        Assert.Equal("Playback.NotAvailable", await StartCodeAsync(client, setup.ProfileId, Guid.CreateVersion7()));
+        await client.DeleteAsync($"/playback-sessions/{first.SessionId}", Cancellation);
+        Assert.Equal(before, await ActiveSessionsAsync());
+
+        var second = await StartAsync(client, setup);
+        await SilenceAsync(second.SessionId);
+        Assert.Equal(before, await ActiveSessionsAsync());
+
+        Assert.Equal(2, Starts(starts, "started"));
+        Assert.Equal(1, Starts(starts, "Playback.TooManyScreens"));
+        Assert.Equal(1, Starts(starts, "Playback.NotAvailable"));
+    }
+
+    private MetricCollector<long> StartsCollector()
+    {
+        using var scope = api.CreateScope();
+        return new MetricCollector<long>(scope.ServiceProvider.GetRequiredService<IMeterFactory>(), StreamingMetrics.MeterName, "netboxplus.playback.sessions.started");
+    }
+
+    private static long Starts(MetricCollector<long> collector, string outcome)
+        => collector.GetMeasurementSnapshot().Where(measurement => Equals(measurement.Tags["outcome"], outcome)).Sum(measurement => measurement.Value);
+
+    private async Task<long> ActiveSessionsAsync()
+    {
+        await using var scope = api.CreateScope();
+        await scope.ServiceProvider.GetServices<IHostedService>().OfType<StreamingMetricsSampler>().Single().SampleAsync(Cancellation);
+        return scope.ServiceProvider.GetRequiredService<StreamingMetrics>().Latest!.ActiveSessions;
     }
 
     [Fact]

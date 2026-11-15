@@ -21,6 +21,7 @@ internal sealed partial class RabbitMqConsumer(
     RabbitMqConnection connection,
     IOptions<RabbitMqOptions> options,
     IServiceScopeFactory scopeFactory,
+    MessagingMetrics metrics,
     TimeProvider timeProvider,
     ILogger<RabbitMqConsumer> logger,
     IntegrationEventSubscriptions? subscriptions = null)
@@ -134,10 +135,13 @@ internal sealed partial class RabbitMqConsumer(
         {
             LogUnreadable(logger, properties.MessageId, messageType);
             await DeadLetterAsync(channel, delivery, activity, cancellationToken).ConfigureAwait(false);
+            // Only known types become a tag value, so an odd sender cannot add series.
+            metrics.Handled(UnknownMessageType, MessageOutcomes.DeadLettered);
             return;
         }
 
         var body = delivery.Body.ToArray();
+        var started = timeProvider.GetTimestamp();
 
         for (var attempt = 0; ; attempt++)
         {
@@ -145,6 +149,7 @@ internal sealed partial class RabbitMqConsumer(
             {
                 await invoker.InvokeAsync(scopeFactory, messageId, body, logger, cancellationToken).ConfigureAwait(false);
                 await channel.BasicAckAsync(delivery.DeliveryTag, multiple: false, cancellationToken).ConfigureAwait(false);
+                Finished(messageType, MessageOutcomes.Processed, started);
                 return;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -156,16 +161,19 @@ internal sealed partial class RabbitMqConsumer(
             {
                 LogUnreadablePayload(logger, exception, messageId, messageType);
                 await DeadLetterAsync(channel, delivery, activity, cancellationToken).ConfigureAwait(false);
+                Finished(messageType, MessageOutcomes.DeadLettered, started);
                 return;
             }
             catch (Exception exception) when (attempt < _options.RetryDelays.Length)
             {
                 LogRetrying(logger, exception, messageId, messageType, attempt + 1, _options.RetryDelays[attempt]);
+                metrics.Handled(messageType, MessageOutcomes.Retried);
             }
             catch (Exception exception)
             {
                 LogDeadLettered(logger, exception, messageId, messageType, attempt + 1);
                 await DeadLetterAsync(channel, delivery, activity, cancellationToken).ConfigureAwait(false);
+                Finished(messageType, MessageOutcomes.DeadLettered, started);
                 return;
             }
 
@@ -178,6 +186,14 @@ internal sealed partial class RabbitMqConsumer(
                 return;
             }
         }
+    }
+
+    private const string UnknownMessageType = "unknown";
+
+    private void Finished(string messageType, string outcome, long started)
+    {
+        metrics.Handled(messageType, outcome);
+        metrics.HandlingTook(messageType, timeProvider.GetElapsedTime(started));
     }
 
     private static async Task DeadLetterAsync(IChannel channel, BasicDeliverEventArgs delivery, Activity? activity, CancellationToken cancellationToken)

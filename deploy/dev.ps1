@@ -12,6 +12,7 @@
     ./deploy/dev.ps1 up            # Postgres, RabbitMQ, Valkey, Aspire dashboard
     ./deploy/dev.ps1 up -Search    # ... plus Elasticsearch
     ./deploy/dev.ps1 up -App       # ... plus every service and the gateway in containers (http://localhost:5100)
+    ./deploy/dev.ps1 up -App -Observability  # ... and telemetry to Grafana (http://localhost:3000) instead of Aspire
     ./deploy/dev.ps1 seed          # demo movies, series and plans through the gateway (after up -App)
     ./deploy/dev.ps1 secrets       # connection settings and signing keys for running services and the gateway from the IDE
     ./deploy/dev.ps1 status
@@ -30,6 +31,10 @@ param(
     # For "up": also build and start every service, the gateway and the transcoder in containers
     # (compose profile "app", which includes Elasticsearch).
     [switch]$App,
+
+    # With -App: also start Grafana with Prometheus, Loki and Tempo (compose profile "observability")
+    # and send the containers' telemetry there instead of to the Aspire dashboard.
+    [switch]$Observability,
 
     # Required by "reset", which deletes every volume.
     [switch]$Force,
@@ -274,6 +279,24 @@ function Invoke-Compose {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
+function Build-AppImages {
+    # One image at a time: building all of them at once can stall Docker Desktop on a laptop.
+    # The layers they share (restore, SDK) are cached after the first, so this costs little.
+    param([string[]]$Profiles)
+
+    $profileArguments = @()
+    foreach ($name in $Profiles) { $profileArguments += @('--profile', $name) }
+    $built = & $script:docker compose --file $composeFile --env-file $envFile @profileArguments config --format json | ConvertFrom-Json
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+    foreach ($service in $built.services.PSObject.Properties) {
+        if ($service.Value.build) {
+            Write-Host "Building $($service.Name)..."
+            Invoke-Compose @('build', $service.Name) $Profiles
+        }
+    }
+}
+
 function Get-EmailProvider {
     # Mailpit unless deploy/.env explicitly says EMAIL_PROVIDER=Brevo: a Brevo key on its own never
     # sends real e-mail, so test sign-ups with made-up addresses stay local.
@@ -338,6 +361,9 @@ Initialize-SigningKeys
 
 switch ($Command) {
     'up' {
+        if ($Observability -and -not $App) {
+            throw '-Observability goes with -App: only the app containers send their telemetry to Grafana.'
+        }
         $dependencies = @()
         if ($Search -or $App) { $dependencies = @('search') }
         Invoke-Compose @('up', '--detach', '--wait') $dependencies
@@ -346,13 +372,26 @@ switch ($Command) {
         if ($App) {
             # The databases exist now; each Migrator runs and exits, then the services start.
             Set-ContainerEmailSettings
-            Invoke-Compose @('up', '--detach', '--build') @('search', 'app')
+            $appProfiles = @('search', 'app')
+            if ($Observability) {
+                $env:NETBOXPLUS_OTLP_ENDPOINT = 'http://lgtm:4317'
+                $appProfiles += 'observability'
+            }
+            else {
+                # Back to the Aspire dashboard, also for containers that ran with Grafana before.
+                Remove-Item Env:NETBOXPLUS_OTLP_ENDPOINT -ErrorAction SilentlyContinue
+            }
+            Build-AppImages $appProfiles
+            Invoke-Compose @('up', '--detach') $appProfiles
             Wait-AppReady
         }
         Write-Host ''
         if ($App) {
             Write-Host 'Gateway:           http://localhost:5100 (the only address a browser needs)'
             Write-Host 'Services:          http://localhost:5103-5107 (auth, catalog, billing, streaming, notification)'
+        }
+        if ($Observability) {
+            Write-Host 'Grafana:           http://localhost:3000 (dashboard "NetBoxPlus"; admin/admin to edit)'
         }
         Write-Host 'Aspire dashboard:  http://localhost:18888'
         Write-Host 'RabbitMQ:          http://localhost:15672 (user and password in deploy/.env)'
@@ -362,21 +401,21 @@ switch ($Command) {
         if ($Search) { Write-Host 'Elasticsearch:     http://localhost:9200' }
     }
     'down' {
-        Invoke-Compose @('down') @('search', 'app')
+        Invoke-Compose @('down') @('search', 'app', 'observability')
     }
     'status' {
-        Invoke-Compose @('ps', '--all') @('search', 'app')
+        Invoke-Compose @('ps', '--all') @('search', 'app', 'observability')
     }
     'logs' {
         $arguments = @('logs', '--follow', '--tail', '100')
         if ($Service) { $arguments += $Service }
-        Invoke-Compose $arguments @('search', 'app')
+        Invoke-Compose $arguments @('search', 'app', 'observability')
     }
     'reset' {
         if (-not $Force) {
             throw 'reset deletes every local database, queue and cache. Run again with -Force to confirm.'
         }
-        Invoke-Compose @('down', '--volumes') @('search', 'app')
+        Invoke-Compose @('down', '--volumes') @('search', 'app', 'observability')
         Write-Host 'All local data removed. The next "up" recreates the databases.'
     }
     'secrets' {

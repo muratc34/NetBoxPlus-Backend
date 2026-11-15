@@ -1,0 +1,11 @@
+# Grafana provisioning for the "observability" profile: loads the dashboards in this folder's
+# dashboards/ directory, mounted into the otel-lgtm container (see deploy/compose.yaml).
+apiVersion: 1
+providers:
+  - name: netboxplus
+    folder: NetBoxPlus
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /otel-lgtm/grafana/conf/provisioning/dashboards/netboxplus

@@ -48,6 +48,7 @@ internal sealed class SignInHandler(
     IPasswordHasher hasher,
     UnknownUserPassword unknownUserPassword,
     SessionTokens sessions,
+    AuthMetrics metrics,
     TimeProvider timeProvider) : ICommandHandler<SignInCommand, TokenPair>
 {
     public async Task<Result<TokenPair>> Handle(SignInCommand command, CancellationToken cancellationToken)
@@ -60,6 +61,7 @@ internal sealed class SignInHandler(
         if (user is null)
         {
             unknownUserPassword.Verify(command.Password);
+            metrics.SignIn(command.Kind, SignInResults.Failed);
             return UserErrors.InvalidCredentials;
         }
 
@@ -70,18 +72,21 @@ internal sealed class SignInHandler(
         // are not counted: the lockout already stops them.
         if (user.CanSignIn(now).IsFailure)
         {
+            metrics.SignIn(command.Kind, SignInResults.Refused);
             return UserErrors.InvalidCredentials;
         }
 
         if (check == PasswordCheck.Failed)
         {
             await users.RecordFailedSignInAsync(user.Id, now, cancellationToken).ConfigureAwait(false);
+            metrics.SignIn(command.Kind, SignInResults.Failed);
             return UserErrors.InvalidCredentials;
         }
 
         var grants = await sessions.GetGrantsAsync(user, cancellationToken).ConfigureAwait(false);
         if (command.Kind == SessionKind.Admin && !grants.Has(Permissions.Auth.AdminSignIn))
         {
+            metrics.SignIn(command.Kind, SignInResults.Failed);
             return UserErrors.InvalidCredentials;
         }
 
@@ -91,6 +96,7 @@ internal sealed class SignInHandler(
             user.RehashPassword(hasher.Hash(command.Password));
         }
 
+        metrics.SignIn(command.Kind, SignInResults.Succeeded);
         return sessions.Start(user, command.Kind, grants);
     }
 }

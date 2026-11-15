@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using Shared.Infrastructure.API.Hosting;
 using Streaming.Application;
 using Streaming.Infrastructure;
 
@@ -10,6 +11,7 @@ var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings {
 builder.Configuration.AddUserSecrets(typeof(StreamingInfrastructureServiceCollectionExtensions).Assembly, optional: true);
 builder.Configuration.AddUserSecrets<TranscoderMarker>(optional: true);
 
+builder.AddWorkerDefaults();
 builder.Services.AddStreamingApplication();
 builder.Services.AddStreamingTranscoder(builder.Configuration);
 

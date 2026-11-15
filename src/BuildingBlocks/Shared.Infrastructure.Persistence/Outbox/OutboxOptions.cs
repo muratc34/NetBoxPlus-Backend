@@ -21,4 +21,7 @@ public sealed class OutboxOptions
     /// time from one second, up to this. Such tries do not count as attempts.
     /// </summary>
     public TimeSpan MaxUnavailableDelay { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>How often the outbox is counted for the metrics and the health check.</summary>
+    public TimeSpan MonitorInterval { get; set; } = TimeSpan.FromSeconds(30);
 }

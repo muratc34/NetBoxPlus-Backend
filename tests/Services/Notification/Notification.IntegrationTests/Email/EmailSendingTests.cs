@@ -1,6 +1,9 @@
+using System.Diagnostics.Metrics;
 using Auth.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.Metrics.Testing;
+using Microsoft.Extensions.Hosting;
 using Notification.Domain.Emails;
 using Notification.Infrastructure.Emails;
 using Notification.Infrastructure.Persistence;
@@ -30,9 +33,11 @@ public sealed class EmailSendingTests(NotificationDatabaseFixture database, Mail
     public async Task ARegistration_QueuesTheWelcome_AndTheWorkerSendsIt()
     {
         await using var services = await WithMailpitAsync();
+        using var attempts = Attempts(services);
         var (user, address) = (Guid.CreateVersion7(), NewAddress());
         await RegisterAsync(services, user, address);
         await RegisterAsync(services, user, address);
+        Assert.Equal(new EmailQueueSnapshot(Pending: 1, Failed: 0), await QueueAsync(services));
 
         var queued = Assert.Single(await EmailsAsync(services, user));
         Assert.Equal((EmailKind.Welcome, EmailStatus.Pending, user.ToString("N")), (queued.Kind, queued.Status, queued.SourceKey));
@@ -49,12 +54,15 @@ public sealed class EmailSendingTests(NotificationDatabaseFixture database, Mail
         Assert.Equal((EmailStatus.Sent, 1, (string?)null, (string?)null), (sent.Status, sent.Attempts, sent.HtmlBody, sent.TextBody));
         Assert.NotNull(sent.SentAt);
         Assert.Equal(0, await SendDueAsync(services));
+        Assert.Equal([("Welcome", "sent")], Results(attempts));
+        Assert.Equal(new EmailQueueSnapshot(Pending: 0, Failed: 0), await QueueAsync(services));
     }
 
     [Fact]
     public async Task AnSmtpServerOutOfReach_LeavesTheEmailWaiting_ForItsNextAttempt()
     {
         await using var services = await database.CreateServicesAsync();
+        using var attempts = Attempts(services);
         var user = Guid.CreateVersion7();
         await RegisterAsync(services, user, NewAddress());
         var before = DateTimeOffset.UtcNow;
@@ -68,12 +76,14 @@ public sealed class EmailSendingTests(NotificationDatabaseFixture database, Mail
         Assert.NotNull(email.HtmlBody);
         Assert.Null(await LeaseAsync(services, email.Id));
         Assert.Equal(0, await SendDueAsync(services));
+        Assert.Equal([("Welcome", "retry")], Results(attempts));
     }
 
     [Fact]
     public async Task ARefusedAddress_FailsAtOnce()
     {
         await using var services = await WithMailpitAsync();
+        using var attempts = Attempts(services);
         var user = Guid.CreateVersion7();
         await RegisterAsync(services, user, $"someone-{Guid.NewGuid():N}@refused.test");
 
@@ -83,6 +93,8 @@ public sealed class EmailSendingTests(NotificationDatabaseFixture database, Mail
         Assert.Equal((EmailStatus.Failed, 1), (email.Status, email.Attempts));
         Assert.StartsWith("SMTP 5", email.LastError, StringComparison.Ordinal);
         Assert.NotNull(email.HtmlBody);
+        Assert.Equal([("Welcome", "rejected")], Results(attempts));
+        Assert.Equal(new EmailQueueSnapshot(Pending: 0, Failed: 1), await QueueAsync(services));
     }
 
     [Fact]
@@ -97,6 +109,7 @@ public sealed class EmailSendingTests(NotificationDatabaseFixture database, Mail
             await context.SaveChangesAsync(Cancellation);
         }
 
+        using var attempts = Attempts(services);
         await SendDueAsync(services);
         var waiting = Assert.Single(await EmailsAsync(services, user));
         Assert.Equal((EmailStatus.Pending, EmailDispatcher.NoAddressYet), (waiting.Status, waiting.LastError));
@@ -107,6 +120,7 @@ public sealed class EmailSendingTests(NotificationDatabaseFixture database, Mail
 
         Assert.Equal(EmailStatus.Sent, Assert.Single(await EmailsAsync(services, user)).Status);
         Assert.Equal("Konu", (await mailpit.FindAsync(address, Cancellation))!.Subject);
+        Assert.Equal([("Welcome", "retry"), ("Welcome", "sent")], Results(attempts));
     }
 
     [Fact]
@@ -122,10 +136,24 @@ public sealed class EmailSendingTests(NotificationDatabaseFixture database, Mail
                 .ExecuteSqlInterpolatedAsync($"UPDATE \"OutgoingEmails\" SET \"Attempts\" = {OutgoingEmail.MaxAttempts - 1} WHERE \"Id\" = {id}", Cancellation);
         }
 
+        using var attempts = Attempts(services);
         await SendDueAsync(services);
 
         var email = Assert.Single(await EmailsAsync(services, user));
         Assert.Equal((EmailStatus.Failed, OutgoingEmail.MaxAttempts), (email.Status, email.Attempts));
+        Assert.Equal([("Welcome", "gave_up")], Results(attempts));
+    }
+
+    private static MetricCollector<long> Attempts(ServiceProvider services)
+        => new(services.GetRequiredService<IMeterFactory>(), NotificationMetrics.MeterName, "netboxplus.emails.sent");
+
+    private static List<(string Kind, string Result)> Results(MetricCollector<long> collector)
+        => [.. collector.GetMeasurementSnapshot().Select(measurement => ((string)measurement.Tags["kind"]!, (string)measurement.Tags["result"]!))];
+
+    private static async Task<EmailQueueSnapshot> QueueAsync(ServiceProvider services)
+    {
+        await services.GetServices<IHostedService>().OfType<EmailQueueSampler>().Single().SampleAsync(Cancellation);
+        return services.GetRequiredService<NotificationMetrics>().Latest!;
     }
 
     [Fact]

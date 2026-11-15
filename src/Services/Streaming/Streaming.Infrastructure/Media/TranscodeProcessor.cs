@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Shared.Application.Cqrs;
+using Streaming.Application;
 using Streaming.Application.Videos.FinishTranscode;
 using Streaming.Domain.Videos;
 using Streaming.Infrastructure.Persistence;
@@ -21,6 +22,7 @@ internal sealed partial class TranscodeProcessor(
     VideoBlobStorage storage,
     FfmpegTranscoder transcoder,
     IDispatcher dispatcher,
+    StreamingMetrics metrics,
     IOptions<TranscoderOptions> options,
     TimeProvider timeProvider,
     ILogger<TranscodeProcessor> logger)
@@ -55,6 +57,7 @@ internal sealed partial class TranscodeProcessor(
         }
 
         var job = jobs[0];
+        var started = timeProvider.GetTimestamp();
         var work = Path.Combine(options.Value.WorkDirectory ?? Path.GetTempPath(), "netboxplus-transcode", job.VideoId.ToString("N"));
         try
         {
@@ -70,18 +73,21 @@ internal sealed partial class TranscodeProcessor(
                 await storage.UploadOutputAsync(job.VideoId, output, cancellationToken).ConfigureAwait(false);
                 await FinishAsync(job.VideoId, new MarkVideoReadyCommand(job.VideoId, converted.DurationSeconds, converted.Renditions), cancellationToken).ConfigureAwait(false);
                 LogConverted(logger, job.VideoId, converted.Renditions.Count);
+                metrics.Transcoded(TranscodeOutcomes.Converted, timeProvider.GetElapsedTime(started));
             }
             else if (outcome is TranscodeOutcome.Rejected rejected)
             {
                 await FinishAsync(job.VideoId, new MarkVideoFailedCommand(job.VideoId, rejected.Reason), cancellationToken).ConfigureAwait(false);
                 LogRejected(logger, job.VideoId, rejected.Reason);
+                metrics.Transcoded(TranscodeOutcomes.Rejected, timeProvider.GetElapsedTime(started));
             }
 
             await storage.DeleteUploadAsync(job.VideoId, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            await RetryOrGiveUpAsync(job, exception, cancellationToken).ConfigureAwait(false);
+            var gaveUp = await RetryOrGiveUpAsync(job, exception, cancellationToken).ConfigureAwait(false);
+            metrics.Transcoded(gaveUp ? TranscodeOutcomes.GaveUp : TranscodeOutcomes.Retried, timeProvider.GetElapsedTime(started));
         }
         finally
         {
@@ -115,14 +121,15 @@ internal sealed partial class TranscodeProcessor(
         }
     }
 
-    private async Task RetryOrGiveUpAsync(LeasedJob job, Exception exception, CancellationToken cancellationToken)
+    /// <summary>Returns whether the video was given up on.</summary>
+    private async Task<bool> RetryOrGiveUpAsync(LeasedJob job, Exception exception, CancellationToken cancellationToken)
     {
         context.ChangeTracker.Clear();
         if (job.Attempts >= MaxAttempts)
         {
             LogGaveUp(logger, exception, job.VideoId, job.Attempts);
             await dispatcher.Send(new MarkVideoFailedCommand(job.VideoId, $"Converting failed {job.Attempts} times."), cancellationToken).ConfigureAwait(false);
-            return;
+            return true;
         }
 
         var delay = TimeSpan.FromMinutes(job.Attempts * job.Attempts);
@@ -135,6 +142,7 @@ internal sealed partial class TranscodeProcessor(
                 cancellationToken)
             .ConfigureAwait(false);
         LogRetrying(logger, exception, job.VideoId, job.Attempts, delay.TotalMinutes);
+        return false;
     }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Converted video {VideoId} into {Renditions} renditions")]

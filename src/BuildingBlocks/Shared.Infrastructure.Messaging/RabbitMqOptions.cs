@@ -27,6 +27,9 @@ public sealed class RabbitMqOptions
     /// </remarks>
     public TimeSpan[] RetryDelays { get; set; } = [];
 
+    /// <summary>How often the dead-letter queue is counted for the metrics, the alarm and the health check.</summary>
+    public TimeSpan DeadLetterCheckInterval { get; set; } = TimeSpan.FromMinutes(1);
+
     public static IReadOnlyList<TimeSpan> DefaultRetryDelays { get; } =
         [TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(15)];
 }

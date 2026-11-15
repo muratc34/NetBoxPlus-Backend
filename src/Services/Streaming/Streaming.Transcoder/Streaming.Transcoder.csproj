@@ -9,6 +9,8 @@
 
   <ItemGroup>
     <ProjectReference Include="../Streaming.Infrastructure/Streaming.Infrastructure.csproj" />
+    <!-- The same logging, redaction and telemetry as the services (AddWorkerDefaults). -->
+    <ProjectReference Include="../../../BuildingBlocks/Shared.Infrastructure.API/Shared.Infrastructure.API.csproj" />
   </ItemGroup>
 
   <ItemGroup>

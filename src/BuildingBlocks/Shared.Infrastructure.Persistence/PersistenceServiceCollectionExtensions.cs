@@ -24,7 +24,7 @@ public static class PersistenceServiceCollectionExtensions
     /// <summary>
     /// Registers <typeparamref name="TContext"/> on PostgreSQL with the shared interceptors
     /// (domain events, soft delete, auditing — in that order), the unit of work, the outbox
-    /// publisher and processor, the inbox, the clean-up of old outbox and inbox rows, the audit log, a readiness health check and Npgsql tracing.
+    /// publisher, processor and monitor (metrics, and a degraded health check while messages are given up on), the inbox, the clean-up of old outbox and inbox rows, the audit log, a readiness health check and Npgsql tracing.
     /// </summary>
     /// <remarks>Requires <c>AddCqrs</c> for the domain event dispatcher.</remarks>
     public static IServiceCollection AddPersistence<TContext>(
@@ -56,9 +56,12 @@ public static class PersistenceServiceCollectionExtensions
 
         services.AddOptions<OutboxOptions>()
             .BindConfiguration(OutboxOptions.SectionName)
-            .Validate(o => o.BatchSize > 0 && o.MaxAttempts > 0 && o.PollingInterval > TimeSpan.Zero, "Outbox settings must be positive.")
+            .Validate(o => o.BatchSize > 0 && o.MaxAttempts > 0 && o.PollingInterval > TimeSpan.Zero && o.MonitorInterval > TimeSpan.Zero, "Outbox settings must be positive.")
             .ValidateOnStart();
+        services.AddMetrics();
+        services.TryAddSingleton<OutboxMetrics>();
         services.AddHostedService<OutboxProcessor<TContext>>();
+        services.AddHostedService<OutboxMonitor<TContext>>();
 
         services.AddOptions<MessageRetentionOptions>()
             .BindConfiguration(MessageRetentionOptions.SectionName)
@@ -66,7 +69,9 @@ public static class PersistenceServiceCollectionExtensions
             .ValidateOnStart();
         services.AddHostedService<MessageRetentionService<TContext>>();
 
-        services.AddHealthChecks().AddDbContextCheck<TContext>("database", tags: [ReadyTag]);
+        services.AddHealthChecks()
+            .AddDbContextCheck<TContext>("database", tags: [ReadyTag])
+            .AddCheck<OutboxHealthCheck>("outbox", tags: [ReadyTag]);
         services.ConfigureOpenTelemetryTracerProvider(tracing => tracing.AddNpgsql());
 
         return services;

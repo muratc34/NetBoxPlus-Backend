@@ -55,7 +55,9 @@ public static class NotificationInfrastructureServiceCollectionExtensions
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<IEmailLinks, EmailLinks>();
         services.AddScoped<EmailDispatcher>();
+        services.AddSingleton<NotificationMetrics>();
         services.AddHostedService<EmailSendingService>();
+        services.AddHostedService<EmailQueueSampler>();
         return services;
     }
 

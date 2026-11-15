@@ -14,6 +14,7 @@ public static class StreamingApplicationServiceCollectionExtensions
         services.AddScoped<PlaybackGate>();
         services.AddScoped<PlaylistSource>();
         services.AddScoped<PlaybackPositions>();
+        services.AddSingleton<StreamingMetrics>();
         return services;
     }
 }

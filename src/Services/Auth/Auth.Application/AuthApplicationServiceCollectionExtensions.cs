@@ -17,6 +17,7 @@ public static class AuthApplicationServiceCollectionExtensions
         services.AddScoped<SessionTokens>();
         services.AddScoped<UserTokenIssuer>();
         services.AddSingleton<UnknownUserPassword>();
+        services.AddSingleton<AuthMetrics>();
 
         return services;
     }

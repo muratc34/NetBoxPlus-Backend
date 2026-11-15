@@ -199,6 +199,7 @@ public sealed class OutboxTests(PostgresFixture postgres)
     private static OutboxProcessor<TestDbContext> Processor(TestServices? services) => new(
         services?.Provider.GetRequiredService<IServiceScopeFactory>() ?? new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(),
         Microsoft.Extensions.Options.Options.Create(Options),
+        services?.Provider.GetRequiredService<OutboxMetrics>() ?? new OutboxMetrics(new ServiceCollection().AddMetrics().BuildServiceProvider().GetRequiredService<System.Diagnostics.Metrics.IMeterFactory>()),
         services?.Time ?? TimeProvider.System,
         NullLogger<OutboxProcessor<TestDbContext>>.Instance);
 

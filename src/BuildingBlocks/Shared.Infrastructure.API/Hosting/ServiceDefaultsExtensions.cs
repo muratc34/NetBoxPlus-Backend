@@ -27,6 +27,9 @@ public static class ServiceDefaultsExtensions
     public const string LivenessPath = "/health";
     public const string ReadinessPath = "/health/ready";
 
+    /// <summary>Every NetBoxPlus meter's name starts with this.</summary>
+    public const string ServiceMeterPrefix = "NetBoxPlus.";
+
     /// <summary>
     /// Registers OpenTelemetry (traces, metrics, logs; exported over OTLP when
     /// <c>OTEL_EXPORTER_OTLP_ENDPOINT</c> is set), health checks, log redaction, JSON console logs
@@ -40,12 +43,29 @@ public static class ServiceDefaultsExtensions
         builder.Services.TryAddSingleton(TimeProvider.System);
 
         ConfigureLogging(builder);
-        ConfigureOpenTelemetry(builder);
+        ConfigureOpenTelemetry(builder, web: true);
 
         builder.Services.AddHealthChecks()
             .AddCheck("self", () => HealthCheckResult.Healthy(), tags: [HealthTags.Live]);
 
         builder.Services.AddErrorResponses();
+
+        return builder;
+    }
+
+    /// <summary>
+    /// The same logging, redaction and telemetry for a process without HTTP endpoints, such as the
+    /// transcoder: no health endpoints, no request instrumentation.
+    /// </summary>
+    public static TBuilder AddWorkerDefaults<TBuilder>(this TBuilder builder)
+        where TBuilder : IHostApplicationBuilder
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        builder.Services.TryAddSingleton(TimeProvider.System);
+
+        ConfigureLogging(builder);
+        ConfigureOpenTelemetry(builder, web: false);
 
         return builder;
     }
@@ -85,8 +105,15 @@ public static class ServiceDefaultsExtensions
         return endpoints;
     }
 
+    /// <summary>The health check service logs every degraded check on every probe, as a warning.</summary>
+    internal const string HealthCheckLogCategory = "Microsoft.Extensions.Diagnostics.HealthChecks.DefaultHealthCheckService";
+
     private static void ConfigureLogging(IHostApplicationBuilder builder)
     {
+        // A degraded check (dead letters, outbox messages given up on) is logged once by its monitor
+        // when it changes; the probe every few seconds must not repeat it. Unhealthy checks still log.
+        builder.Logging.AddFilter(HealthCheckLogCategory, LogLevel.Error);
+
         if (!builder.Environment.IsDevelopment())
         {
             builder.Logging.AddJsonConsole(options =>
@@ -104,7 +131,7 @@ public static class ServiceDefaultsExtensions
         builder.Logging.EnableRedaction();
     }
 
-    private static void ConfigureOpenTelemetry(IHostApplicationBuilder builder)
+    private static void ConfigureOpenTelemetry(IHostApplicationBuilder builder, bool web)
     {
         builder.Logging.AddOpenTelemetry(logging =>
         {
@@ -114,14 +141,23 @@ public static class ServiceDefaultsExtensions
 
         var openTelemetry = builder.Services.AddOpenTelemetry()
             .ConfigureResource(resource => resource.AddService(builder.Environment.ApplicationName))
-            .WithMetrics(metrics => metrics
-                .AddAspNetCoreInstrumentation()
-                .AddHttpClientInstrumentation()
-                .AddRuntimeInstrumentation())
-            .WithTracing(tracing => tracing
-                .AddSource(builder.Environment.ApplicationName)
-                .AddAspNetCoreInstrumentation(options => options.Filter = context => !IsHealthRequest(context))
-                .AddHttpClientInstrumentation());
+            .WithMetrics(metrics =>
+            {
+                // Each service's own meters ("NetBoxPlus.Auth", ...); the shared ones register themselves.
+                metrics.AddMeter(ServiceMeterPrefix + "*").AddHttpClientInstrumentation().AddRuntimeInstrumentation();
+                if (web)
+                {
+                    metrics.AddAspNetCoreInstrumentation();
+                }
+            })
+            .WithTracing(tracing =>
+            {
+                tracing.AddSource(builder.Environment.ApplicationName).AddHttpClientInstrumentation();
+                if (web)
+                {
+                    tracing.AddAspNetCoreInstrumentation(options => options.Filter = context => !IsHealthRequest(context));
+                }
+            });
 
         if (!string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
         {

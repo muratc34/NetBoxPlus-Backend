@@ -18,7 +18,8 @@ RUN dotnet publish src/Services/Streaming/Streaming.Transcoder/Streaming.Transco
     --configuration Release --no-restore --output /app
 
 # Not chiseled: ffmpeg comes from the distribution's (Ubuntu) packages, which need a package manager to install.
-FROM mcr.microsoft.com/dotnet/runtime:10.0 AS runtime
+# aspnet, not runtime: the shared telemetry setup (Shared.Infrastructure.API) needs the ASP.NET Core framework.
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*

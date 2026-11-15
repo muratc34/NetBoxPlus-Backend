@@ -20,6 +20,7 @@ namespace Shared.Infrastructure.Persistence.Outbox;
 internal sealed partial class OutboxProcessor<TContext>(
     IServiceScopeFactory scopeFactory,
     IOptions<OutboxOptions> options,
+    OutboxMetrics metrics,
     TimeProvider timeProvider,
     ILogger<OutboxProcessor<TContext>> logger)
     : BackgroundService
@@ -116,6 +117,7 @@ internal sealed partial class OutboxProcessor<TContext>(
                     cancellationToken).ConfigureAwait(false);
 
                 message.ProcessedAt = timeProvider.GetUtcNow();
+                metrics.Sent();
                 message.LastError = null;
             }
             catch (MessageTransportUnavailableException exception)
@@ -127,6 +129,7 @@ internal sealed partial class OutboxProcessor<TContext>(
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 message.Attempts++;
+                metrics.SendFailed();
                 message.LastError = exception.Message.Length > MaxErrorLength ? exception.Message[..MaxErrorLength] : exception.Message;
 
                 if (message.Attempts >= _options.MaxAttempts)

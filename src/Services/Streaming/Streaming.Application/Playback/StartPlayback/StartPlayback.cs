@@ -36,7 +36,13 @@ internal sealed class StartPlaybackValidator : IValidator<StartPlaybackCommand>
     }
 }
 
-internal sealed class StartPlaybackHandler(PlaybackGate gate, IViewerRepository viewers, IWatchProgressRepository progress, IPlaybackSigner signer, TimeProvider timeProvider)
+internal sealed class StartPlaybackHandler(
+    PlaybackGate gate,
+    IViewerRepository viewers,
+    IWatchProgressRepository progress,
+    IPlaybackSigner signer,
+    StreamingMetrics metrics,
+    TimeProvider timeProvider)
     : ICommandHandler<StartPlaybackCommand, PlaybackStarted>
 {
     public async Task<Result<PlaybackStarted>> Handle(StartPlaybackCommand command, CancellationToken cancellationToken)
@@ -44,6 +50,7 @@ internal sealed class StartPlaybackHandler(PlaybackGate gate, IViewerRepository 
         var access = await gate.CheckAsync(command.UserId, command.ProfileId, command.ContentId, cancellationToken).ConfigureAwait(false);
         if (access.IsFailure)
         {
+            metrics.PlaybackStarted(access.Error.Code);
             return access.Error;
         }
 
@@ -59,11 +66,13 @@ internal sealed class StartPlaybackHandler(PlaybackGate gate, IViewerRepository 
         var started = viewer.Start(access.Value.Grant, access.Value.MaxScreens, now);
         if (started.IsFailure)
         {
+            metrics.PlaybackStarted(started.Error.Code);
             return started.Error;
         }
 
         var session = started.Value;
         var resume = await progress.FindAsync(command.ProfileId, command.ContentId, cancellationToken).ConfigureAwait(false);
+        metrics.PlaybackStarted("started");
         var query = signer.Sign(session.Id, PlaybackLinks.MasterPlaylist, now + PlaybackLinks.MasterLifetime);
         return new PlaybackStarted(
             session.Id,

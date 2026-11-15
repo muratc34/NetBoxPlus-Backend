@@ -104,6 +104,10 @@ internal sealed class MessagingHost(
 {
     public Deliveries Deliveries => provider.GetRequiredService<Deliveries>();
 
+    public ServiceProvider Provider => provider;
+
+    public string ConnectionString => connectionString;
+
     public string Queue => RabbitMqTopology.QueueFor(serviceName);
 
     public string DeadLetterQueue => RabbitMqTopology.DeadLetterQueueFor(serviceName);
@@ -120,7 +124,7 @@ internal sealed class MessagingHost(
             TestContext.Current.CancellationToken);
 
     /// <summary>Publishes a body that is not valid JSON, bypassing the transport.</summary>
-    public async Task PublishRawAsync(string messageType, string body)
+    public async Task PublishRawAsync(string messageType, string body, string? messageId = null)
     {
         await using var connection = await new ConnectionFactory { Uri = new Uri(connectionString) }.CreateConnectionAsync();
         await using var channel = await connection.CreateChannelAsync();
@@ -128,7 +132,7 @@ internal sealed class MessagingHost(
             RabbitMqTopology.ExchangeFor(messageType),
             messageType,
             mandatory: false,
-            new BasicProperties { MessageId = Guid.CreateVersion7().ToString(), Type = messageType },
+            new BasicProperties { MessageId = messageId ?? Guid.CreateVersion7().ToString(), Type = messageType },
             System.Text.Encoding.UTF8.GetBytes(body));
     }
 

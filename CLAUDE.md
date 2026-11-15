@@ -95,8 +95,13 @@ Transcoder ve gateway; compose `app` profili, image'lar `netboxplus/<ad>:local` 
 ./deploy/dev.ps1 up -App
 ```
 
-- Migrator'lar bir kez çalışıp çıkar, API'ler onlar başarıyla bitince başlar; `up` hepsinin
-  `/health/ready`'si cevap verene kadar bekler. Tarayıcı sadece gateway'i (`localhost:5100`) bilir.
+- Image'lar tek tek build edilir (hepsi birden Docker Desktop'ı kilitleyebiliyor). Migrator'lar bir kez
+  çalışıp çıkar, API'ler onlar başarıyla bitince başlar; `up` hepsinin `/health/ready`'si cevap verene kadar
+  bekler. Tarayıcı sadece gateway'i (`localhost:5100`) bilir.
+- `-Observability` (sadece `-App` ile): compose `observability` profili, `grafana/otel-lgtm` (Grafana +
+  Prometheus + Loki + Tempo); app container'larının OTLP'si Aspire yerine oraya gider
+  (`NETBOXPLUS_OTLP_ENDPOINT`). Grafana http://localhost:3000, `NetBoxPlus` dashboard'u
+  `deploy/observability/dashboards/`'tan provision edilir. IDE'den çalışan servisler Aspire'a göndermeye devam eder.
 - Container'lar birbirine compose adıyla bağlanır; Azurite'in tarayıcıya verilen SAS/görsel adresleri
   `BlobStorage:PublicEndpoint` ile `127.0.0.1:10000`'e çevrilir (imza host'u kapsamaz).
 - İmza anahtarları (`AUTH_TOKEN_KEY_ID`, `AUTH_TOKEN_SIGNING_KEY`, `PLAYBACK_SIGNING_KEY`) `.env`'de;
@@ -138,7 +143,9 @@ CLI oturumu başka bir hesapta olabilir, `.env`'deki anahtarın hesabını dinle
 
 Streaming videoları transcode eden ayrı süreç (aynı database ve User Secrets; ffmpeg PATH'te veya
 `Transcoder:FfmpegPath`/`FfprobePath`): `dotnet run --project src/Services/Streaming/Streaming.Transcoder`.
-RabbitMQ'ya bağlanmaz; event'lerini Streaming.API'nin outbox işlemcisi gönderir, o da çalışmalı.
+RabbitMQ'ya bağlanmaz; event'lerini Streaming.API'nin outbox işlemcisi gönderir, o da çalışmalı. Log, trace ve
+metrikleri servislerle aynı ayarla `builder.AddWorkerDefaults()` (Shared.Infrastructure.API, HTTP'siz) gönderir;
+bu yüzden image'ı `aspnet:10.0` tabanlı.
 
 Başka servisin verisini kopyalayan bir tüketici sonradan açıldıysa, kaynak servisin Migrator'ı mevcut
 durumu yeniden yayınlar (outbox'ı servisin API'si gönderir): `-- announce-profiles` (Auth),
@@ -285,14 +292,19 @@ Migrator'daki seed):
   Event yayınlamak için `IIntegrationEventPublisher` — outbox'a yazar, doğrudan kuyruğa değil.
   `MessageRetentionService` gönderilmiş outbox satırlarını 7 gün, inbox satırlarını 30 gün sonra siler
   (saatte bir, 1000'lik parçalar; gönderilmemiş/bırakılmış outbox satırı silinmez; ayarlar `MessageRetention`;
-  Transcoder'da kapalı). Paylaşılan tablolara (outbox, inbox, audit) dokunan değişiklik beş servise de migration
+  Transcoder'da kapalı). `OutboxMonitor` outbox'ı 30 sn'de bir sayar (`Outbox:MonitorInterval`): bekleyen,
+  bırakılmış (10 deneme) ve en eski bekleyenin yaşı metrikte; bırakılmış mesaj sayısı değiştikçe bir Error log
+  ve `outbox` health check'i `Degraded` (200, trafik kesilmez). Paylaşılan tablolara (outbox, inbox, audit) dokunan değişiklik beş servise de migration
   ister; `Architecture.Tests/MigrationTests` unutulanı yakalar.
 - **Messaging:** `services.AddRabbitMqMessaging()`, ayarlar `Messaging` bölümünde. Integration
   event handler'ları `IIntegrationEventHandler<T>` implement eder ve `Task<Result>` döner: kalıcı
   başarısızlık `Result.Failure`, geçici sorun exception (retry → DLQ). `Data.Conflict` (yarışı kaybeden kayıt)
   geçici sayılır ve tekrar denenir. Her mesaj bir handler'a en
   fazla bir kez ulaşır (inbox). Broker'a ulaşılamazken outbox deneme saymaz, artan aralıkla
-  bekler (`MessageTransportUnavailableException`); mesaj kesinti boyunca kaybolmaz.
+  bekler (`MessageTransportUnavailableException`); mesaj kesinti boyunca kaybolmaz. `DeadLetterMonitor`
+  servisin DLQ'sunu dakikada bir pasif declare ile sayar (`Messaging:DeadLetterCheckInterval`; kuyruk henüz
+  yoksa 5 sn sonra tekrar): sayı değiştikçe bir Error log, `dead-letters` health check'i `Degraded`.
+  Hiçbir event tüketmeyen serviste çalışmaz.
 - **Zaman:** `DateTime.UtcNow` doğrudan çağrılmaz, `TimeProvider` kullanılır.
 - **ID'ler:** düz `Guid`, `Guid.CreateVersion7()`.
 - **API:** Minimal API. Her uygulama `builder.AddServiceDefaults()` → `app.UseServiceDefaults()` →
@@ -302,6 +314,13 @@ Migrator'daki seed):
   string interpolation yok; token/şifre/kart/e-posta loglanmaz. Hassas parametreler
   `[PersonalData]` / `[SecretData]` ile işaretlenir (projede `Microsoft.Extensions.Telemetry.Abstractions`
   doğrudan referanslı olmalı).
+- **Metrikler:** `System.Diagnostics.Metrics`, meter adı `NetBoxPlus.<Ad>` (`AddServiceDefaults`/`AddWorkerDefaults`
+  `NetBoxPlus.*`'ı dışa aktarır, ayrıca kayıt yok), instrument adı `netboxplus.*`, `IMeterFactory` ile singleton
+  bir metrik sınıfında. Etiketlerde id, e-posta, ad yok; sadece sınırlı değerler (sonuç, tür, hata kodu).
+  Veritabanından okunan gauge'lar arka planda (30 sn) ölçülür, callback sadece son değeri okur.
+  Mevcutlar: outbox, messaging (işlenen/tekrar/DLQ, süre, DLQ derinliği), Auth giriş, Streaming transcode ve
+  oynatma, Notification e-posta. Health check servisinin logu Error seviyesinde: `Degraded` her probe'da tekrar
+  loglanmaz (olayı izleyicisi bir kez loglar), `Unhealthy` loglanır. Container'lar metriği 15 sn'de bir gönderir.
 - **Auth endpoint'leri:** `/register`, `/sign-in`, `/sign-in/admin`, `/refresh`, `/sign-out`, `/me`,
   `/me/password`, `/email-verification` (GET durum, POST yeniden gönder), `/email-verification/confirm`,
   `/password-reset`, `/password-reset/confirm` — token dönenler gateway'den proxy'lenmez, onları sadece gateway çağırır. Giriş hatası her durumda `User.InvalidCredentials` (hesabın varlığı ve kilidi

@@ -1,10 +1,15 @@
+using System.Diagnostics.Metrics;
 using System.Text.Json;
 using Azure.Storage.Blobs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.Metrics.Testing;
+using Microsoft.Extensions.Hosting;
 using NetBoxPlus.Testing;
+using Streaming.Application;
 using Streaming.Application.Videos.GetVideos;
 using Streaming.Domain.Videos;
+using Streaming.Infrastructure;
 using Streaming.Infrastructure.Media;
 using Streaming.Infrastructure.Persistence;
 
@@ -55,12 +60,22 @@ public sealed class TranscodeTests(StreamingApiFixture api)
     public async Task ASmallSilentVideo_KeepsItsOwnHeight()
     {
         var id = await QueueAsync(await TestVideos.CreateAsync(320, 180, 2, audio: false));
+        using var transcodes = Collector<long>("netboxplus.transcode.completed");
+        using var duration = Collector<double>("netboxplus.transcode.duration");
+        Assert.Equal(new StreamingSnapshot(WaitingJobs: 1, RunningJobs: 0, ActiveSessions: (await SampleAsync()).ActiveSessions), await SampleAsync());
+        await LeaseAsync(id, DateTimeOffset.UtcNow.AddHours(1));
+        Assert.Equal((0, 1), ((await SampleAsync()).WaitingJobs, (await SampleAsync()).RunningJobs));
+        await LeaseAsync(id, DateTimeOffset.UtcNow.AddMinutes(-1));
+        Assert.Equal((1, 0), ((await SampleAsync()).WaitingJobs, (await SampleAsync()).RunningJobs));
 
         Assert.True(await ProcessAsync());
 
         var details = await DetailsAsync(id);
         Assert.Equal(VideoStatus.Ready, details.Status);
         Assert.Equal(180, Assert.Single(details.Renditions).Height);
+        Assert.Equal((0, 0), ((await SampleAsync()).WaitingJobs, (await SampleAsync()).RunningJobs));
+        Assert.Equal(1, Count(transcodes, TranscodeOutcomes.Converted));
+        Assert.True(Assert.Single(duration.GetMeasurementSnapshot()).Value > 0);
     }
 
     [Fact]
@@ -68,8 +83,10 @@ public sealed class TranscodeTests(StreamingApiFixture api)
     {
         FfmpegAvailability.SkipUnlessAvailable();
         var id = await QueueAsync("this is not a video at all"u8.ToArray());
+        using var transcodes = Collector<long>("netboxplus.transcode.completed");
 
         Assert.True(await ProcessAsync());
+        Assert.Equal(1, Count(transcodes, TranscodeOutcomes.Rejected));
 
         var details = await DetailsAsync(id);
         Assert.Equal((VideoStatus.Failed, "The file is not a readable video."), (details.Status, details.FailureReason));
@@ -118,8 +135,10 @@ public sealed class TranscodeTests(StreamingApiFixture api)
         FfmpegAvailability.SkipUnlessAvailable();
         var id = await QueueAsync([1, 2, 3]);
         await Uploads.GetBlobClient(id.ToString("N")).DeleteAsync(cancellationToken: Cancellation);
+        using var transcodes = Collector<long>("netboxplus.transcode.completed");
 
         Assert.True(await ProcessAsync());
+        Assert.Equal(1, Count(transcodes, TranscodeOutcomes.Retried));
 
         await using (var scope = api.CreateScope())
         {
@@ -142,6 +161,32 @@ public sealed class TranscodeTests(StreamingApiFixture api)
 
         var details = await DetailsAsync(id);
         Assert.Equal((VideoStatus.Failed, $"Converting failed {TranscodeProcessor.MaxAttempts} times."), (details.Status, details.FailureReason));
+        Assert.Equal((1, 1), (Count(transcodes, TranscodeOutcomes.Retried), Count(transcodes, TranscodeOutcomes.GaveUp)));
+    }
+
+    private MetricCollector<T> Collector<T>(string instrument)
+        where T : struct
+    {
+        using var scope = api.CreateScope();
+        return new MetricCollector<T>(scope.ServiceProvider.GetRequiredService<IMeterFactory>(), StreamingMetrics.MeterName, instrument);
+    }
+
+    private static long Count(MetricCollector<long> collector, string outcome)
+        => collector.GetMeasurementSnapshot().Where(measurement => Equals(measurement.Tags["outcome"], outcome)).Sum(measurement => measurement.Value);
+
+    /// <summary>As a worker taking the job would; a lease in the past is one a dead worker left.</summary>
+    private async Task LeaseAsync(Guid videoId, DateTimeOffset until)
+    {
+        await using var scope = api.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<StreamingDbContext>().Set<TranscodeJob>().Where(job => job.VideoId == videoId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(job => job.LeasedUntil, until), Cancellation);
+    }
+
+    private async Task<StreamingSnapshot> SampleAsync()
+    {
+        await using var scope = api.CreateScope();
+        await scope.ServiceProvider.GetServices<IHostedService>().OfType<StreamingMetricsSampler>().Single().SampleAsync(Cancellation);
+        return scope.ServiceProvider.GetRequiredService<StreamingMetrics>().Latest!;
     }
 
     /// <summary>Queues the file as the only job, so that "the next" video is this test's; other tests leave theirs behind.</summary>

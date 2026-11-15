@@ -28,6 +28,7 @@ public static class StreamingInfrastructureServiceCollectionExtensions
     {
         services.AddStreamingCore(configuration);
         services.AddHostedService<ExpiredUploadCleanupService>();
+        services.AddHostedService<StreamingMetricsSampler>();
         services.AddPlayback();
         services.AddRabbitMqMessaging();
         return services;

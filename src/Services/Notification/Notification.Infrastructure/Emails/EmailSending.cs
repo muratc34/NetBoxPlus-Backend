@@ -36,6 +36,7 @@ internal sealed class EmailLinks(IOptions<NotificationOptions> options) : IEmail
 internal sealed partial class EmailDispatcher(
     NotificationDbContext context,
     IEmailSender sender,
+    NotificationMetrics metrics,
     TimeProvider timeProvider,
     ILogger<EmailDispatcher> logger)
 {
@@ -126,9 +127,20 @@ internal sealed partial class EmailDispatcher(
             LogGaveUp(logger, email.Id, email.Attempts);
         }
 
+        metrics.Attempted(email.Kind, ResultOf(email, delivery));
+
         context.Entry(email).Property(OutgoingEmailConfiguration.LeasedUntil).CurrentValue = null;
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
+
+    /// <summary>One result per attempt: the last failed attempt counts as giving up, not as one more retry.</summary>
+    internal static string ResultOf(OutgoingEmail email, EmailDelivery? delivery) => email.Status switch
+    {
+        EmailStatus.Sent => EmailResults.Sent,
+        EmailStatus.Failed when delivery is { Outcome: EmailDeliveryOutcome.Rejected } => EmailResults.Rejected,
+        EmailStatus.Failed => EmailResults.GaveUp,
+        _ => EmailResults.Retry,
+    };
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Sent e-mail {EmailId} ({Kind})")]
     private static partial void LogSent(ILogger logger, Guid emailId, EmailKind kind);
