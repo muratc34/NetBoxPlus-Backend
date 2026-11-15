@@ -85,6 +85,9 @@ public sealed class CheckoutApiTests : IDisposable
         Assert.Equal(HttpStatusCode.Unauthorized, (await CheckoutAsync(anonymous, plan, "k")).StatusCode);
         await AssertProblemAsync(await CheckoutAsync(client, plan, "k-ready"), HttpStatusCode.Conflict, "Customer.NotReady");
 
+        await CustomerAsync(user, verified: false);
+        await AssertProblemAsync(await CheckoutAsync(client, plan, "k-unverified"), HttpStatusCode.Forbidden, "Checkout.EmailNotVerified");
+
         await CustomerAsync(user);
         await AssertProblemAsync(await CheckoutAsync(client, offSale, "k-off"), HttpStatusCode.NotFound, "Plan.NotFound");
         await AssertProblemAsync(await CheckoutAsync(client, (Guid.CreateVersion7(), "price_none"), "k-unknown"), HttpStatusCode.NotFound, "Plan.NotFound");
@@ -288,7 +291,8 @@ public sealed class CheckoutApiTests : IDisposable
         return (id, price);
     }
 
-    private async Task CustomerAsync(Guid user, string? provider = null)
+    /// <summary>A customer as billing knows them; verified unless said otherwise, as checkout requires.</summary>
+    private async Task CustomerAsync(Guid user, string? provider = null, bool verified = true)
     {
         await using var scope = _api.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<BillingDbContext>();
@@ -302,6 +306,11 @@ public sealed class CheckoutApiTests : IDisposable
         if (provider is not null)
         {
             customer.LinkProvider(provider);
+        }
+
+        if (verified)
+        {
+            customer.RecordEmailVerified(DateTimeOffset.UtcNow);
         }
 
         await context.SaveChangesAsync(Cancellation);

@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Auth.API.Sessions;
+using Auth.Application.EmailVerification.AnnounceEmailVerifications;
 using Auth.Application.EmailVerification.GetVerificationStatus;
 using Auth.Application.Sessions;
 using Auth.Application.Users.GetMe;
@@ -13,6 +14,7 @@ using Auth.Domain.UserTokens;
 using Auth.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Shared.Application.Cqrs;
 using Shared.Application.Messaging;
 
 namespace Auth.IntegrationTests.Sessions;
@@ -65,6 +67,49 @@ public sealed class EmailVerificationApiTests(AuthApiFixture api)
         Assert.True(status.Verified);
         Assert.NotNull(status.VerifiedAt);
         Assert.NotNull(Assert.Single(await TokensAsync(userId)).UsedAt);
+    }
+
+    [Fact]
+    public async Task AVerification_IsAnnouncedOnce_AndTheMigratorCanAnnounceItAgain()
+    {
+        using var client = api.CreateClient();
+        var email = NewEmail();
+        var userId = await RegisterAsync(client, email);
+        var unverified = await RegisterAsync(client, NewEmail());
+        var token = Assert.Single(await RequestsAsync(userId)).Token;
+
+        await ConfirmAsync(client, token);
+        await ConfirmAsync(client, token);
+
+        var published = Assert.Single(await VerifiedAsync(userId));
+        Assert.Equal((email, false), (published.Email, published.Replayed));
+
+        await using (var scope = api.CreateScope())
+        {
+            var announced = await scope.ServiceProvider.GetRequiredService<IDispatcher>().Send(new AnnounceEmailVerificationsCommand(), Cancellation);
+            Assert.True(announced.Value >= 1);
+        }
+
+        var all = await VerifiedAsync(userId);
+        Assert.Equal(2, all.Count);
+        // Read back from the database, so to PostgreSQL's microseconds.
+        Assert.Contains(all, message => message.Replayed && (message.VerifiedAt - published.VerifiedAt).Duration() < TimeSpan.FromMilliseconds(1));
+        Assert.Empty(await VerifiedAsync(unverified));
+    }
+
+    [Fact]
+    public async Task APasswordReset_ProvesTheAddress_AndAnnouncesIt()
+    {
+        using var client = api.CreateClient();
+        var email = NewEmail();
+        var userId = await RegisterAsync(client, email);
+        Assert.Equal(HttpStatusCode.Accepted, (await client.PostAsJsonAsync("/password-reset", new RequestPasswordResetRequest(email), Cancellation)).StatusCode);
+        var resetToken = Assert.Single(await PublishedAsync<PasswordResetRequested>(userId)).Token;
+
+        var reset = await client.PostAsJsonAsync("/password-reset/confirm", new ResetPasswordRequest(resetToken, "another correct horse battery"), Cancellation);
+
+        Assert.Equal(HttpStatusCode.NoContent, reset.StatusCode);
+        Assert.Equal(email, Assert.Single(await VerifiedAsync(userId)).Email);
     }
 
     [Theory]
@@ -224,6 +269,19 @@ public sealed class EmailVerificationApiTests(AuthApiFixture api)
         var response = await client.SendAsync(request, Cancellation);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<MeResponse>(Cancellation))!;
+    }
+
+    private Task<List<EmailVerified>> VerifiedAsync(Guid userId) => PublishedAsync<EmailVerified>(userId);
+
+    private async Task<List<T>> PublishedAsync<T>(Guid userId)
+    {
+        await using var scope = api.CreateScope();
+        var payloads = await scope.ServiceProvider.GetRequiredService<AuthDbContext>().OutboxMessages
+            .Where(message => message.Type == IntegrationEvents.MessageTypeOf(typeof(T)))
+            .Select(message => message.Payload)
+            .ToListAsync(Cancellation);
+        return [.. payloads.Where(payload => payload.Contains(userId.ToString(), StringComparison.Ordinal))
+            .Select(payload => JsonSerializer.Deserialize<T>(payload, IntegrationEvents.SerializerOptions)!)];
     }
 
     private async Task<List<EmailVerificationRequested>> RequestsAsync(Guid userId)

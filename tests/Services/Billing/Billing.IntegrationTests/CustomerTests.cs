@@ -81,6 +81,76 @@ public sealed class CustomerTests(BillingDatabaseFixture database)
                 Cancellation);
     }
 
+    [Fact]
+    public async Task AVerifiedAddress_IsRecorded_OnTheCustomer()
+    {
+        await using var services = await database.CreateServicesAsync();
+        var user = Guid.NewGuid();
+        var verifiedAt = new DateTimeOffset(2026, 11, 15, 10, 0, 0, TimeSpan.Zero);
+        await DeliverAsync(services, Guid.NewGuid(), new UserRegistered(user, "me@example.com", DateTimeOffset.UnixEpoch));
+
+        Assert.True(await DeliverVerifiedAsync(services, Guid.NewGuid(), new EmailVerified(user, "me@example.com", verifiedAt, verifiedAt)));
+
+        var customer = Assert.Single(await CustomersAsync(services));
+        Assert.Equal(verifiedAt, customer.EmailVerifiedAt);
+    }
+
+    [Fact]
+    public async Task AVerificationBeforeTheRegistration_MakesTheCustomer_AndTheRegistrationChangesNothing()
+    {
+        await using var services = await database.CreateServicesAsync();
+        var user = Guid.NewGuid();
+        var verifiedAt = new DateTimeOffset(2026, 11, 15, 10, 0, 0, TimeSpan.Zero);
+
+        Assert.True(await DeliverVerifiedAsync(services, Guid.NewGuid(), new EmailVerified(user, "early@example.com", verifiedAt, verifiedAt)));
+        Assert.True(await DeliverAsync(services, Guid.NewGuid(), new UserRegistered(user, "early@example.com", DateTimeOffset.UnixEpoch), expectSuccess: true));
+
+        var customer = Assert.Single(await CustomersAsync(services));
+        Assert.Equal((user, "early@example.com", (DateTimeOffset?)verifiedAt), (customer.UserId, customer.Email, customer.EmailVerifiedAt));
+    }
+
+    [Fact]
+    public async Task AVerificationAgain_OrReplayed_KeepsTheFirstTime()
+    {
+        await using var services = await database.CreateServicesAsync();
+        var user = Guid.NewGuid();
+        var first = new DateTimeOffset(2026, 11, 15, 10, 0, 0, TimeSpan.Zero);
+        await DeliverVerifiedAsync(services, Guid.NewGuid(), new EmailVerified(user, "again@example.com", first, first));
+
+        Assert.True(await DeliverVerifiedAsync(services, Guid.NewGuid(), new EmailVerified(user, "again@example.com", first.AddDays(1), first.AddDays(1), Replayed: true), expectSuccess: true));
+
+        Assert.Equal(first, Assert.Single(await CustomersAsync(services)).EmailVerifiedAt);
+    }
+
+    [Fact]
+    public async Task AVerificationWithoutAnAddress_IsRecorded_ButChangesNothing()
+    {
+        await using var services = await database.CreateServicesAsync();
+
+        Assert.True(await DeliverVerifiedAsync(services, Guid.NewGuid(), new EmailVerified(Guid.NewGuid(), "", DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch)));
+
+        Assert.Empty(await CustomersAsync(services));
+    }
+
+    private static async Task<bool> DeliverVerifiedAsync(ServiceProvider services, Guid messageId, EmailVerified verified, bool expectSuccess = false)
+    {
+        await using var scope = services.CreateAsyncScope();
+        var handler = Assert.Single(scope.ServiceProvider.GetServices<IIntegrationEventHandler<EmailVerified>>());
+        Assert.Equal("Billing.Application.Customers.RecordEmailVerifiedOnEmailVerified", handler.GetType().FullName);
+
+        return await scope.ServiceProvider.GetRequiredService<IInbox>()
+            .ProcessOnceAsync(
+                messageId,
+                handler.GetType().FullName!,
+                async token =>
+                {
+                    var result = await handler.Handle(verified, token);
+                    Assert.True(!expectSuccess || result.IsSuccess, result.IsFailure ? result.Error.Code : null);
+                    return result;
+                },
+                Cancellation);
+    }
+
     private static async Task<List<Billing.Domain.Customers.BillingCustomer>> CustomersAsync(ServiceProvider services)
     {
         await using var scope = services.CreateAsyncScope();

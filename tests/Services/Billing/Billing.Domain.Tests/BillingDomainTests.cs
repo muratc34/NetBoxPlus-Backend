@@ -390,4 +390,18 @@ public sealed class BillingCustomerTests
         Assert.Equal(CustomerErrors.ProviderMismatch, customer.LinkProvider("cus_2").Error);
         Assert.Equal("cus_1", customer.ProviderCustomerId);
     }
+
+    [Fact]
+    public void TheVerification_KeepsTheEarliestTime_InWhateverOrderItIsReported()
+    {
+        var customer = BillingCustomer.Create(Guid.NewGuid(), "a@example.com");
+        var first = new DateTimeOffset(2026, 11, 15, 9, 0, 0, TimeSpan.Zero);
+        Assert.Null(customer.EmailVerifiedAt);
+
+        customer.RecordEmailVerified(first.AddHours(2));
+        customer.RecordEmailVerified(first);
+        customer.RecordEmailVerified(first.AddDays(1));
+
+        Assert.Equal(first, customer.EmailVerifiedAt);
+    }
 }

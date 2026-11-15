@@ -1,4 +1,5 @@
 using Auth.Application;
+using Auth.Application.EmailVerification.AnnounceEmailVerifications;
 using Auth.Application.Profiles.AnnounceProfiles;
 using Auth.Application.Users.SeedAdministrator;
 using Auth.Infrastructure;
@@ -12,7 +13,8 @@ using Microsoft.Extensions.Logging;
 using Shared.Application.Cqrs;
 
 // Applies pending migrations, then seeds the administrator, and exits. With the argument
-// "announce-profiles" it also publishes every profile, for a consumer that started after they were made. Runs as its own step before
+// "announce-profiles" it also publishes every profile, and with "announce-email-verifications" every
+// verified address, for a consumer that started after they were made. Runs as its own step before
 // the API starts, so schema changes never race between API replicas and a deploy can fail before
 // any traffic reaches the new version.
 var builder = Host.CreateApplicationBuilder(args);
@@ -79,6 +81,19 @@ if (args.Contains("announce-profiles", StringComparer.Ordinal))
     }
 
     MigratorLog.Announced(logger, announced.Value);
+}
+
+if (args.Contains("announce-email-verifications", StringComparer.Ordinal))
+{
+    await using var scope = host.Services.CreateAsyncScope();
+    var announced = await scope.ServiceProvider.GetRequiredService<IDispatcher>().Send(new AnnounceEmailVerificationsCommand());
+    if (announced.IsFailure)
+    {
+        MigratorLog.AnnounceVerificationsFailed(logger, announced.Error.Code);
+        return 1;
+    }
+
+    MigratorLog.AnnouncedVerifications(logger, announced.Value);
 }
 
 return 0;

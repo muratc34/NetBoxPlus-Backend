@@ -191,7 +191,30 @@ public sealed class UserTests
         user.ResetPassword("new-hash", now);
 
         Assert.Equal(("new-hash", now), (user.PasswordHash, user.EmailVerifiedAt));
+        Assert.Collection(
+            user.DomainEvents,
+            changed => Assert.IsType<PasswordChangedDomainEvent>(changed),
+            verified => Assert.Equal(new EmailVerifiedDomainEvent(user.Id, user.Email.Value, now), verified));
+
+        // Already verified: the password changes, the verification is not announced again.
+        user.ClearDomainEvents();
+        user.ResetPassword("newer-hash", now.AddDays(1));
         Assert.IsType<PasswordChangedDomainEvent>(Assert.Single(user.DomainEvents));
+        Assert.Equal(now, user.EmailVerifiedAt);
+    }
+
+    [Fact]
+    public void VerifyingTheAddress_IsAnnouncedOnce_AndKeepsTheFirstTime()
+    {
+        var user = NewUser();
+        user.ClearDomainEvents();
+        var first = new DateTimeOffset(2026, 11, 15, 9, 0, 0, TimeSpan.Zero);
+
+        user.VerifyEmail(first);
+        user.VerifyEmail(first.AddHours(1));
+
+        Assert.Equal(new EmailVerifiedDomainEvent(user.Id, user.Email.Value, first), Assert.Single(user.DomainEvents));
+        Assert.Equal(first, user.EmailVerifiedAt);
     }
 
     [Theory]

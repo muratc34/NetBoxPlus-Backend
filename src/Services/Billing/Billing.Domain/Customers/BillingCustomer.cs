@@ -24,6 +24,9 @@ public sealed class BillingCustomer : AggregateRoot, IAuditableEntity
 
     public string Email { get; private set; } = string.Empty;
 
+    /// <summary>When the address was first proven, as auth reported it; a subscription needs it.</summary>
+    public DateTimeOffset? EmailVerifiedAt { get; private set; }
+
     /// <summary>Set the first time the user goes to pay.</summary>
     public string? ProviderCustomerId { get; private set; }
 
@@ -35,6 +38,15 @@ public sealed class BillingCustomer : AggregateRoot, IAuditableEntity
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(email);
         return new BillingCustomer(Guid.CreateVersion7(), userId, email);
+    }
+
+    /// <summary>Records the verification; the first time stays, whatever order the reports come in.</summary>
+    public void RecordEmailVerified(DateTimeOffset verifiedAt)
+    {
+        if (EmailVerifiedAt is null || verifiedAt < EmailVerifiedAt)
+        {
+            EmailVerifiedAt = verifiedAt;
+        }
     }
 
     /// <summary>Records the provider's customer; a customer is never moved to a different one.</summary>
@@ -55,6 +67,11 @@ public sealed class BillingCustomer : AggregateRoot, IAuditableEntity
 public static class CustomerErrors
 {
     public static readonly Error NotReady = Error.Conflict("Customer.NotReady", "The account is not ready for billing yet. Try again shortly.");
+
+    /// <summary>Paying needs an address that reaches the customer: receipts and payment notices go there.</summary>
+    public static readonly Error EmailNotVerified = Error.Forbidden(
+        "Checkout.EmailNotVerified",
+        "Verify your e-mail address before starting a subscription.");
 
     public static readonly Error ProviderMismatch = Error.Conflict("Customer.ProviderMismatch", "The account is linked to a different payment customer.");
 }

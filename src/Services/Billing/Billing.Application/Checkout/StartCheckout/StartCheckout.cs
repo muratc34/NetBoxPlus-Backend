@@ -46,6 +46,11 @@ internal sealed class StartCheckoutHandler(
             return CustomerErrors.NotReady;
         }
 
+        if (customer.EmailVerifiedAt is null)
+        {
+            return CustomerErrors.EmailNotVerified;
+        }
+
         if (await subscriptions.HasLiveAsync(command.UserId, cancellationToken).ConfigureAwait(false))
         {
             return SubscriptionErrors.AlreadyActive;

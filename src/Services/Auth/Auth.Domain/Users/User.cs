@@ -122,8 +122,17 @@ public sealed class User : AggregateRoot, IAuditableEntity
         VerifyEmail(now);
     }
 
-    /// <summary>Records the verification; verifying again keeps the first time.</summary>
-    public void VerifyEmail(DateTimeOffset now) => EmailVerifiedAt ??= now;
+    /// <summary>Records the verification, announced once; verifying again keeps the first time.</summary>
+    public void VerifyEmail(DateTimeOffset now)
+    {
+        if (EmailVerifiedAt is not null)
+        {
+            return;
+        }
+
+        EmailVerifiedAt = now;
+        RaiseDomainEvent(new EmailVerifiedDomainEvent(Id, Email.Value, now));
+    }
 
     public void Disable() => IsDisabled = true;
 
@@ -238,3 +247,6 @@ public sealed record UserRegisteredDomainEvent(Guid UserId, string Email) : IDom
 
 /// <param name="ChangeId">Identifies this change, so the notice is e-mailed once per change.</param>
 public sealed record PasswordChangedDomainEvent(Guid UserId, Guid ChangeId, DateTimeOffset ChangedAt) : IDomainEvent;
+
+/// <summary>The address was proven for the first time.</summary>
+public sealed record EmailVerifiedDomainEvent(Guid UserId, string Email, DateTimeOffset VerifiedAt) : IDomainEvent;

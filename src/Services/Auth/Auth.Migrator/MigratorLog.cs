@@ -27,4 +27,10 @@ internal static partial class MigratorLog
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Announcing the profiles failed with {ErrorCode}")]
     public static partial void AnnounceFailed(ILogger logger, string errorCode);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Announced {Count} verified e-mail addresses")]
+    public static partial void AnnouncedVerifications(ILogger logger, int count);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Announcing the verified e-mail addresses failed with {ErrorCode}")]
+    public static partial void AnnounceVerificationsFailed(ILogger logger, string errorCode);
 }
