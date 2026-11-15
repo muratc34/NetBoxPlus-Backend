@@ -1,100 +1,245 @@
-# NetBoxPlus Backend â€” v2
+# NetBoxPlus Backend — v2
 
-A video streaming and subscription platform backend, rewritten on .NET 10 as a set of
-independently deployable services in a single repository.
+[![CI](https://github.com/muratc34/NetBoxPlus-Backend/actions/workflows/ci.yml/badge.svg?branch=v2)](https://github.com/muratc34/NetBoxPlus-Backend/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+The backend of a subscription video streaming platform: a catalog in two languages, Stripe
+subscriptions, HLS video with screen limits and age ratings, and transactional e-mail. It is built
+on .NET 10 as five independently deployable services behind a YARP gateway, in a single
+repository, and the whole system comes up with one command.
 
 > This is the `v2` branch, under active development. The original graduation project (.NET 8)
 > is preserved under the [`v1-graduation`](../../tree/v1-graduation) tag.
 
-## Architecture at a glance
+## Architecture
 
-- **Services:** Auth, Catalog, Billing, Streaming â€” each with its own database and a
-  Domain / Application / Infrastructure / API split
-- **CQRS** with an in-house dispatcher and pipeline behaviors; handlers return `Result`
-- **Messaging:** RabbitMQ with a transactional outbox and an idempotent inbox
-- **Errors:** RFC 9457 problem details
-- **Gateway:** YARP, also acting as the token handler for browser clients
-- **Authorization:** permission-based policies, short-lived access tokens with rotating refresh tokens
-- **Observability:** OpenTelemetry (traces, metrics, logs) with log redaction
+```mermaid
+flowchart TB
+    browser([Browser / admin panel])
+    stripe([Stripe])
+    gateway[Gateway<br/>YARP, browser sessions]
+    valkey[(Valkey)]
+    auth[Auth]
+    catalog[Catalog]
+    billing[Billing]
+    streaming[Streaming]
+    notification[Notification]
+    rabbit{{RabbitMQ<br/>integration events}}
+    transcoder[Streaming.Transcoder]
+    es[(Elasticsearch)]
+    blob[(Blob storage)]
+    smtp([SMTP / Brevo])
 
-## Build
+    browser --> gateway
+    gateway --- valkey
+    gateway --> auth & catalog & billing & streaming & notification
+    auth & catalog & billing & streaming & notification <-.-> rabbit
+    catalog --- es
+    billing <-- API; webhooks via gateway --> stripe
+    streaming -- jobs --> transcoder
+    streaming --- blob
+    transcoder --- blob
+    notification --> smtp
+```
+
+Services never call each other. Each owns its PostgreSQL database (the transcoder shares
+Streaming's), publishes integration events through a transactional outbox, and keeps a local copy
+of what it needs from other services. Browsers upload videos and fetch HLS segments directly from
+blob storage with short-lived SAS URLs.
+
+| Service | Responsibility | Publishes | Consumes |
+|---|---|---|---|
+| **Auth** | Accounts, profiles, roles and permissions, access and refresh tokens, e-mail verification, password reset | `UserRegistered`, `Profile*`, `EmailVerificationRequested`, `EmailVerified`, `PasswordResetRequested`, `PasswordChanged` | — |
+| **Catalog** | Movies, series, people and genres in Turkish and English; full-text search; publishing rules | `PlayableChanged` | `Video*` |
+| **Billing** | Plans, Stripe Checkout and customer portal, a mirror of Stripe subscriptions and invoices | `Subscription*`, `PaymentFailed` | `UserRegistered`, `EmailVerified` |
+| **Streaming** | Video upload and transcoding, playback sessions, screen limits, watch progress | `Video*` | `Profile*`, `Subscription*`, `PlayableChanged` |
+| **Notification** | Queued, retried transactional e-mail | — | `UserRegistered`, `EmailVerificationRequested`, `PasswordResetRequested`, `PasswordChanged`, `SubscriptionActivated`, `SubscriptionCanceled`, `PaymentFailed` |
+| **Gateway** | Routing, CORS and rate limits per route group, cookie sessions for browsers | — | — |
+
+### Key flows
+
+**From sign-up to playback.** The browser registers through the gateway and gets a session
+cookie. Auth publishes `EmailVerificationRequested` and Notification mails the link. Checkout is
+refused until the address is verified, which Billing learns from `EmailVerified`. After payment,
+Stripe's webhook updates Billing's mirror, and `SubscriptionActivated` reaches Streaming. When a
+profile starts a title, Streaming decides on its own local copies (profile, subscription, playable
+content, age rating, free screens) and returns signed HLS playlists capped at the plan's quality.
+
+**From upload to a published title.** An administrator uploads the source file straight to blob
+storage with a short-lived SAS URL and confirms it. The transcoder takes the job from a Postgres
+queue (`SKIP LOCKED` with a lease), produces 360p/720p/1080p HLS without upscaling, and Streaming
+publishes `VideoReady`. Catalog will not publish a movie or an episode until its video is
+playable, and announces every change to Streaming with `PlayableChanged`.
+
+## Engineering highlights
+
+- **Clean Architecture per service** (Domain → Application → Infrastructure → API), enforced by
+  architecture tests. CQRS with an in-house dispatcher and pipeline behaviors for validation,
+  transactions and audit; handlers return `Result`, HTTP errors are RFC 9457 problem details.
+- **Reliable messaging:** transactional outbox and idempotent inbox over RabbitMQ, retries with a
+  dead-letter queue, revisions on every replicated record so that late or repeated events are
+  ignored. Under load, restarting RabbitMQ and stopping Notification for a minute lost none of 480
+  sign-ups' events.
+- **Browser sessions without tokens in the browser:** the gateway keeps the tokens encrypted in
+  Valkey and gives the browser an httpOnly `__Host-` cookie plus a CSRF token. Access tokens are
+  ES256 JWTs (`at+jwt`, 15 minutes) verified against Auth's JWKS; a reused refresh token revokes
+  its whole family.
+- **Payments:** Stripe is the source of truth, Billing mirrors it from verified webhooks. Payment
+  endpoints require an `Idempotency-Key`; amounts are integer minor units; only the card brand and
+  last four digits are stored.
+- **Playback rules:** HMAC-signed playlists, read-only SAS for segments, a screen limit enforced
+  with optimistic concurrency, heartbeats that re-check the rules.
+- **Observability:** OpenTelemetry traces, metrics and logs with redaction of personal data;
+  service metrics (sign-ins, outbox and dead-letter depth, transcoding, playback, e-mail) and a
+  provisioned Grafana dashboard. Lost or stuck events turn health checks `Degraded` and log an error.
+- **Tests against real infrastructure:** over 1,100 tests; integration tests run PostgreSQL,
+  RabbitMQ and Azurite in containers (Testcontainers), and transcoding tests run real ffmpeg.
+- **Measured:** a mixed k6 scenario (browsing, playback with heartbeats, one sign-up per second)
+  ran at about 36 requests/s with a p95 of 24 ms and 0.01% errors, on a Ryzen 5 3600 running the
+  whole system and k6 in Docker Desktop. Its slowest requests are password hashing
+  (PBKDF2-SHA512, 210,000 iterations — deliberately expensive).
+
+## Quick start
+
+Requires Docker Desktop and PowerShell. Nothing else is installed on the host.
+
+```powershell
+./deploy/dev.ps1 up -App
+```
+
+The first run creates `deploy/.env` (ignored by git) with random passwords and signing keys,
+builds every image and waits until all services report ready. Then fill the catalog:
+
+```powershell
+./deploy/dev.ps1 seed
+```
+
+The seeder signs in as the administrator through the gateway, like the admin panel, and creates
+genres, people, six movies and two series with generated posters and 30-second videos, waits for
+transcoding and publishes them (about four minutes; running it again changes nothing).
+
+| What | Where |
+|---|---|
+| Gateway (the only address a browser needs) | http://localhost:5100 |
+| E-mails (Mailpit) | http://localhost:8025 |
+| Logs, traces, metrics (Aspire dashboard) | http://localhost:18888 |
+| RabbitMQ management | http://localhost:15672 |
+| Grafana (with `up -App -Observability`) | http://localhost:3000 |
+
+The administrator is `AUTH_ADMIN_EMAIL` with `AUTH_ADMIN_PASSWORD` from `deploy/.env`.
+
+**Payments are optional.** Without a Stripe key everything works except the payment endpoints,
+which answer `503`. To try subscriptions, put a test-mode key (`sk_test_…`) in `deploy/.env` as
+`STRIPE_SECRET_KEY` before `seed` (it then creates the plans in Stripe too), and forward Stripe's
+webhooks with the [Stripe CLI](https://docs.stripe.com/stripe-cli):
+
+```bash
+stripe listen --api-key <STRIPE_SECRET_KEY> --print-secret
+```
+
+Store that value as `STRIPE_WEBHOOK_SECRET` in `deploy/.env`, run `up -App` again, and keep the
+listener running:
+
+```bash
+stripe listen --api-key <STRIPE_SECRET_KEY> --events checkout.session.completed,customer.subscription.created,customer.subscription.updated,customer.subscription.deleted,invoice.finalized,invoice.paid,invoice.payment_failed,invoice.voided,invoice.marked_uncollectible --forward-to localhost:5100/billing/webhooks/stripe
+```
+
+E-mail goes to Mailpit unless `deploy/.env` sets `EMAIL_PROVIDER=Brevo` with `BREVO_API_KEY` and
+`EMAIL_FROM`.
+
+```powershell
+./deploy/dev.ps1 status
+./deploy/dev.ps1 down           # stop, keep data
+./deploy/dev.ps1 reset -Force   # stop and delete all local data
+```
+
+## Development
+
+### Build and test
 
 Requires the .NET 10 SDK (pinned in `global.json`).
 
 ```bash
 dotnet build NetBoxPlus.slnx
+```
+
+```bash
 dotnet test --solution NetBoxPlus.slnx
 ```
 
-Integration tests start PostgreSQL and RabbitMQ in containers (Testcontainers) and need Docker.
-Without Docker they are reported as skipped locally; in CI they fail.
+Tests run on Microsoft.Testing.Platform. Integration tests need Docker, and the transcoding and
+seeder tests need ffmpeg (`FFMPEG_DIRECTORY` or `PATH`; on Windows `winget install Gyan.FFmpeg`).
+Locally, tests whose prerequisites are missing are reported as skipped; in CI they fail.
 
-The build also writes each service's OpenAPI document to `docs/openapi/`. Commit them with API
-changes: [CI](.github/workflows/ci.yml) fails when they differ from the build output. CI runs on
-every push and pull request: build (warnings are errors), the OpenAPI check, all tests and a build
-of every container image.
+### Running a service from the IDE
 
-## Local development
-
-Requires Docker Desktop. The dependencies run from `deploy/compose.yaml`:
+Start only the dependencies, write their settings into the services' user secrets, then run a
+service's migrator and API. `src/Services/Auth` is the reference every other service follows.
 
 ```powershell
-./deploy/dev.ps1 up            # PostgreSQL, RabbitMQ, Valkey, Aspire dashboard
-./deploy/dev.ps1 up -Search    # ... plus Elasticsearch
-./deploy/dev.ps1 status
-./deploy/dev.ps1 down          # stop, keep data
-./deploy/dev.ps1 reset -Force  # stop and delete all local data
-```
-
-The first `up` creates `deploy/.env` (ignored by git) with random passwords; every credential
-lives there.
-
-| Dependency | Address | Notes |
-|---|---|---|
-| PostgreSQL 18 | `localhost:5432` | Databases `auth`, `catalog`, `billing`, `streaming`, each owned by a role of the same name that can connect only to it |
-| RabbitMQ 4 | `localhost:5672`, UI http://localhost:15672 | |
-| Valkey 9 | `localhost:6379` | Password-protected |
-| Elasticsearch 9 | http://localhost:9200 | Only with `-Search`; security disabled locally |
-| Aspire dashboard | http://localhost:18888, OTLP `localhost:4317` | Logs, traces and metrics; point services at it with `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317` |
-
-All ports are bound to `127.0.0.1` only. The databases are created on the first start of an empty
-volume; after changing the list, run `reset -Force`.
-
-### Running a service
-
-`src/Services/Auth` is the reference service every other service follows. To run it:
-
-```powershell
-./deploy/dev.ps1 up
-./deploy/dev.ps1 secrets   # writes connection settings, the auth signing key and the first admin into user secrets
+./deploy/dev.ps1 up -Search
+./deploy/dev.ps1 secrets
 dotnet run --project src/Services/Auth/Auth.Migrator
 dotnet run --project src/Services/Auth/Auth.API --launch-profile Auth.API
-```
-
-The API listens on http://localhost:5103 (the OpenAPI document is
-at `/openapi/v1.json` in development and committed under `docs/openapi/`). Logs and traces appear
-in the Aspire dashboard.
-
-### Gateway
-
-Clients call the services through the YARP gateway:
-
-```powershell
 dotnet run --project src/Gateway/Gateway --launch-profile Gateway
 ```
 
-It listens on http://localhost:5100. Public routes are `/{service}/...` (for example
-`GET /catalog/movies`), admin routes `/admin/{service}/...`. Each group has its own CORS origins
-and rate limits; requests over the limit get `429` problem details with `Retry-After`. Every
-request starts a new trace at the gateway, so a call shows up in the Aspire dashboard as one
-trace from the gateway down to the database and the message broker.
+| Process | Port | Process | Port |
+|---|---|---|---|
+| Gateway | 5100 | Streaming | 5106 |
+| Auth | 5103 | Notification | 5107 |
+| Catalog | 5104 | Streaming.Transcoder | — |
+| Billing | 5105 | | |
 
-Browsers sign in through the gateway itself (`POST /session/sign-in`, `/session/register`,
-`GET /session`, `POST /session/sign-out`; the admin panel uses `/admin/session/...`). The tokens
-stay in Valkey, encrypted; the browser only gets an httpOnly `__Host-` cookie, and every changing
-request with that cookie must echo the `X-CSRF-Token` from `GET /session`. The gateway adds the
-bearer token when it forwards the request and refreshes it shortly before it expires. Running
-sessions locally needs Valkey (`./deploy/dev.ps1 up`, `secrets`) and the auth service.
+Each API serves its OpenAPI document at `/openapi/v1.json` in development; the build writes them
+to [`docs/openapi/`](docs/openapi).
+
+| Dependency | Address |
+|---|---|
+| PostgreSQL 18 (a database and a role per service) | `localhost:5432` |
+| RabbitMQ 4 | `localhost:5672`, http://localhost:15672 |
+| Valkey 9 | `localhost:6379` |
+| Azurite (blob storage) | `localhost:10000` |
+| Elasticsearch 9 (with `-Search`) | http://localhost:9200 |
+| Mailpit | SMTP `localhost:1025`, http://localhost:8025 |
+| Aspire dashboard | http://localhost:18888, OTLP `localhost:4317` |
+
+All ports are bound to `127.0.0.1`, images are pinned to versions, and credentials exist only in
+`deploy/.env`.
+
+### Load tests
+
+[k6](https://k6.io) scenarios live in `deploy/load/` and run in a container against the gateway.
+`prepare` creates subscribed test accounts once (Stripe test mode; it starts the Stripe CLI
+itself), then `load` runs the `mixed` scenario (or `browse`, `watch`) and writes a summary to
+`deploy/load/results/`.
+
+```powershell
+./deploy/dev.ps1 load -Scenario prepare
+./deploy/dev.ps1 load
+```
+
+## Repository layout
+
+```
+src/BuildingBlocks/   Shared.Domain, Shared.Application, Shared.Infrastructure.{API,Persistence,Messaging}
+src/Services/<S>/     <S>.Domain, .Application, .Infrastructure, .API, .Contracts, .Migrator
+src/Gateway/          YARP gateway and browser sessions
+src/Tools/            NetBoxPlus.DemoSeeder
+tests/                same layout as src/, plus architecture tests
+deploy/               compose.yaml, dev.ps1, load tests, Grafana provisioning
+docs/openapi/         generated OpenAPI documents
+```
+
+A service may reference another service only through its `*.Contracts` project, which holds the
+event records.
+
+## Continuous integration
+
+[CI](.github/workflows/ci.yml) runs on every push and pull request to `v2` and `master`: a
+Release build with warnings as errors, a check that `docs/openapi/` matches the build output, all
+tests with Docker and ffmpeg required, and a build of every container image. Actions are pinned
+to commit SHAs; Dependabot updates actions and NuGet packages weekly.
 
 ## License
 
