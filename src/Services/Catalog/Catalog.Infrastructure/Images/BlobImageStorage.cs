@@ -10,7 +10,7 @@ namespace Catalog.Infrastructure.Images;
 /// Uploads land in a private container, reachable only through a short-lived write address. Only
 /// files that passed the checks are written to the container customers read from.
 /// </summary>
-internal sealed class BlobImageStorage(BlobServiceClient blobs) : IImageStorage
+internal sealed class BlobImageStorage(BlobServiceClient blobs, PublicBlobAddresses addresses) : IImageStorage
 {
     public const string IncomingContainer = "incoming";
     public const string ImagesContainer = "images";
@@ -20,7 +20,7 @@ internal sealed class BlobImageStorage(BlobServiceClient blobs) : IImageStorage
     private BlobContainerClient Images => blobs.GetBlobContainerClient(ImagesContainer);
 
     public Uri CreateUploadAddress(Guid fileId, DateTimeOffset expiresAt)
-        => Incoming.GetBlobClient(UploadName(fileId)).GenerateSasUri(BlobSasPermissions.Create | BlobSasPermissions.Write, expiresAt);
+        => addresses.ToPublic(Incoming.GetBlobClient(UploadName(fileId)).GenerateSasUri(BlobSasPermissions.Create | BlobSasPermissions.Write, expiresAt));
 
     public async Task<long?> GetUploadSizeAsync(Guid fileId, CancellationToken cancellationToken)
     {
@@ -59,7 +59,7 @@ internal sealed class BlobImageStorage(BlobServiceClient blobs) : IImageStorage
     public Task DeletePublishedAsync(string name, CancellationToken cancellationToken)
         => Images.GetBlobClient(name).DeleteIfExistsAsync(cancellationToken: cancellationToken);
 
-    public Uri PublicAddress(string name) => Images.GetBlobClient(name).Uri;
+    public Uri PublicAddress(string name) => addresses.ToPublic(Images.GetBlobClient(name).Uri);
 
     private static string UploadName(Guid fileId) => fileId.ToString("N");
 }

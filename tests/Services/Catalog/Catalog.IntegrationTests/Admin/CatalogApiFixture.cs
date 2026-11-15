@@ -37,6 +37,9 @@ public sealed class CatalogApiFixture : IAsyncLifetime
 
     public bool IsAvailable { get; private set; }
 
+    /// <summary>The storage account's connection string, as the service is given it.</summary>
+    public string ImagesConnectionString => _images;
+
     public string SkipReason { get; private set; } = string.Empty;
 
     public async ValueTask InitializeAsync()

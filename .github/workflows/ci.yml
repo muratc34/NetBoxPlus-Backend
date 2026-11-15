@@ -102,6 +102,16 @@ jobs:
             dockerfile: src/Services/Streaming/Streaming.Transcoder/Dockerfile
           - name: notification-api
             dockerfile: src/Services/Notification/Notification.API/Dockerfile
+          - name: auth-migrator
+            dockerfile: src/Services/Auth/Auth.Migrator/Dockerfile
+          - name: catalog-migrator
+            dockerfile: src/Services/Catalog/Catalog.Migrator/Dockerfile
+          - name: billing-migrator
+            dockerfile: src/Services/Billing/Billing.Migrator/Dockerfile
+          - name: streaming-migrator
+            dockerfile: src/Services/Streaming/Streaming.Migrator/Dockerfile
+          - name: notification-migrator
+            dockerfile: src/Services/Notification/Notification.Migrator/Dockerfile
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

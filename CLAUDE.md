@@ -5,7 +5,7 @@ mikroservisler, servis başına Clean Architecture, ortak kod `src/BuildingBlock
 Her geliştirmeden sonra bu dosya ve ilgili doküman güncellenir.
 
 - Kararlar ve gerekçeleri: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- Aktif faz ve iş dökümü: [docs/PHASE-5.md](docs/PHASE-5.md) (bitenler: [docs/PHASE-0.md](docs/PHASE-0.md), [docs/PHASE-1.md](docs/PHASE-1.md), [docs/PHASE-2.md](docs/PHASE-2.md), [docs/PHASE-3.md](docs/PHASE-3.md), [docs/PHASE-4.md](docs/PHASE-4.md))
+- Aktif faz ve iş dökümü: [docs/PHASE-6.md](docs/PHASE-6.md) (bitenler: [docs/PHASE-0.md](docs/PHASE-0.md), [docs/PHASE-1.md](docs/PHASE-1.md), [docs/PHASE-2.md](docs/PHASE-2.md), [docs/PHASE-3.md](docs/PHASE-3.md), [docs/PHASE-4.md](docs/PHASE-4.md), [docs/PHASE-5.md](docs/PHASE-5.md))
 
 Bu dokümanlar **sadece lokalde** durur, repoya commit edilmez (`.gitignore`'da `/docs/*.md`).
 GitHub'da yokturlar; commit'lenen hiçbir dosya (README dahil) onlara link vermez.
@@ -83,8 +83,24 @@ Lokal bağımlılıklar (Postgres, RabbitMQ, Valkey, Azurite, Mailpit, Aspire da
   hataya çevirir ve script durur.
 - `NETBOXPLUS_DATABASES`'e eklenen database ve rolü bir sonraki `up`'ta mevcut volume'da oluşur
   (`deploy/postgres/init/01-service-databases.sh` idempotent, `up` onu tekrar çalıştırır); veri silinmez.
-- E-postalar lokalde Mailpit'e gider (SMTP 1025, arayüz ve API http://localhost:8025). `.env`'de
-  `BREVO_API_KEY` ve `EMAIL_FROM` varsa `secrets` Notification'ı Brevo'ya geçirir.
+- E-postalar lokalde Mailpit'e gider (SMTP 1025, arayüz ve API http://localhost:8025). Brevo (gerçek
+  gönderim) sadece `.env`'de `EMAIL_PROVIDER=Brevo` ise kullanılır, `BREVO_API_KEY` ve `EMAIL_FROM`
+  ister; anahtarın varlığı tek başına geçirmez. `secrets` ve `up -App` aynı kuralı uygular.
+
+Bütün sistemi container'larda çalıştırmak (bağımlılıklar + Elasticsearch + beş Migrator, beş API,
+Transcoder ve gateway; compose `app` profili, image'lar `netboxplus/<ad>:local` olarak build edilir):
+
+```powershell
+./deploy/dev.ps1 up -App
+```
+
+- Migrator'lar bir kez çalışıp çıkar, API'ler onlar başarıyla bitince başlar; `up` hepsinin
+  `/health/ready`'si cevap verene kadar bekler. Tarayıcı sadece gateway'i (`localhost:5100`) bilir.
+- Container'lar birbirine compose adıyla bağlanır; Azurite'in tarayıcıya verilen SAS/görsel adresleri
+  `BlobStorage:PublicEndpoint` ile `127.0.0.1:10000`'e çevrilir (imza host'u kapsamaz).
+- İmza anahtarları (`AUTH_TOKEN_KEY_ID`, `AUTH_TOKEN_SIGNING_KEY`, `PLAYBACK_SIGNING_KEY`) `.env`'de;
+  ilk çalıştırmada üretilir (varsa User Secrets'takiler taşınır) ve hem `secrets` hem compose oradan okur.
+- `down`, `ps`, `logs`, `reset` app container'larını da kapsar.
 
 Bir servisi lokalde çalıştırmak (örnek: Auth):
 
@@ -118,8 +134,8 @@ Development'ta Auth'a `localhost:5103`, Catalog'a `localhost:5104`, Billing'e `l
 dotnet run --project src/Gateway/Gateway --launch-profile Gateway
 ```
 
-`secrets`, `deploy/.env`'deki değerleri servisin User Secrets'ına (`netboxplus-<servis>`) yazar.
-Auth için bir kez token imza anahtarı da üretir (`deploy/tools/NewSigningKey.cs`). Auth'un
+`secrets`, `deploy/.env`'deki değerleri (imza anahtarları dahil) servisin User Secrets'ına
+(`netboxplus-<servis>`) yazar. Auth'un
 Migrator'ı migration'dan sonra ilk admin'i seed eder (`Auth:Seed:AdminEmail`/`AdminPassword`;
 lokalde `deploy/.env`'deki `AUTH_ADMIN_EMAIL`/`AUTH_ADMIN_PASSWORD`, `secrets` yazar). Servisler
 token'ı Auth'un JWKS'i ile doğruladığı için korumalı bir endpoint'i denerken Auth da çalışmalı.
@@ -152,9 +168,11 @@ Migrator'daki seed):
   ve `RequireHttpsMetadata: false`; Authority yoksa servis başlamaz. Test fixture'ı token'ı kendi
   ES256 anahtarıyla ve `typ: at+jwt` ile imzalar, anahtarı `PostConfigure<JwtBearerOptions>` ile
   verir (örnek: `tests/Services/Auth/Auth.IntegrationTests/Tokens/ResourceServer.cs`).
-- Dockerfile Auth'takiler gibi (chiseled, non-root). Yeni servis `deploy/dev.ps1`'deki `$services`
-  listesine, `deploy/compose.yaml`'daki `NETBOXPLUS_DATABASES`'e, `tests/Architecture.Tests`
-  csproj'una ve `.github/workflows/ci.yml`'deki `image` matrix'ine eklenir.
+- API ve Migrator için Dockerfile Auth'takiler gibi (chiseled, non-root; Migrator `runtime` image'ı,
+  port yok). Yeni servis `deploy/dev.ps1`'deki `$services` listesine ve `Wait-AppReady`'ye,
+  `deploy/compose.yaml`'daki `NETBOXPLUS_DATABASES`'e ve `app` profiline (`<s>-migrator` + `<s>-api`,
+  `x-app-values` anchor'larıyla), `tests/Architecture.Tests` csproj'una ve `.github/workflows/ci.yml`'deki
+  `image` matrix'ine (API ve Migrator) eklenir.
 - Gateway'e iki route eklenir (`src/Gateway/Gateway/appsettings.json`): `<s>-public`
   (`/<s>/{**remainder}`, `PathRemovePrefix: /<s>`, `RouteGroup: public`) ve, admin endpoint'i
   varsa, `<s>-admin` (`/admin/<s>/{**remainder}`, `PathPattern: /admin/{**remainder}`,

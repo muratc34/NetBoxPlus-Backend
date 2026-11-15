@@ -88,6 +88,11 @@ public static class CatalogInfrastructureServiceCollectionExtensions
     internal static IServiceCollection AddCatalogImages(this IServiceCollection services, string connectionString)
     {
         services.AddSingleton(new BlobServiceClient(connectionString));
+        services.AddOptions<BlobStorageOptions>()
+            .BindConfiguration(BlobStorageOptions.SectionName)
+            .Validate(o => o.IsValid(), "BlobStorage:PublicEndpoint must be an absolute http(s) address without a query.")
+            .ValidateOnStart();
+        services.AddSingleton<PublicBlobAddresses>();
         services.AddSingleton<IImageStorage, BlobImageStorage>();
         services.AddSingleton<IImageInspector, ImageSharpInspector>();
         services.AddScoped<ImageCleaner>();

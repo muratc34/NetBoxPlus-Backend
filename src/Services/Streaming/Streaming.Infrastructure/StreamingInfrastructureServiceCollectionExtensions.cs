@@ -103,6 +103,11 @@ public static class StreamingInfrastructureServiceCollectionExtensions
 
         services.AddStreamingPersistence(connectionString);
         services.AddSingleton(new BlobServiceClient(videos));
+        services.AddOptions<BlobStorageOptions>()
+            .BindConfiguration(BlobStorageOptions.SectionName)
+            .Validate(o => o.IsValid(), "BlobStorage:PublicEndpoint must be an absolute http(s) address without a query.")
+            .ValidateOnStart();
+        services.AddSingleton<PublicBlobAddresses>();
         services.AddSingleton<VideoBlobStorage>();
         services.AddSingleton<IVideoStorage>(provider => provider.GetRequiredService<VideoBlobStorage>());
         services.AddScoped<ExpiredUploadCleaner>();

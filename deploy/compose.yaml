@@ -9,6 +9,37 @@ x-healthcheck: &healthcheck
   retries: 30
   start_period: 10s
 
+# Shared by the "app" profile below.
+x-app-values:
+  amqp: &amqp amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
+  # The emulator's well-known development account (published by Microsoft, not a secret).
+  azurite: &azurite DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+
+x-migrator-dependencies: &migrator-dependencies
+  postgres: { condition: service_healthy }
+  rabbitmq: { condition: service_healthy }
+
+x-migrator: &migrator
+  profiles: ["app"]
+  restart: "no"
+  depends_on: *migrator-dependencies
+
+x-api-dependencies: &api-dependencies
+  postgres: { condition: service_healthy }
+  rabbitmq: { condition: service_healthy }
+  aspire-dashboard: { condition: service_started }
+
+x-api: &api
+  profiles: ["app"]
+  restart: unless-stopped
+
+x-api-environment: &api-environment
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://aspire-dashboard:18889
+  Messaging__ConnectionString: *amqp
+  # The services find the token keys through the auth service, inside the compose network.
+  Authentication__Schemes__Bearer__Authority: http://auth-api:8080
+  Authentication__Schemes__Bearer__RequireHttpsMetadata: "false"
+
 services:
   postgres:
     image: postgres:18.6-alpine
@@ -68,10 +99,10 @@ services:
       <<: *healthcheck
       test: ["CMD-SHELL", "nc -z 127.0.0.1 10000"]
 
-  # Search is needed from phase 2 on; start it with ./deploy/dev.ps1 up -Search.
+  # Search is needed from phase 2 on; start it with ./deploy/dev.ps1 up -Search (-App includes it).
   elasticsearch:
     image: elasticsearch:9.5.5
-    profiles: ["search"]
+    profiles: ["search", "app"]
     environment:
       discovery.type: single-node
       # Local only (bound to 127.0.0.1); production runs with security enabled.
@@ -107,6 +138,191 @@ services:
     healthcheck:
       <<: *healthcheck
       test: ["CMD", "/mailpit", "readyz"]
+
+  # ---------------------------------------------------------------------------------------------
+  # The whole system in containers: ./deploy/dev.ps1 up -App (compose profile "app").
+  # Each service's Migrator runs first and exits; the APIs start once it succeeded. Settings come
+  # from deploy/.env only. The API ports are the ones used when running from the IDE, so run one
+  # or the other. The images have no shell, hence no health checks here: "up -App" polls
+  # /health/ready from outside.
+  # ---------------------------------------------------------------------------------------------
+
+  auth-migrator:
+    <<: *migrator
+    image: netboxplus/auth-migrator:local
+    build: { context: .., dockerfile: src/Services/Auth/Auth.Migrator/Dockerfile }
+    environment:
+      ConnectionStrings__Database: Host=postgres;Port=5432;Database=auth;Username=auth;Password=${POSTGRES_SERVICE_PASSWORD}
+      Messaging__ConnectionString: *amqp
+      Auth__Seed__AdminEmail: ${AUTH_ADMIN_EMAIL}
+      Auth__Seed__AdminPassword: ${AUTH_ADMIN_PASSWORD}
+
+  auth-api:
+    <<: *api
+    image: netboxplus/auth-api:local
+    build: { context: .., dockerfile: src/Services/Auth/Auth.API/Dockerfile }
+    depends_on:
+      <<: *api-dependencies
+      auth-migrator: { condition: service_completed_successfully }
+    # A list, not a map: the key id is part of a variable name, and only list entries are interpolated whole.
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire-dashboard:18889
+      - OTEL_SERVICE_NAME=auth-api
+      - ConnectionStrings__Database=Host=postgres;Port=5432;Database=auth;Username=auth;Password=${POSTGRES_SERVICE_PASSWORD}
+      - Messaging__ConnectionString=amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
+      - Auth__Tokens__ActiveKeyId=${AUTH_TOKEN_KEY_ID:?run ./deploy/dev.ps1 once to create the signing keys}
+      - Auth__Tokens__SigningKeys__${AUTH_TOKEN_KEY_ID}=${AUTH_TOKEN_SIGNING_KEY:?run ./deploy/dev.ps1 once to create the signing keys}
+    ports:
+      - "127.0.0.1:5103:8080"
+
+  catalog-migrator:
+    <<: *migrator
+    image: netboxplus/catalog-migrator:local
+    build: { context: .., dockerfile: src/Services/Catalog/Catalog.Migrator/Dockerfile }
+    depends_on:
+      <<: *migrator-dependencies
+      azurite: { condition: service_healthy }
+      elasticsearch: { condition: service_healthy }
+    environment:
+      ConnectionStrings__Database: Host=postgres;Port=5432;Database=catalog;Username=catalog;Password=${POSTGRES_SERVICE_PASSWORD}
+      Messaging__ConnectionString: *amqp
+      ConnectionStrings__Images: *azurite
+      ConnectionStrings__Search: http://elasticsearch:9200
+      Images__UploadOrigins__0: http://localhost:5174
+
+  catalog-api:
+    <<: *api
+    image: netboxplus/catalog-api:local
+    build: { context: .., dockerfile: src/Services/Catalog/Catalog.API/Dockerfile }
+    depends_on:
+      <<: *api-dependencies
+      catalog-migrator: { condition: service_completed_successfully }
+    environment:
+      <<: *api-environment
+      OTEL_SERVICE_NAME: catalog-api
+      ConnectionStrings__Database: Host=postgres;Port=5432;Database=catalog;Username=catalog;Password=${POSTGRES_SERVICE_PASSWORD}
+      ConnectionStrings__Images: *azurite
+      ConnectionStrings__Search: http://elasticsearch:9200
+      BlobStorage__PublicEndpoint: http://127.0.0.1:10000/devstoreaccount1
+    ports:
+      - "127.0.0.1:5104:8080"
+
+  billing-migrator:
+    <<: *migrator
+    image: netboxplus/billing-migrator:local
+    build: { context: .., dockerfile: src/Services/Billing/Billing.Migrator/Dockerfile }
+    environment:
+      ConnectionStrings__Database: Host=postgres;Port=5432;Database=billing;Username=billing;Password=${POSTGRES_SERVICE_PASSWORD}
+      Messaging__ConnectionString: *amqp
+
+  billing-api:
+    <<: *api
+    image: netboxplus/billing-api:local
+    build: { context: .., dockerfile: src/Services/Billing/Billing.API/Dockerfile }
+    depends_on:
+      <<: *api-dependencies
+      billing-migrator: { condition: service_completed_successfully }
+    environment:
+      <<: *api-environment
+      OTEL_SERVICE_NAME: billing-api
+      ConnectionStrings__Database: Host=postgres;Port=5432;Database=billing;Username=billing;Password=${POSTGRES_SERVICE_PASSWORD}
+      # Empty without a Stripe account: payments then answer 503, as when run from the IDE.
+      Billing__Stripe__SecretKey: ${STRIPE_SECRET_KEY:-}
+      Billing__Stripe__WebhookSecret: ${STRIPE_WEBHOOK_SECRET:-}
+      Billing__Checkout__SuccessUrl: http://localhost:5173/account/subscription?checkout=success
+      Billing__Checkout__CancelUrl: http://localhost:5173/plans
+      Billing__Checkout__PortalReturnUrl: http://localhost:5173/account/subscription
+    ports:
+      - "127.0.0.1:5105:8080"
+
+  streaming-migrator:
+    <<: *migrator
+    image: netboxplus/streaming-migrator:local
+    build: { context: .., dockerfile: src/Services/Streaming/Streaming.Migrator/Dockerfile }
+    depends_on:
+      <<: *migrator-dependencies
+      azurite: { condition: service_healthy }
+    environment:
+      ConnectionStrings__Database: Host=postgres;Port=5432;Database=streaming;Username=streaming;Password=${POSTGRES_SERVICE_PASSWORD}
+      Messaging__ConnectionString: *amqp
+      ConnectionStrings__Videos: *azurite
+      Videos__UploadOrigins__0: http://localhost:5174
+      Videos__PlaybackOrigins__0: http://localhost:5173
+
+  streaming-api:
+    <<: *api
+    image: netboxplus/streaming-api:local
+    build: { context: .., dockerfile: src/Services/Streaming/Streaming.API/Dockerfile }
+    depends_on:
+      <<: *api-dependencies
+      streaming-migrator: { condition: service_completed_successfully }
+    environment:
+      <<: *api-environment
+      OTEL_SERVICE_NAME: streaming-api
+      ConnectionStrings__Database: Host=postgres;Port=5432;Database=streaming;Username=streaming;Password=${POSTGRES_SERVICE_PASSWORD}
+      ConnectionStrings__Videos: *azurite
+      BlobStorage__PublicEndpoint: http://127.0.0.1:10000/devstoreaccount1
+      Playback__SigningKey: ${PLAYBACK_SIGNING_KEY:?run ./deploy/dev.ps1 once to create the signing keys}
+    ports:
+      - "127.0.0.1:5106:8080"
+
+  # Converts uploaded videos; no broker, the API's outbox sends its events.
+  streaming-transcoder:
+    profiles: ["app"]
+    image: netboxplus/streaming-transcoder:local
+    build: { context: .., dockerfile: src/Services/Streaming/Streaming.Transcoder/Dockerfile }
+    restart: unless-stopped
+    depends_on:
+      streaming-migrator: { condition: service_completed_successfully }
+    environment:
+      ConnectionStrings__Database: Host=postgres;Port=5432;Database=streaming;Username=streaming;Password=${POSTGRES_SERVICE_PASSWORD}
+      ConnectionStrings__Videos: *azurite
+
+  notification-migrator:
+    <<: *migrator
+    image: netboxplus/notification-migrator:local
+    build: { context: .., dockerfile: src/Services/Notification/Notification.Migrator/Dockerfile }
+    environment:
+      ConnectionStrings__Database: Host=postgres;Port=5432;Database=notification;Username=notification;Password=${POSTGRES_SERVICE_PASSWORD}
+      Messaging__ConnectionString: *amqp
+
+  notification-api:
+    <<: *api
+    image: netboxplus/notification-api:local
+    build: { context: .., dockerfile: src/Services/Notification/Notification.API/Dockerfile }
+    depends_on:
+      <<: *api-dependencies
+      notification-migrator: { condition: service_completed_successfully }
+      mailpit: { condition: service_healthy }
+    environment:
+      <<: *api-environment
+      OTEL_SERVICE_NAME: notification-api
+      ConnectionStrings__Database: Host=postgres;Port=5432;Database=notification;Username=notification;Password=${POSTGRES_SERVICE_PASSWORD}
+      Notification__WebBaseUrl: http://localhost:5173
+      # dev.ps1 sets these to Brevo only when deploy/.env says EMAIL_PROVIDER=Brevo, as "secrets" does.
+      Email__Provider: ${NETBOXPLUS_EMAIL_PROVIDER:-Smtp}
+      Email__From: ${NETBOXPLUS_EMAIL_FROM:-no-reply@netboxplus.local}
+      Email__Smtp__Host: mailpit
+      Email__Smtp__Port: "1025"
+      Email__Brevo__ApiKey: ${BREVO_API_KEY:-}
+    ports:
+      - "127.0.0.1:5107:8080"
+
+  gateway:
+    <<: *api
+    image: netboxplus/gateway:local
+    build: { context: .., dockerfile: src/Gateway/Gateway/Dockerfile }
+    depends_on:
+      valkey: { condition: service_healthy }
+      auth-api: { condition: service_started }
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://aspire-dashboard:18889
+      OTEL_SERVICE_NAME: gateway
+      ConnectionStrings__Valkey: valkey:6379,password=${VALKEY_PASSWORD}
+      Cors__PublicOrigins__0: http://localhost:5173
+      Cors__AdminOrigins__0: http://localhost:5174
+    ports:
+      - "127.0.0.1:5100:8080"
 
 volumes:
   postgres-data:

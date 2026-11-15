@@ -10,7 +10,7 @@ namespace Streaming.Infrastructure.Media;
 /// Uploads arrive in a private container through a short-lived write address; converted videos go
 /// to another private container, read only through signed addresses.
 /// </summary>
-internal sealed class VideoBlobStorage(BlobServiceClient blobs) : IVideoStorage
+internal sealed class VideoBlobStorage(BlobServiceClient blobs, PublicBlobAddresses addresses) : IVideoStorage
 {
     public const string UploadsContainer = "video-uploads";
     public const string VideosContainer = "videos";
@@ -20,7 +20,7 @@ internal sealed class VideoBlobStorage(BlobServiceClient blobs) : IVideoStorage
     private BlobContainerClient Videos => blobs.GetBlobContainerClient(VideosContainer);
 
     public Uri CreateUploadAddress(Guid videoId, DateTimeOffset expiresAt)
-        => Uploads.GetBlobClient(UploadName(videoId)).GenerateSasUri(BlobSasPermissions.Create | BlobSasPermissions.Write, expiresAt);
+        => addresses.ToPublic(Uploads.GetBlobClient(UploadName(videoId)).GenerateSasUri(BlobSasPermissions.Create | BlobSasPermissions.Write, expiresAt));
 
     public async Task<long?> GetUploadSizeAsync(Guid videoId, CancellationToken cancellationToken)
     {
@@ -49,7 +49,7 @@ internal sealed class VideoBlobStorage(BlobServiceClient blobs) : IVideoStorage
     }
 
     public Uri CreateReadAddress(Guid videoId, string path, DateTimeOffset expiresAt)
-        => Videos.GetBlobClient($"{FolderOf(videoId)}/{path}").GenerateSasUri(BlobSasPermissions.Read, expiresAt);
+        => addresses.ToPublic(Videos.GetBlobClient($"{FolderOf(videoId)}/{path}").GenerateSasUri(BlobSasPermissions.Read, expiresAt));
 
     public Task DownloadUploadAsync(Guid videoId, string path, CancellationToken cancellationToken)
         => Uploads.GetBlobClient(UploadName(videoId)).DownloadToAsync(path, cancellationToken);
