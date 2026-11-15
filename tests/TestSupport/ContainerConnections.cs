@@ -82,7 +82,8 @@ internal static class ContainerConnections
 
                     TestContext.Current.TestOutputHelper?.WriteLine(
                         $"Opening a connection to {connection.DataSource} timed out (attempt {attempt} of {Attempts}: "
-                        + $"{exception.Message}); trying again.");                }
+                        + $"{exception.Message}); trying again.");
+                }
             }
         }
     }
