@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <Compile Include="../../TestSupport/DockerAvailability.cs" Link="TestSupport/DockerAvailability.cs" />
+    <Compile Include="../../TestSupport/ContainerConnections.cs" Link="TestSupport/ContainerConnections.cs" />
   </ItemGroup>
 
 </Project>

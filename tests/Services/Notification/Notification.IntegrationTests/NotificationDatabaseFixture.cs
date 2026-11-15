@@ -7,7 +7,6 @@ using NetBoxPlus.Testing;
 using Notification.Application;
 using Notification.Infrastructure;
 using Notification.Infrastructure.Persistence;
-using Npgsql;
 using Testcontainers.PostgreSql;
 
 namespace Notification.IntegrationTests;
@@ -43,10 +42,7 @@ public sealed class NotificationDatabaseFixture : IAsyncLifetime
     {
         Assert.SkipUnless(IsAvailable, SkipReason);
 
-        var connectionString = new NpgsqlConnectionStringBuilder(_container!.GetConnectionString())
-        {
-            Database = $"notification_{Guid.NewGuid():N}",
-        }.ConnectionString;
+        var connectionString = ContainerConnections.ConnectionString(_container!.GetConnectionString(), $"notification_{Guid.NewGuid():N}");
 
         var services = new ServiceCollection();
         var values = new Dictionary<string, string?>
@@ -67,6 +63,7 @@ public sealed class NotificationDatabaseFixture : IAsyncLifetime
         services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
         services.AddNotificationApplication();
         services.AddNotificationPersistence(connectionString);
+        services.RetryLostConnectionAttempts<NotificationDbContext>();
         services.AddEmail(configuration);
         services.AddEmailSending();
 

@@ -7,7 +7,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NetBoxPlus.Testing;
-using Npgsql;
 using Testcontainers.PostgreSql;
 
 namespace Billing.IntegrationTests;
@@ -42,10 +41,7 @@ public sealed class BillingDatabaseFixture : IAsyncLifetime
     {
         Assert.SkipUnless(IsAvailable, SkipReason);
 
-        var connectionString = new NpgsqlConnectionStringBuilder(_container!.GetConnectionString())
-        {
-            Database = $"billing_{Guid.NewGuid():N}",
-        }.ConnectionString;
+        var connectionString = ContainerConnections.ConnectionString(_container!.GetConnectionString(), $"billing_{Guid.NewGuid():N}");
 
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
@@ -54,6 +50,7 @@ public sealed class BillingDatabaseFixture : IAsyncLifetime
         services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
         services.AddBillingApplication();
         services.AddBillingPersistence(connectionString);
+        services.RetryLostConnectionAttempts<BillingDbContext>();
 
         var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
 

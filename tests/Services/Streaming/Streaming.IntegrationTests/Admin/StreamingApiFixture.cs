@@ -56,7 +56,7 @@ public sealed class StreamingApiFixture : IAsyncLifetime
 
         VideosConnectionString = _azurite.GetConnectionString();
         await VideoStorageSetup.EnsureAsync(VideosConnectionString, [], []);
-        _factory = new StreamingApiFactory(_postgres.GetConnectionString(), VideosConnectionString, _signingKey);
+        _factory = new StreamingApiFactory(ContainerConnections.ConnectionString(_postgres.GetConnectionString()), VideosConnectionString, _signingKey);
 
         await using var scope = _factory.Services.CreateAsyncScope();
         await scope.ServiceProvider.GetRequiredService<StreamingDbContext>().Database.MigrateAsync();
@@ -134,6 +134,8 @@ public sealed class StreamingApiFixture : IAsyncLifetime
 
             builder.ConfigureTestServices(services =>
             {
+                services.RetryLostConnectionAttempts<StreamingDbContext>();
+
                 var workers = services
                     .Where(service => service.ServiceType == typeof(IHostedService)
                         && service.ImplementationType?.Namespace?.StartsWith("Shared.Infrastructure.", StringComparison.Ordinal) == true)

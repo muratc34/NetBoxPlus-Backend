@@ -7,7 +7,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NetBoxPlus.Testing;
-using Npgsql;
 using Testcontainers.PostgreSql;
 
 namespace Streaming.IntegrationTests;
@@ -42,10 +41,7 @@ public sealed class StreamingDatabaseFixture : IAsyncLifetime
     {
         Assert.SkipUnless(IsAvailable, SkipReason);
 
-        var connectionString = new NpgsqlConnectionStringBuilder(_container!.GetConnectionString())
-        {
-            Database = $"streaming_{Guid.NewGuid():N}",
-        }.ConnectionString;
+        var connectionString = ContainerConnections.ConnectionString(_container!.GetConnectionString(), $"streaming_{Guid.NewGuid():N}");
 
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
@@ -54,6 +50,7 @@ public sealed class StreamingDatabaseFixture : IAsyncLifetime
         services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
         services.AddStreamingApplication();
         services.AddStreamingPersistence(connectionString);
+        services.RetryLostConnectionAttempts<StreamingDbContext>();
 
         var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
 

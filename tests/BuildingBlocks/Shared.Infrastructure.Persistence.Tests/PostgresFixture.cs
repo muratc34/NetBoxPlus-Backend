@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using NetBoxPlus.Testing;
-using Npgsql;
 using Shared.Application;
 using Shared.Application.Messaging;
 using Testcontainers.PostgreSql;
@@ -47,15 +46,22 @@ public sealed class PostgresFixture : IAsyncLifetime
 
     public void SkipIfUnavailable() => Assert.SkipUnless(IsAvailable, SkipReason);
 
+    /// <summary>The server's own connection string, for tests that connect without a service around them.</summary>
+    internal string ConnectionString
+    {
+        get
+        {
+            SkipIfUnavailable();
+            return _container!.GetConnectionString();
+        }
+    }
+
     /// <summary>A container wired like a service, on a fresh database that already has the schema.</summary>
     internal async Task<TestServices> CreateServicesAsync(Action<IServiceCollection>? configure = null)
     {
         SkipIfUnavailable();
 
-        var connectionString = new NpgsqlConnectionStringBuilder(_container!.GetConnectionString())
-        {
-            Database = $"test_{Guid.NewGuid():N}",
-        }.ConnectionString;
+        var connectionString = ContainerConnections.ConnectionString(_container!.GetConnectionString(), $"test_{Guid.NewGuid():N}");
 
         var time = new FakeTimeProvider(new DateTimeOffset(2026, 10, 28, 12, 0, 0, TimeSpan.Zero));
         var transport = new RecordingTransport();
@@ -69,6 +75,7 @@ public sealed class PostgresFixture : IAsyncLifetime
         services.AddSingleton<IMessageTransport>(transport);
         services.AddCqrs(typeof(PostgresFixture).Assembly);
         services.AddPersistence<TestDbContext>(connectionString);
+        services.RetryLostConnectionAttempts<TestDbContext>();
         configure?.Invoke(services);
 
         var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });

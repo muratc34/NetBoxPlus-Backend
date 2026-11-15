@@ -53,7 +53,7 @@ public sealed class BillingApiFixture : IAsyncLifetime
             return;
         }
 
-        _database = _postgres.GetConnectionString();
+        _database = ContainerConnections.ConnectionString(_postgres.GetConnectionString());
         _factory = new BillingApiFactory(_database, _signingKey, Payments);
 
         await using var scope = _factory.Services.CreateAsyncScope();
@@ -136,6 +136,8 @@ public sealed class BillingApiFixture : IAsyncLifetime
 
             builder.ConfigureTestServices(services =>
             {
+                services.RetryLostConnectionAttempts<BillingDbContext>();
+
                 var workers = services
                     .Where(service => service.ServiceType == typeof(IHostedService)
                         && service.ImplementationType?.Namespace?.StartsWith("Shared.Infrastructure.", StringComparison.Ordinal) == true)

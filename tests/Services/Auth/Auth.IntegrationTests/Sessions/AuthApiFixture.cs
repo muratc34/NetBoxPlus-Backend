@@ -36,7 +36,7 @@ public sealed class AuthApiFixture : IAsyncLifetime
 
         _factory = new AuthApiFactory("test-key", ("test-key", TestSigningKeys.NewPem()))
         {
-            Database = _postgres.GetConnectionString(),
+            Database = ContainerConnections.ConnectionString(_postgres.GetConnectionString()),
         };
 
         await using var scope = _factory.Services.CreateAsyncScope();

@@ -67,7 +67,7 @@ public sealed class CatalogApiFixture : IAsyncLifetime
 
         await ImageStorageSetup.EnsureAsync(_azurite.GetConnectionString(), []);
         _images = _azurite.GetConnectionString();
-        _database = _postgres.GetConnectionString();
+        _database = ContainerConnections.ConnectionString(_postgres.GetConnectionString());
         _factory = new CatalogApiFactory(_database, _images, $"http://127.0.0.1:{_elasticsearch.GetMappedPublicPort(9200)}", _signingKey);
 
         await using var scope = _factory.Services.CreateAsyncScope();
@@ -163,6 +163,8 @@ public sealed class CatalogApiFixture : IAsyncLifetime
 
             builder.ConfigureTestServices(services =>
             {
+                services.RetryLostConnectionAttempts<CatalogDbContext>();
+
                 var workers = services
                     .Where(service => service.ServiceType == typeof(IHostedService)
                         && (service.ImplementationType?.Namespace?.StartsWith("Shared.Infrastructure.", StringComparison.Ordinal) == true

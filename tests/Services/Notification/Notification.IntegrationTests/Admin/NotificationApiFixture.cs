@@ -46,7 +46,7 @@ public sealed class NotificationApiFixture : IAsyncLifetime
             return;
         }
 
-        _factory = new NotificationApiFactory(_postgres.GetConnectionString(), _signingKey);
+        _factory = new NotificationApiFactory(ContainerConnections.ConnectionString(_postgres.GetConnectionString()), _signingKey);
         await using var scope = _factory.Services.CreateAsyncScope();
         await scope.ServiceProvider.GetRequiredService<NotificationDbContext>().Database.MigrateAsync();
         IsAvailable = true;
@@ -117,6 +117,8 @@ public sealed class NotificationApiFixture : IAsyncLifetime
 
             builder.ConfigureTestServices(services =>
             {
+                services.RetryLostConnectionAttempts<NotificationDbContext>();
+
                 var workers = services
                     .Where(service => service.ServiceType == typeof(IHostedService)
                         && (service.ImplementationType?.Namespace?.StartsWith("Shared.Infrastructure.", StringComparison.Ordinal) == true

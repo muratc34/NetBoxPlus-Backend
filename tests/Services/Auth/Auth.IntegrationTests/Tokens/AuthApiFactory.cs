@@ -1,8 +1,10 @@
+using Auth.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using NetBoxPlus.Testing;
 
 namespace Auth.IntegrationTests.Tokens;
 
@@ -38,6 +40,8 @@ internal sealed class AuthApiFactory(string? activeKeyId, params (string KeyId, 
 
         builder.ConfigureTestServices(services =>
         {
+            services.RetryLostConnectionAttempts<AuthDbContext>();
+
             var workers = services
                 .Where(service => service.ServiceType == typeof(IHostedService)
                     && service.ImplementationType?.Namespace?.StartsWith("Shared.Infrastructure.", StringComparison.Ordinal) == true)

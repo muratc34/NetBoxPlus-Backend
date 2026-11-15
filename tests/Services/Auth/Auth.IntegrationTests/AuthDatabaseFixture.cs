@@ -7,7 +7,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NetBoxPlus.Testing;
-using Npgsql;
 using Testcontainers.PostgreSql;
 
 namespace Auth.IntegrationTests;
@@ -43,10 +42,7 @@ public sealed class AuthDatabaseFixture : IAsyncLifetime
     {
         Assert.SkipUnless(IsAvailable, SkipReason);
 
-        var connectionString = new NpgsqlConnectionStringBuilder(_container!.GetConnectionString())
-        {
-            Database = $"auth_{Guid.NewGuid():N}",
-        }.ConnectionString;
+        var connectionString = ContainerConnections.ConnectionString(_container!.GetConnectionString(), $"auth_{Guid.NewGuid():N}");
 
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
@@ -55,6 +51,7 @@ public sealed class AuthDatabaseFixture : IAsyncLifetime
         services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
         services.AddAuthApplication();
         services.AddAuthPersistence(connectionString);
+        services.RetryLostConnectionAttempts<AuthDbContext>();
         configure?.Invoke(services);
 
         var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
