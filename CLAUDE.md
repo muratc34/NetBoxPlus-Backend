@@ -108,6 +108,20 @@ Transcoder ve gateway; compose `app` profili, image'lar `netboxplus/<ad>:local` 
   ilk çalıştırmada üretilir (varsa User Secrets'takiler taşınır) ve hem `secrets` hem compose oradan okur.
 - `down`, `ps`, `logs`, `reset` app container'larını da kapsar.
 
+Yük testi (k6, compose `tools` profili; senaryolar ve sonuçlar `deploy/load/`):
+
+```powershell
+./deploy/dev.ps1 load -Scenario prepare
+./deploy/dev.ps1 load
+```
+
+- `prepare` bir kez: `load-user-NN@load.netboxplus.test` hesapları (şifre `.env`'de `LOAD_USER_PASSWORD`) ve Stripe test
+  modunda Premium abonelik; Stripe CLI'ı kendisi başlatır, `STRIPE_WEBHOOK_SECRET` yoksa alıp `.env`'ye yazar ve Billing'i
+  yeniden başlatır. Aboneliği olan hesaba dokunmaz.
+- `load` (`-Scenario mixed|browse|watch`): gateway'i koşu boyunca `deploy/load/compose.load.yaml` ile yüksek rate
+  limit'le çalıştırır (k6'nın bütün sanal kullanıcıları tek IP), bitince eski haline döner. Özet `deploy/load/results/`
+  (git'te yok); Grafana açıksa k6 metrikleri de oraya gider. Kayıtlar `load-r-<koşu>-*` etiketlidir.
+
 Demo verisi (`up -App` çalışırken; compose `tools` profili, `demo-seed` image'ı):
 
 ```powershell
@@ -139,7 +153,8 @@ Catalog araması Elasticsearch ister: `./deploy/dev.ps1 up -Search`. Index'i ver
 Billing ödemeleri `deploy/.env`'deki `STRIPE_SECRET_KEY` (test modu) ile çalışır. Stripe'ın gönderdiği webhook'lar için Stripe CLI;
 CLI oturumu başka bir hesapta olabilir, `.env`'deki anahtarın hesabını dinlemek için `--api-key` ver ve
 `stripe listen --api-key <anahtar> --print-secret` değerini `STRIPE_WEBHOOK_SECRET` olarak `.env`'ye yaz:
-`stripe listen --api-key <anahtar> --forward-to localhost:5100/billing/webhooks/stripe`.
+`stripe listen --api-key <anahtar> --events checkout.session.completed,customer.subscription.created,customer.subscription.updated,customer.subscription.deleted,invoice.finalized,invoice.paid,invoice.payment_failed,invoice.voided,invoice.marked_uncollectible --forward-to localhost:5100/billing/webhooks/stripe`
+(CLI artık `--events` olmadan iletmiyor; liste Billing'in işlediği event'ler).
 
 Streaming videoları transcode eden ayrı süreç (aynı database ve User Secrets; ffmpeg PATH'te veya
 `Transcoder:FfmpegPath`/`FfprobePath`): `dotnet run --project src/Services/Streaming/Streaming.Transcoder`.
@@ -323,7 +338,8 @@ Migrator'daki seed):
   loglanmaz (olayı izleyicisi bir kez loglar), `Unhealthy` loglanır. Container'lar metriği 15 sn'de bir gönderir.
 - **Auth endpoint'leri:** `/register`, `/sign-in`, `/sign-in/admin`, `/refresh`, `/sign-out`, `/me`,
   `/me/password`, `/email-verification` (GET durum, POST yeniden gönder), `/email-verification/confirm`,
-  `/password-reset`, `/password-reset/confirm` — token dönenler gateway'den proxy'lenmez, onları sadece gateway çağırır. Giriş hatası her durumda `User.InvalidCredentials` (hesabın varlığı ve kilidi
+  `/password-reset`, `/password-reset/confirm` — token dönenler gateway'den proxy'lenmez, onları sadece gateway çağırır. `/register` hesabı ve
+  ilk müşteri oturumunu tek transaction'da açar (201, id + token çifti); gateway'in kaydı ayrıca `/sign-in` yapmaz (ikinci PBKDF2 yok). Giriş hatası her durumda `User.InvalidCredentials` (hesabın varlığı ve kilidi
   belli olmaz); bilinmeyen e-postada da bir hash doğrulanır. Tekrar kullanılan refresh token ailenin
   tamamını iptal eder.
 - **Admin (Auth):** `/admin/users`, `/admin/roles`, `/admin/permissions`. Bir rolü oluşturan,

@@ -25,6 +25,7 @@ public sealed class FakeAuthService : IAsyncDisposable
     private readonly ConcurrentDictionary<string, Account> _refreshTokens = new(StringComparer.Ordinal);
     private readonly SigningCredentials _signing = new(new ECDsaSecurityKey(ECDsa.Create(ECCurve.NamedCurves.nistP256)), SecurityAlgorithms.EcdsaSha256);
     private int _refreshCalls;
+    private int _signInCalls;
 
     private FakeAuthService(WebApplication app, TimeProvider time)
     {
@@ -49,6 +50,11 @@ public sealed class FakeAuthService : IAsyncDisposable
 
     public int RefreshCalls => _refreshCalls;
 
+    public int SignInCalls => _signInCalls;
+
+    /// <summary>A registration that answers 201 without the session, as a broken service might.</summary>
+    public bool RegisterWithoutTokens { get; set; }
+
     /// <summary>Refresh tokens presented a second time: what the real service treats as theft.</summary>
     public ConcurrentQueue<string> Reused { get; } = new();
 
@@ -71,9 +77,7 @@ public sealed class FakeAuthService : IAsyncDisposable
         var app = builder.Build();
         var service = new FakeAuthService(app, time);
 
-        app.MapPost("/register", (Credentials request) => request.Email?.Contains("taken", StringComparison.Ordinal) == true
-            ? Problem(409, "User.EmailTaken")
-            : Results.Created((string?)null, new { id = Guid.CreateVersion7() }));
+        app.MapPost("/register", (Credentials request) => service.Register(request));
         app.MapPost("/sign-in", (Credentials request) => service.SignIn(request, admin: false));
         app.MapPost("/sign-in/admin", (Credentials request) => service.SignIn(request, admin: true));
         app.MapPost("/refresh", (RefreshRequest request) => service.RefreshAsync(request.RefreshToken));
@@ -108,9 +112,30 @@ public sealed class FakeAuthService : IAsyncDisposable
     public async ValueTask DisposeAsync() => await _app.DisposeAsync();
 
     private IResult SignIn(Credentials request, bool admin)
-        => request.Password == Password && request.Email is not null
+    {
+        Interlocked.Increment(ref _signInCalls);
+        return request.Password == Password && request.Email is not null
             ? Results.Ok(Issue(new Account(Guid.CreateVersion7().ToString(), request.Email, admin), SignInAccessTokenLifetime))
             : Problem(401, "User.InvalidCredentials");
+    }
+
+    // Like the real service: the account and its first session in one answer.
+    private IResult Register(Credentials request)
+    {
+        if (request.Email?.Contains("taken", StringComparison.Ordinal) == true)
+        {
+            return Problem(409, "User.EmailTaken");
+        }
+
+        var id = Guid.CreateVersion7();
+        if (RegisterWithoutTokens)
+        {
+            return Results.Created((string?)null, new { id });
+        }
+
+        var pair = (TokenFields)Issue(new Account(id.ToString(), request.Email!, false), SignInAccessTokenLifetime);
+        return Results.Created((string?)null, new { id, pair.AccessToken, pair.AccessTokenExpiresAt, pair.RefreshToken, pair.RefreshTokenExpiresAt });
+    }
 
     private async Task<IResult> RefreshAsync(string refreshToken)
     {
@@ -148,19 +173,15 @@ public sealed class FakeAuthService : IAsyncDisposable
         var refreshToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
         _refreshTokens[refreshToken] = account;
 
-        return new
-        {
-            accessToken,
-            accessTokenExpiresAt = now + accessTokenLifetime,
-            refreshToken,
-            refreshTokenExpiresAt = now + TimeSpan.FromDays(7),
-        };
+        return new TokenFields(accessToken, now + accessTokenLifetime, refreshToken, now + TimeSpan.FromDays(7));
     }
 
     private static IResult Problem(int status, string code)
         => Results.Problem(statusCode: status, extensions: new Dictionary<string, object?> { ["code"] = code });
 
     private sealed record Account(string UserId, string Email, bool Admin);
+
+    private sealed record TokenFields(string AccessToken, DateTimeOffset AccessTokenExpiresAt, string RefreshToken, DateTimeOffset RefreshTokenExpiresAt);
 
     public sealed record Credentials(string? Email, string? Password);
 

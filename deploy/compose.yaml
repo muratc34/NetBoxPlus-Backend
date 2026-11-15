@@ -348,6 +348,24 @@ services:
     ports:
       - "127.0.0.1:5100:8080"
 
+  # Load tests: ./deploy/dev.ps1 load (needs up -App and seed). Scripts and results in deploy/load.
+  k6:
+    profiles: ["tools"]
+    image: grafana/k6:2.3.0
+    restart: "no"
+    working_dir: /scripts
+    volumes:
+      - ./load:/scripts
+    environment:
+      BASE_URL: http://gateway:8080
+      # Segment addresses are handed out for browsers (127.0.0.1); inside this network that is k6 itself.
+      PUBLIC_STORAGE_ENDPOINT: http://127.0.0.1:10000
+      STORAGE_ENDPOINT: http://azurite:10000
+      LOAD_USER_PASSWORD: ${LOAD_USER_PASSWORD:-}
+      K6_OTEL_GRPC_EXPORTER_ENDPOINT: lgtm:4317
+      K6_OTEL_GRPC_EXPORTER_INSECURE: "true"
+      K6_OTEL_SERVICE_NAME: k6
+
   # Demo content through the gateway's admin API: ./deploy/dev.ps1 seed (needs up -App running).
   demo-seed:
     profiles: ["tools"]

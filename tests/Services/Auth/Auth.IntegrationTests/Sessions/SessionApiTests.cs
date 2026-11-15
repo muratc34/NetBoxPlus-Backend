@@ -6,6 +6,7 @@ using Auth.API.Sessions;
 using Auth.Application.Sessions;
 using Auth.Application.Users.GetMe;
 using Auth.Contracts;
+using Auth.Domain.RefreshTokens;
 using Auth.Domain.Roles;
 using Auth.Domain.Users;
 using Auth.Infrastructure.Persistence;
@@ -40,6 +41,34 @@ public sealed class SessionApiTests(AuthApiFixture api)
         Assert.Equal(email, token.GetClaim("email").Value);
         Assert.Equal(43, pair.RefreshToken.Length);
         Assert.True(pair.RefreshTokenExpiresAt > pair.AccessTokenExpiresAt);
+    }
+
+    [Fact]
+    public async Task Register_OpensTheFirstSession_WithoutASignIn()
+    {
+        using var client = api.CreateClient();
+        var email = NewEmail();
+
+        var response = await client.PostAsJsonAsync("/register", new RegisterRequest(email, Password), Cancellation);
+        var registered = await response.Content.ReadFromJsonAsync<RegisterResponse>(Cancellation);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.True(response.Headers.CacheControl?.NoStore);
+        var token = new JsonWebToken(registered!.AccessToken);
+        Assert.Equal(registered.Id.ToString(), token.Subject);
+        Assert.Equal(email, token.GetClaim("email").Value);
+        Assert.Equal(43, registered.RefreshToken.Length);
+        Assert.True(registered.RefreshTokenExpiresAt > registered.AccessTokenExpiresAt);
+
+        await using (var scope = api.CreateScope())
+        {
+            var stored = await scope.ServiceProvider.GetRequiredService<AuthDbContext>().RefreshTokens.AsNoTracking()
+                .SingleAsync(refreshToken => refreshToken.UserId == registered.Id, Cancellation);
+            Assert.Equal(SessionKind.Customer, stored.Kind);
+        }
+
+        var refreshed = await client.PostAsJsonAsync("/refresh", new RefreshRequest(registered.RefreshToken), Cancellation);
+        Assert.Equal(HttpStatusCode.OK, refreshed.StatusCode);
     }
 
     [Fact]

@@ -16,7 +16,13 @@ namespace Auth.API.Sessions;
 
 public sealed record RegisterRequest(string Email, string Password);
 
-public sealed record RegisterResponse(Guid Id);
+/// <summary>The new account's id and its first session: the same fields as a sign-in, and the id.</summary>
+public sealed record RegisterResponse(
+    Guid Id,
+    string AccessToken,
+    DateTimeOffset AccessTokenExpiresAt,
+    string RefreshToken,
+    DateTimeOffset RefreshTokenExpiresAt);
 
 public sealed record SignInRequest(string Email, string Password);
 
@@ -36,7 +42,7 @@ internal static class SessionEndpoints
 
         sessions.MapPost("/register", RegisterAsync)
             .WithName("Register")
-            .WithSummary("Creates an account. Sign in afterwards.")
+            .WithSummary("Creates an account and opens its first customer session.")
             .Produces<RegisterResponse>(StatusCodes.Status201Created)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status409Conflict);
@@ -97,8 +103,10 @@ internal static class SessionEndpoints
     {
         var result = await dispatcher.Send(new RegisterCommand(request.Email, request.Password), cancellationToken);
 
-        // No location: the account is read through /me once signed in.
-        return result.ToHttpResult(id => TypedResults.Created((string?)null, new RegisterResponse(id)));
+        // No location: the account is read through /me with the session.
+        return result.ToHttpResult(account => TypedResults.Created(
+            (string?)null,
+            new RegisterResponse(account.UserId, account.Tokens.AccessToken, account.Tokens.AccessTokenExpiresAt, account.Tokens.RefreshToken, account.Tokens.RefreshTokenExpiresAt)));
     }
 
     private static async Task<IResult> SignInAsync(

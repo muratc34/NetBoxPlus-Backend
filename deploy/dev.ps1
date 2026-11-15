@@ -17,12 +17,14 @@
     ./deploy/dev.ps1 secrets       # connection settings and signing keys for running services and the gateway from the IDE
     ./deploy/dev.ps1 status
     ./deploy/dev.ps1 down          # stop, keep data
+    ./deploy/dev.ps1 load -Scenario prepare  # subscribed load-test accounts (Stripe test mode, Stripe CLI)
+    ./deploy/dev.ps1 load          # k6 load test, mixed scenario (also browse, watch); results in deploy/load/results
     ./deploy/dev.ps1 reset -Force  # stop and DELETE all local data
 #>
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('up', 'down', 'status', 'logs', 'reset', 'secrets', 'seed')]
+    [ValidateSet('up', 'down', 'status', 'logs', 'reset', 'secrets', 'seed', 'load')]
     [string]$Command = 'status',
 
     # Also start Elasticsearch (compose profile "search").
@@ -40,7 +42,11 @@ param(
     [switch]$Force,
 
     # For "logs": a single service, for example "postgres".
-    [string]$Service
+    [string]$Service,
+
+    # For "load": what k6 runs. "prepare" makes the subscribed accounts the watch scenario signs in with.
+    [ValidateSet('mixed', 'browse', 'watch', 'prepare')]
+    [string]$Scenario = 'mixed'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -270,12 +276,14 @@ function Initialize-SigningKeys {
 }
 
 function Invoke-Compose {
-    param([string[]]$Arguments, [string[]]$Profiles = @())
+    param([string[]]$Arguments, [string[]]$Profiles = @(), [string[]]$ExtraFiles = @())
 
     $profileArguments = @()
     foreach ($name in $Profiles) { $profileArguments += @('--profile', $name) }
+    $fileArguments = @('--file', $composeFile)
+    foreach ($file in $ExtraFiles) { $fileArguments += @('--file', $file) }
 
-    & $script:docker compose --file $composeFile --env-file $envFile @profileArguments @Arguments
+    & $script:docker compose @fileArguments --env-file $envFile @profileArguments @Arguments
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
@@ -322,6 +330,98 @@ function Set-ContainerEmailSettings {
     else {
         $env:NETBOXPLUS_EMAIL_PROVIDER = 'Smtp'
         $env:NETBOXPLUS_EMAIL_FROM = 'no-reply@netboxplus.local'
+    }
+}
+
+function Set-EnvValue([string]$Name, [string]$Value) {
+    # Replaces the line of an existing key or appends one; other lines stay as they are.
+    $lines = @(Get-Content $envFile)
+    $found = $false
+    $lines = $lines | ForEach-Object {
+        if ($_ -cmatch "^\s*$Name=") { $found = $true; "$Name=$Value" } else { $_ }
+    }
+    if (-not $found) { $lines += "$Name=$Value" }
+    Set-Content -Path $envFile -Value $lines -Encoding Ascii
+}
+
+function Wait-Ready([string]$Name, [string]$Url) {
+    $deadline = (Get-Date).AddMinutes(2)
+    while ($true) {
+        try {
+            Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 5 | Out-Null
+            return
+        }
+        catch {
+            if ((Get-Date) -gt $deadline) { throw "$Name is not ready after 2 minutes." }
+            Start-Sleep -Seconds 2
+        }
+    }
+}
+
+# The events billing handles; the Stripe CLI forwards only what it is told to.
+$script:stripeEvents = 'checkout.session.completed,customer.subscription.created,customer.subscription.updated,customer.subscription.deleted,invoice.finalized,invoice.paid,invoice.payment_failed,invoice.voided,invoice.marked_uncollectible'
+
+function Initialize-StripeWebhook([hashtable]$Values) {
+    # Subscriptions reach billing through Stripe's webhook, forwarded by the Stripe CLI; billing must
+    # know the signing secret of that forwarding. Asked once from the CLI and kept in deploy/.env.
+    $key = $Values['STRIPE_SECRET_KEY']
+    if (-not $key -or -not ($key.StartsWith('sk_test_') -or $key.StartsWith('rk_test_'))) {
+        throw 'The prepare step needs a test-mode STRIPE_SECRET_KEY in deploy/.env.'
+    }
+    if (-not (Get-Command stripe -ErrorAction SilentlyContinue)) {
+        throw 'The prepare step needs the Stripe CLI (winget install Stripe.StripeCli).'
+    }
+    if (-not $Values['STRIPE_WEBHOOK_SECRET']) {
+        $secret = (& stripe listen --api-key $key --print-secret | Select-Object -Last 1).Trim()
+        if ($LASTEXITCODE -ne 0 -or -not $secret.StartsWith('whsec_')) { throw 'stripe listen --print-secret failed.' }
+        Set-EnvValue 'STRIPE_WEBHOOK_SECRET' $secret
+        Write-Host 'STRIPE_WEBHOOK_SECRET written to deploy/.env; restarting billing with it.'
+        Invoke-Compose @('up', '--detach', '--no-deps', 'billing-api') @('app')
+        Wait-Ready 'billing-api' 'http://localhost:5105/health/ready'
+    }
+}
+
+function Invoke-LoadTest {
+    try {
+        Invoke-WebRequest -Uri 'http://localhost:5100/health/ready' -UseBasicParsing -TimeoutSec 5 | Out-Null
+    }
+    catch {
+        throw 'The gateway is not running. Start the system first: ./deploy/dev.ps1 up -App, then ./deploy/dev.ps1 seed'
+    }
+
+    $values = Read-EnvFile
+    $loadFile = Join-Path $deployDir 'load/compose.load.yaml'
+    New-Item -ItemType Directory -Force (Join-Path $deployDir 'load/results') | Out-Null
+    $listener = $null
+    try {
+        # Every virtual user comes from one address; the limits per address are raised for the run only.
+        Invoke-Compose @('up', '--detach', '--no-deps', 'gateway') @('app') @($loadFile)
+        Wait-Ready 'gateway' 'http://localhost:5100/health/ready'
+
+        $arguments = @('run', '--rm')
+        if ($Scenario -eq 'prepare') {
+            Initialize-StripeWebhook $values
+            $listener = Start-Process -FilePath (Get-Command stripe).Source -PassThru -WindowStyle Hidden -ArgumentList @(
+                'listen', '--api-key', $values['STRIPE_SECRET_KEY'], '--events', $script:stripeEvents, '--forward-to', 'localhost:5100/billing/webhooks/stripe')
+            # Taken from this process's environment by name, so the key is not on a command line.
+            $env:STRIPE_SECRET_KEY = $values['STRIPE_SECRET_KEY']
+            $arguments += @('--env', 'STRIPE_SECRET_KEY')
+        }
+
+        $running = & $script:docker compose --file $composeFile --env-file $envFile --profile observability ps --status running --quiet lgtm
+        # The run id tags this run's sign-ups, so their events can be counted afterwards.
+        $run = Get-Date -Format 'yyyyMMddHHmmss'
+        $arguments += @('--env', "LOAD_RUN=$run")
+        $k6 = @('k6', 'run', '--summary-trend-stats', 'avg,med,p(95),p(99),max', '--summary-export', "results/$Scenario-$run.json")
+        if ($running) { $k6 += @('--out', 'opentelemetry') }
+        Invoke-Compose ($arguments + $k6 + @("$Scenario.js")) @('tools')
+        Write-Host "Summary: deploy/load/results/$Scenario-$run.json (sign-ups tagged load-r-$run-*)"
+    }
+    finally {
+        Remove-Item Env:STRIPE_SECRET_KEY -ErrorAction SilentlyContinue
+        if ($listener) { Stop-Process -Id $listener.Id -ErrorAction SilentlyContinue }
+        # Back to the normal limits.
+        Invoke-Compose @('up', '--detach', '--no-deps', 'gateway') @('app')
     }
 }
 
@@ -420,6 +520,9 @@ switch ($Command) {
     }
     'secrets' {
         Set-ServiceSecrets
+    }
+    'load' {
+        Invoke-LoadTest
     }
     'seed' {
         # The seeder uses the gateway's admin API like the admin panel, so the system must be up.

@@ -483,3 +483,6 @@ $RECYCLE.BIN/
 
 # Design and phase documents stay local; the only committed markdown files are CLAUDE.md and README.md.
 /docs/*.md
+
+# Load test results (k6 summaries) stay local.
+/deploy/load/results/

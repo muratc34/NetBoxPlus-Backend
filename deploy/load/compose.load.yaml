@@ -1,0 +1,9 @@
+# Applied on top of compose.yaml by ./deploy/dev.ps1 load, only while a load test runs: every k6
+# virtual user comes from one address, and the gateway limits requests per address. The gateway is
+# recreated without this file when the run ends.
+services:
+  gateway:
+    environment:
+      RateLimiting__Public__PermitLimit: "1000000"
+      RateLimiting__Credentials__PermitLimit: "100000"
+      RateLimiting__Webhooks__PermitLimit: "1000000"

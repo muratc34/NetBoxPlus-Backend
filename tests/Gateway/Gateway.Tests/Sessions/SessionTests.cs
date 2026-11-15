@@ -299,7 +299,7 @@ public sealed class SessionTests(ValkeyFixture valkey)
     }
 
     [Fact]
-    public async Task Register_CreatesTheAccountAndSignsItIn()
+    public async Task Register_CreatesTheAccount_AndOpensItsSession()
     {
         await using var harness = await SessionHarness.StartAsync(valkey);
         var browser = harness.NewBrowser();
@@ -312,6 +312,22 @@ public sealed class SessionTests(ValkeyFixture valkey)
         Assert.Equal(HttpStatusCode.OK, (await browser.SendAsync(HttpMethod.Get, "/session")).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, taken.StatusCode);
         Assert.Equal("User.EmailTaken", await CodeAsync(taken));
+
+        // The registration brings the session along; the password is not checked a second time.
+        Assert.Equal(0, harness.Auth.SignInCalls);
+    }
+
+    [Fact]
+    public async Task ARegistrationWithoutASession_IsTheAuthServicesFault_AndOpensNone()
+    {
+        await using var harness = await SessionHarness.StartAsync(valkey);
+        harness.Auth.RegisterWithoutTokens = true;
+        var browser = harness.NewBrowser();
+
+        var response = await browser.SendAsync(HttpMethod.Post, "/session/register", new { email = "new@example.com", password = FakeAuthService.Password });
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.False(browser.Cookies.ContainsKey(CustomerCookie));
     }
 
     [Fact]

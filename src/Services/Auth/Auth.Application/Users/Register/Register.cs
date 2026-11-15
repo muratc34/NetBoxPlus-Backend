@@ -1,5 +1,7 @@
 using Auth.Application.Abstractions;
+using Auth.Application.Sessions;
 using Auth.Application.UserTokens;
+using Auth.Domain.RefreshTokens;
 using Auth.Domain.Users;
 using Shared.Application.Cqrs;
 using Shared.Application.Validation;
@@ -7,7 +9,10 @@ using Shared.Domain;
 
 namespace Auth.Application.Users.Register;
 
-public sealed record RegisterCommand(string Email, string Password) : ICommand<Guid>;
+public sealed record RegisterCommand(string Email, string Password) : ICommand<RegisteredAccount>;
+
+/// <summary>The new account and its first customer session.</summary>
+public sealed record RegisteredAccount(Guid UserId, TokenPair Tokens);
 
 internal sealed class RegisterValidator : IValidator<RegisterCommand>
 {
@@ -28,13 +33,16 @@ internal sealed class RegisterValidator : IValidator<RegisterCommand>
 }
 
 /// <summary>
-/// Creates the account and its first e-mail verification token; the caller signs in next. A taken
-/// address is reported (409): verification is not required, so it cannot be hidden, and the gateway
-/// rate-limits this route.
+/// Creates the account, its first e-mail verification token and its first customer session, all in
+/// one transaction. The session comes from here rather than from a sign-in afterwards: that would
+/// verify the password just hashed, a second deliberately expensive step, and could fail after the
+/// account already exists. A taken address is reported (409): verification is not required to sign
+/// in, so it cannot be hidden, and the gateway rate-limits this route.
 /// </summary>
-internal sealed class RegisterHandler(IUserRepository users, IPasswordHasher hasher, UserTokenIssuer tokenIssuer) : ICommandHandler<RegisterCommand, Guid>
+internal sealed class RegisterHandler(IUserRepository users, IPasswordHasher hasher, UserTokenIssuer tokenIssuer, SessionTokens sessions)
+    : ICommandHandler<RegisterCommand, RegisteredAccount>
 {
-    public async Task<Result<Guid>> Handle(RegisterCommand command, CancellationToken cancellationToken)
+    public async Task<Result<RegisteredAccount>> Handle(RegisterCommand command, CancellationToken cancellationToken)
     {
         var email = EmailAddress.Create(command.Email).Value;
 
@@ -47,6 +55,7 @@ internal sealed class RegisterHandler(IUserRepository users, IPasswordHasher has
         users.Add(user);
         tokenIssuer.IssueEmailVerification(user.Id);
 
-        return user.Id;
+        var grants = await sessions.GetGrantsAsync(user, cancellationToken).ConfigureAwait(false);
+        return new RegisteredAccount(user.Id, sessions.Start(user, SessionKind.Customer, grants));
     }
 }

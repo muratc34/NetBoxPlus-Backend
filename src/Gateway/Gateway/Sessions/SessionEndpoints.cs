@@ -92,7 +92,10 @@ internal static class SessionEndpoints
         return NoStore(context, TypedResults.Ok(Describe(started.Session)));
     }
 
-    /// <summary>Creates the account and signs it in: one call for the customer application.</summary>
+    /// <summary>
+    /// Creates the account and opens its session: one call for the customer application, and one to
+    /// the auth service, which returns the first token pair with the account.
+    /// </summary>
     private static async Task<IResult> RegisterAsync(
         [FromBody] CredentialsRequest request,
         HttpContext context,
@@ -101,18 +104,12 @@ internal static class SessionEndpoints
         CancellationToken cancellationToken)
     {
         var registered = await auth.RegisterAsync(request.Email, request.Password, cancellationToken);
-        if (!registered.IsSuccess)
+        if (registered.Pair is null)
         {
             return new AuthProblemResult(registered);
         }
 
-        var signedIn = await auth.SignInAsync(request.Email, request.Password, SessionKind.Customer, cancellationToken);
-        if (signedIn.Pair is null)
-        {
-            return new AuthProblemResult(signedIn);
-        }
-
-        var started = await sessions.StartAsync(context, SessionKind.Customer, signedIn.Pair);
+        var started = await sessions.StartAsync(context, SessionKind.Customer, registered.Pair);
         return NoStore(context, TypedResults.Created((string?)null, Describe(started.Session)));
     }
 

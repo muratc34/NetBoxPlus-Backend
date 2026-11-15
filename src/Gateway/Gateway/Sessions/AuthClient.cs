@@ -64,9 +64,17 @@ internal sealed partial class AuthClient(IHttpClientFactory httpClientFactory, I
         {
             using var response = await httpClientFactory.CreateClient(HttpClientName).SendAsync(request, cancellationToken).ConfigureAwait(false);
 
-            if (response.StatusCode == HttpStatusCode.OK)
+            // A registration answers 201 with the same fields as a sign-in, and the account's id.
+            if (response.StatusCode is HttpStatusCode.OK or HttpStatusCode.Created)
             {
                 var pair = await response.Content.ReadFromJsonAsync<TokenPair>(JsonSerializerOptions.Web, cancellationToken).ConfigureAwait(false);
+                if (pair is not { AccessToken.Length: > 0, RefreshToken.Length: > 0 })
+                {
+                    // A success without tokens is the service's fault, not something to start a session with.
+                    LogFailed(logger, path, (int)response.StatusCode);
+                    return AuthResult.Unavailable;
+                }
+
                 return new AuthResult(pair, (int)response.StatusCode, null);
             }
 
