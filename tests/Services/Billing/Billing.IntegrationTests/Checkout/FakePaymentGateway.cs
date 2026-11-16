@@ -13,6 +13,9 @@ public sealed class FakePaymentGateway : IPaymentGateway
 
     public ConcurrentQueue<string> Portals { get; } = new();
 
+    /// <summary>The provider customers deleted, in order.</summary>
+    public ConcurrentQueue<string> CustomersDeleted { get; } = new();
+
     /// <summary>The provider customers whose address was updated, with the address, in order.</summary>
     public ConcurrentQueue<(string CustomerId, string Email)> EmailUpdates { get; } = new();
 
@@ -54,6 +57,17 @@ public sealed class FakePaymentGateway : IPaymentGateway
         }
 
         EmailUpdates.Enqueue((providerCustomerId, email));
+        return Task.FromResult(Result.Success());
+    }
+
+    public Task<Result> DeleteCustomerAsync(string providerCustomerId, CancellationToken cancellationToken)
+    {
+        if (FailWith is { } error)
+        {
+            return Task.FromResult<Result>(error);
+        }
+
+        CustomersDeleted.Enqueue(providerCustomerId);
         return Task.FromResult(Result.Success());
     }
 

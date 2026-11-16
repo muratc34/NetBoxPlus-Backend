@@ -86,6 +86,13 @@ public sealed class Invoice : AggregateRoot, IAuditableEntity
         return new Invoice(Guid.CreateVersion7(), userId, subscriptionId, providerInvoiceId, amountMinor, currency, issuedAt);
     }
 
+    /// <summary>Drops the card's brand and last digits, when the user's account is deleted.</summary>
+    public void ForgetCard()
+    {
+        CardBrand = null;
+        CardLast4 = null;
+    }
+
     public void MarkPaid(DateTimeOffset paidAt, CardSummary? card)
     {
         if (Status == InvoiceStatus.Paid)

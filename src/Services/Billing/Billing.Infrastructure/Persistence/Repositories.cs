@@ -51,5 +51,8 @@ internal sealed class InvoiceRepository(BillingDbContext context) : IInvoiceRepo
     public Task<Invoice?> GetByProviderIdAsync(string providerInvoiceId, CancellationToken cancellationToken)
         => context.Invoices.FirstOrDefaultAsync(invoice => invoice.ProviderInvoiceId == providerInvoiceId, cancellationToken);
 
+    public async Task<IReadOnlyList<Invoice>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken)
+        => await context.Invoices.Where(invoice => invoice.UserId == userId).ToListAsync(cancellationToken).ConfigureAwait(false);
+
     public void Add(Invoice invoice) => context.Invoices.Add(invoice);
 }

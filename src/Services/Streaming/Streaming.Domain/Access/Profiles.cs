@@ -55,6 +55,12 @@ public sealed class ProfileCopy : AggregateRoot
         return true;
     }
 
+    /// <summary>
+    /// The account was deleted: removed for good, at a revision no profile event can reach, so that
+    /// one arriving late does not bring it back.
+    /// </summary>
+    public void RemoveForGood() => Remove(int.MaxValue);
+
     public bool Remove(int revision)
     {
         if (revision <= Revision)
@@ -71,6 +77,8 @@ public sealed class ProfileCopy : AggregateRoot
 public interface IProfileCopyRepository
 {
     Task<ProfileCopy?> GetByIdAsync(Guid profileId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<ProfileCopy>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken);
 
     void Add(ProfileCopy profile);
 }

@@ -16,6 +16,9 @@ internal sealed class UserRepository(AuthDbContext context) : IUserRepository
 
     public void Add(User user) => context.Users.Add(user);
 
+    public Task<int> CountWithRoleAsync(Guid roleId, CancellationToken cancellationToken)
+        => context.Users.CountAsync(user => user.Roles.Any(role => role.RoleId == roleId), cancellationToken);
+
     public Task RecordFailedSignInAsync(Guid userId, DateTimeOffset now, CancellationToken cancellationToken)
     {
         // One UPDATE: every SET reads the row as it was before it, so the count and the lockout

@@ -23,6 +23,9 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(user => user.PasswordHash).HasMaxLength(512).IsRequired();
 
+        // A deleted account stays for the audit trail but is gone for everything else.
+        builder.HasQueryFilter(user => user.DeletedAt == null);
+
         builder.HasMany(user => user.Roles)
             .WithOne()
             .HasForeignKey(role => role.UserId)

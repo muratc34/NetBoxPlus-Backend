@@ -44,6 +44,14 @@ public static class UserErrors
 
     public static readonly Error PasswordIncorrect = Error.Validation("User.PasswordIncorrect", "The current password is incorrect.");
 
+    public static readonly Error CannotDeleteSelf = Error.Conflict(
+        "User.CannotDeleteSelf",
+        "You cannot delete your own account here; use the account's own deletion instead.");
+
+    public static readonly Error LastAdministrator = Error.Conflict(
+        "User.LastAdministrator",
+        "The only account with the Administrator role cannot be deleted.");
+
     public static readonly Error CannotModifySelf = Error.Conflict(
         "User.CannotModifySelf",
         "You cannot disable your own account or remove your own roles.");

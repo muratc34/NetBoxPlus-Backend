@@ -50,6 +50,8 @@ internal sealed partial class EmailDispatcher(
 
     public const string NoAddressYet = "No address for the user yet.";
 
+    public const string RecipientDeleted = "The user's account was deleted.";
+
     /// <summary>Sends the e-mails that are due; returns how many were taken.</summary>
     public async Task<int> SendDueAsync(CancellationToken cancellationToken)
     {
@@ -93,11 +95,19 @@ internal sealed partial class EmailDispatcher(
             return;
         }
 
-        var address = email.ToAddress ?? await context.Recipients.Where(recipient => recipient.Id == email.UserId).Select(recipient => recipient.Email)
+        var recipient = await context.Recipients.Where(item => item.Id == email.UserId).Select(item => new { item.Email, item.DeletedAt })
             .FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+        var address = email.ToAddress ?? recipient?.Email;
         var now = timeProvider.GetUtcNow();
         EmailDelivery? delivery = null;
-        if (address is null)
+        if (email.ToAddress is null && recipient?.DeletedAt is not null)
+        {
+            // Queued for an account deleted since: it goes nowhere, and its content goes now.
+            email.MarkRejected(RecipientDeleted);
+            email.Forget();
+            LogRejected(logger, email.Id, RecipientDeleted);
+        }
+        else if (address is null)
         {
             email.MarkNotSent(NoAddressYet, now);
             LogNotSent(logger, email.Id, email.Attempts, NoAddressYet);

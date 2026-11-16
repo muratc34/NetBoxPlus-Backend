@@ -26,6 +26,20 @@ public sealed class RecipientTests
     }
 
     [Fact]
+    public void Delete_ForgetsTheAddress_AndNoLaterChangeApplies()
+    {
+        var user = Guid.CreateVersion7();
+        var recipient = Recipient.Create(user, "one@example.com").Value;
+        var now = new DateTimeOffset(2026, 11, 16, 9, 0, 0, TimeSpan.Zero);
+
+        recipient.Delete(now);
+        recipient.Delete(now.AddDays(1));
+
+        Assert.False(recipient.ChangeEmail("back@example.com", 1_000_000).Value);
+        Assert.Equal(($"deleted-{user:N}@deleted.invalid", (DateTimeOffset?)now), (recipient.Email, recipient.DeletedAt));
+    }
+
+    [Fact]
     public void ARecipientMadeFromAChange_KeepsItsRevision()
     {
         Assert.Equal(4, Recipient.Create(Guid.CreateVersion7(), "moved@example.com", 4).Value.EmailRevision);

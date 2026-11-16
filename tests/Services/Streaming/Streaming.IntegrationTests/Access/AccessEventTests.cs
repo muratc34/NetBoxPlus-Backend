@@ -168,6 +168,48 @@ public sealed class AccessEventTests(StreamingApiFixture api)
         Assert.All([HandlerOf<SubscriptionActivated>(), HandlerOf<SubscriptionSuspended>(), HandlerOf<SubscriptionCanceled>()], name => Assert.Equal("Streaming.Application.Access.FollowSubscriptions", name));
         Assert.All([HandlerOf<ProfileCreated>(), HandlerOf<ProfileChanged>(), HandlerOf<ProfileRemoved>()], name => Assert.Equal("Streaming.Application.Access.FollowProfiles", name));
         Assert.Equal("Streaming.Application.Access.FollowPlayables", HandlerOf<PlayableChanged>());
+        Assert.Equal("Streaming.Application.Access.ForgetUserOnUserDeleted", HandlerOf<UserDeleted>());
+    }
+
+    [Fact]
+    public async Task ADeletedUser_LosesProfiles_ProgressAndSessions_AndALateProfileEventChangesNothing()
+    {
+        Assert.SkipUnless(api.IsAvailable, api.SkipReason);
+        var (user, other) = (Guid.CreateVersion7(), Guid.CreateVersion7());
+        var (main, kids, othersProfile) = (Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7());
+        await DeliverAsync(new ProfileCreated(user, main, "Age18", 1, Now));
+        await DeliverAsync(new ProfileCreated(user, kids, "Age7", 1, Now));
+        await DeliverAsync(new ProfileChanged(user, kids, "Age13", 5, Now));
+        await DeliverAsync(new ProfileCreated(other, othersProfile, "Age18", 1, Now));
+        var sessionId = await WatchAsync(user, main);
+        await WatchAsync(other, othersProfile);
+
+        await DeliverAsync(new UserDeleted(user, Now, Now));
+        await DeliverAsync(new UserDeleted(user, Now, Now));
+        await DeliverAsync(new ProfileChanged(user, main, "Age13", 7, Now));
+
+        Assert.All([await ProfileAsync(main), await ProfileAsync(kids)], profile => Assert.True(profile.IsRemoved));
+        Assert.False((await ProfileAsync(main)).MayWatch(AgeRating.All));
+        Assert.False((await ProfileAsync(othersProfile)).IsRemoved);
+        await using var scope = api.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<Streaming.Infrastructure.Persistence.StreamingDbContext>();
+        Assert.Empty(await context.WatchProgress.Where(progress => progress.UserId == user).ToListAsync(Cancellation));
+        Assert.Single(await context.WatchProgress.Where(progress => progress.UserId == other).ToListAsync(Cancellation));
+        Assert.NotNull((await context.PlaybackSessions.SingleAsync(session => session.Id == sessionId, Cancellation)).EndedAt);
+        Assert.Null((await context.PlaybackSessions.SingleAsync(session => session.UserId == other, Cancellation)).EndedAt);
+    }
+
+    /// <summary>A live session for the profile, with some of it watched.</summary>
+    private async Task<Guid> WatchAsync(Guid user, Guid profile)
+    {
+        await using var scope = api.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<Streaming.Infrastructure.Persistence.StreamingDbContext>();
+        var viewer = Domain.Playback.Viewer.Create(user);
+        var session = viewer.Start(new Domain.Playback.PlaybackGrant(profile, Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), 1080), 4, Now).Value;
+        context.Viewers.Add(viewer);
+        context.WatchProgress.Add(Domain.Playback.WatchProgress.Record(session, 10, 600, Now));
+        await context.SaveChangesAsync(Cancellation);
+        return session.Id;
     }
 
     /// <summary>Delivers once under a new message id, as the messaging layer does, and expects it handled.</summary>

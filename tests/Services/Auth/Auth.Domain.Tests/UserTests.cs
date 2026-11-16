@@ -273,5 +273,24 @@ public sealed class UserTests
         Assert.Empty(user.DomainEvents);
     }
 
+    [Fact]
+    public void Delete_AnonymizesTheAccount_AndIsAnnouncedOnce()
+    {
+        var user = NewUser();
+        user.AssignRole(Guid.CreateVersion7());
+        user.VerifyEmail(Now);
+        user.ClearDomainEvents();
+
+        user.Delete(Now);
+        user.Delete(Now.AddDays(1));
+
+        Assert.Equal($"deleted-{user.Id:N}@deleted.invalid", user.Email.Value);
+        Assert.Equal((User.DeletedPasswordHash, true, (DateTimeOffset?)Now, 2), (user.PasswordHash, user.IsDisabled, user.DeletedAt, user.EmailRevision));
+        Assert.Null(user.EmailVerifiedAt);
+        Assert.Empty(user.Roles);
+        Assert.Empty(user.Profiles);
+        Assert.Equal([new UserDeletedDomainEvent(user.Id, Now)], user.DomainEvents);
+    }
+
     private static User NewUser() => User.Register(EmailAddress.Create("jane@example.com").Value, "hash");
 }

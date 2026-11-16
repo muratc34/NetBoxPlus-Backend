@@ -7,6 +7,20 @@ public sealed class PlaybackTests
 {
     private static readonly DateTimeOffset Now = new(2026, 11, 13, 20, 0, 0, TimeSpan.Zero);
 
+    [Fact]
+    public void EndAll_EndsTheLiveSessions_AndFreesTheScreens()
+    {
+        var viewer = Viewer.Create(Guid.CreateVersion7());
+        var first = viewer.Start(Grant(), 2, Now).Value;
+        var second = viewer.Start(Grant(), 2, Now.AddSeconds(1)).Value;
+
+        viewer.EndAll(Now.AddMinutes(1));
+
+        Assert.Equal((Now.AddMinutes(1), Now.AddMinutes(1)), (first.EndedAt, second.EndedAt));
+        Assert.Equal(0, viewer.LiveSessions(Now.AddMinutes(1)));
+        Assert.True(viewer.Start(Grant(), 1, Now.AddMinutes(1)).IsSuccess);
+    }
+
     private static PlaybackGrant Grant() => new(Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), 1080);
 
     [Fact]

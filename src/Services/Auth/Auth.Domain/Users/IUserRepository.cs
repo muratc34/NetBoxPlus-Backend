@@ -9,6 +9,9 @@ public interface IUserRepository
 
     Task<bool> ExistsByEmailAsync(EmailAddress email, CancellationToken cancellationToken);
 
+    /// <summary>How many accounts that are not deleted hold the role.</summary>
+    Task<int> CountWithRoleAsync(Guid roleId, CancellationToken cancellationToken);
+
     void Add(User user);
 
     /// <summary>

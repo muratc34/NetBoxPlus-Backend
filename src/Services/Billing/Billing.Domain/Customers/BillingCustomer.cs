@@ -33,6 +33,9 @@ public sealed class BillingCustomer : AggregateRoot, IAuditableEntity
     /// <summary>Set the first time the user goes to pay.</summary>
     public string? ProviderCustomerId { get; private set; }
 
+    /// <summary>When the user's account was deleted; the row stays, anonymized, for the invoices and subscriptions that refer to it.</summary>
+    public DateTimeOffset? DeletedAt { get; private set; }
+
     public DateTimeOffset CreatedAt { get; private set; }
 
     public DateTimeOffset? ModifiedAt { get; private set; }
@@ -62,9 +65,35 @@ public sealed class BillingCustomer : AggregateRoot, IAuditableEntity
         return true;
     }
 
+    /// <summary>
+    /// The user's account is gone: the address is replaced, and no later change or verification applies,
+    /// whatever order the events come in. The provider's customer id stays, so that the provider's last
+    /// word on the subscription still finds it.
+    /// </summary>
+    public void Delete(DateTimeOffset now)
+    {
+        if (DeletedAt is not null)
+        {
+            return;
+        }
+
+        Email = DeletedEmail(UserId);
+        EmailRevision = int.MaxValue;
+        EmailVerifiedAt = null;
+        DeletedAt = now;
+    }
+
+    /// <summary>The address a deleted customer keeps: it cannot receive mail.</summary>
+    public static string DeletedEmail(Guid userId) => $"deleted-{userId:N}@deleted.invalid";
+
     /// <summary>Records the verification; the first time stays, whatever order the reports come in.</summary>
     public void RecordEmailVerified(DateTimeOffset verifiedAt)
     {
+        if (DeletedAt is not null)
+        {
+            return;
+        }
+
         if (EmailVerifiedAt is null || verifiedAt < EmailVerifiedAt)
         {
             EmailVerifiedAt = verifiedAt;

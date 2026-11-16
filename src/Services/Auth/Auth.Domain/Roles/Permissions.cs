@@ -15,6 +15,9 @@ public static partial class Permissions
     {
         public const string UsersRead = "auth:users:read";
         public const string UsersWrite = "auth:users:write";
+
+        /// <summary>Deleting an account: apart from writing, since it cannot be undone.</summary>
+        public const string UsersDelete = "auth:users:delete";
         public const string RolesRead = "auth:roles:read";
         public const string RolesWrite = "auth:roles:write";
 

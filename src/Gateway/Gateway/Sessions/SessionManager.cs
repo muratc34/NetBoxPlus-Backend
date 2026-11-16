@@ -114,6 +114,16 @@ internal sealed partial class SessionManager(
         }
     }
 
+    /// <summary>
+    /// Forgets the session here and clears the cookie, without telling the auth service: for an
+    /// account it has just deleted, whose tokens it revoked already.
+    /// </summary>
+    public async Task ForgetAsync(HttpContext context, LoadedSession loaded)
+    {
+        await store.DeleteAsync(loaded.Id).ConfigureAwait(false);
+        SessionCookies.Clear(context, loaded.Session.Kind);
+    }
+
     /// <summary>Records the request on an admin session, which ends after an idle period.</summary>
     public Task TouchAsync(LoadedSession loaded)
     {

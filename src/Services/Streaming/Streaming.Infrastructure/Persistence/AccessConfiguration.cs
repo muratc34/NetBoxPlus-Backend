@@ -71,6 +71,9 @@ internal sealed class ProfileCopyRepository(StreamingDbContext context) : IProfi
     public async Task<ProfileCopy?> GetByIdAsync(Guid profileId, CancellationToken cancellationToken)
         => await context.Profiles.FindAsync([profileId], cancellationToken).ConfigureAwait(false);
 
+    public async Task<IReadOnlyList<ProfileCopy>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken)
+        => await context.Profiles.Where(profile => profile.UserId == userId).ToListAsync(cancellationToken).ConfigureAwait(false);
+
     public void Add(ProfileCopy profile) => context.Profiles.Add(profile);
 }
 

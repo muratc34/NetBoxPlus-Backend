@@ -427,6 +427,43 @@ public sealed class SessionTests(ValkeyFixture valkey)
     }
 
     [Fact]
+    public async Task AccountDeletion_EndsTheSessionHere_WithoutSigningOutAtAuth()
+    {
+        await using var harness = await SessionHarness.StartAsync(valkey);
+        var browser = harness.NewBrowser();
+        await browser.SignInAsync();
+
+        var wrong = await browser.SendAsync(HttpMethod.Post, "/session/deletion", new { password = "nope" });
+        var stillThere = await browser.SendAsync(HttpMethod.Get, "/session");
+        var keysBefore = (await harness.ValkeyKeysAsync("gateway:session:*")).Count;
+        var deleted = await browser.SendAsync(HttpMethod.Post, "/session/deletion", new { password = FakeAuthService.Password });
+        var after = await browser.SendAsync(HttpMethod.Get, "/session");
+
+        Assert.Equal("User.PasswordIncorrect", await CodeAsync(wrong));
+        Assert.Equal(HttpStatusCode.OK, stillThere.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+        Assert.Contains(deleted.Headers.GetValues("Set-Cookie"), cookie => cookie.StartsWith(CustomerCookie + "=;", StringComparison.Ordinal));
+        Assert.Equal(HttpStatusCode.Unauthorized, after.StatusCode);
+        Assert.Single(harness.Auth.Deletions);
+        Assert.Empty(harness.Auth.SignedOut);
+        Assert.Equal(keysBefore - 1, (await harness.ValkeyKeysAsync("gateway:session:*")).Count);
+    }
+
+    [Fact]
+    public async Task AccountDeletion_NeedsTheSessionsCsrfToken()
+    {
+        await using var harness = await SessionHarness.StartAsync(valkey);
+        var browser = harness.NewBrowser();
+        await browser.SignInAsync();
+        browser.CsrfToken = "forged";
+
+        var forged = await browser.SendAsync(HttpMethod.Post, "/session/deletion", new { password = FakeAuthService.Password });
+
+        Assert.Equal(HttpStatusCode.Forbidden, forged.StatusCode);
+        Assert.Empty(harness.Auth.Deletions);
+    }
+
+    [Fact]
     public async Task StoredSession_IsEncrypted_AndNotKeyedByTheCookie()
     {
         await using var harness = await SessionHarness.StartAsync(valkey);

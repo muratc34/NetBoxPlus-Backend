@@ -41,6 +41,25 @@ internal sealed partial class StripePaymentGateway(IStripeClient client, IOption
         return result.IsSuccess ? Result.Success() : result.Error;
     }
 
+    public async Task<Result> DeleteCustomerAsync(string providerCustomerId, CancellationToken cancellationToken)
+    {
+        var result = await CallAsync("customer-delete", async () =>
+        {
+            try
+            {
+                await new CustomerService(client).DeleteAsync(providerCustomerId, cancellationToken: cancellationToken).ConfigureAwait(false);
+            }
+            catch (StripeException exception) when (exception.HttpStatusCode == HttpStatusCode.NotFound)
+            {
+                // Deleted already: by an earlier attempt of this message, or in the dashboard.
+            }
+
+            return true;
+        }).ConfigureAwait(false);
+
+        return result.IsSuccess ? Result.Success() : result.Error;
+    }
+
     public Task<Result<Uri>> CreateCheckoutAsync(CheckoutRequest request, CancellationToken cancellationToken)
         => CallAsync("checkout", async () =>
         {
@@ -193,6 +212,10 @@ internal sealed class UnconfiguredPaymentGateway : IPaymentGateway
     /// until the message dead-letters, for a key that may never be configured.
     /// </summary>
     public Task<Result> UpdateCustomerEmailAsync(string providerCustomerId, string email, CancellationToken cancellationToken)
+        => Task.FromResult(Result.Success());
+
+    /// <summary>Nothing to delete without a provider; see <see cref="UpdateCustomerEmailAsync"/>.</summary>
+    public Task<Result> DeleteCustomerAsync(string providerCustomerId, CancellationToken cancellationToken)
         => Task.FromResult(Result.Success());
 
     public Task<Result<Uri>> CreateCheckoutAsync(CheckoutRequest request, CancellationToken cancellationToken)

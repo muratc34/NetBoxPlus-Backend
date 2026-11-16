@@ -371,6 +371,8 @@ public sealed class InvoiceTests
 
 public sealed class BillingCustomerTests
 {
+    private static readonly DateTimeOffset Now = new(2026, 11, 16, 12, 0, 0, TimeSpan.Zero);
+
     [Fact]
     public void ChangeEmail_TakesOnlyALaterRevision()
     {
@@ -381,6 +383,33 @@ public sealed class BillingCustomerTests
         Assert.False(customer.ChangeEmail("again@example.com", 3));
 
         Assert.Equal(("three@example.com", 3), (customer.Email, customer.EmailRevision));
+    }
+
+    [Fact]
+    public void Delete_AnonymizesTheCustomer_AndNoLaterChangeOrVerificationApplies()
+    {
+        var user = Guid.NewGuid();
+        var customer = BillingCustomer.Create(user, "one@example.com");
+        customer.RecordEmailVerified(Now);
+        customer.LinkProvider("cus_kept");
+
+        customer.Delete(Now);
+        customer.Delete(Now.AddDays(1));
+        customer.RecordEmailVerified(Now.AddDays(2));
+
+        Assert.False(customer.ChangeEmail("back@example.com", 99));
+        Assert.Equal(($"deleted-{user:N}@deleted.invalid", (DateTimeOffset?)null, (DateTimeOffset?)Now, "cus_kept"), (customer.Email, customer.EmailVerifiedAt, customer.DeletedAt, customer.ProviderCustomerId));
+    }
+
+    [Fact]
+    public void ForgetCard_DropsTheCardOfAPaidInvoice()
+    {
+        var invoice = Invoice.Record(Guid.NewGuid(), Guid.NewGuid(), "in_forget", 14999, "TRY", Now);
+        invoice.MarkPaid(Now, CardSummary.Create("visa", "4242").Value);
+
+        invoice.ForgetCard();
+
+        Assert.Equal((InvoiceStatus.Paid, (string?)null, (string?)null), (invoice.Status, invoice.CardBrand, invoice.CardLast4));
     }
 
     [Fact]

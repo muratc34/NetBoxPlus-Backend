@@ -51,6 +51,12 @@ public interface IPaymentGateway
     /// <summary>Puts the address on the provider's customer, where receipts go.</summary>
     Task<Result> UpdateCustomerEmailAsync(string providerCustomerId, string email, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Deletes the provider's customer, which also cancels its subscriptions at once, without a refund.
+    /// A customer the provider no longer has counts as deleted.
+    /// </summary>
+    Task<Result> DeleteCustomerAsync(string providerCustomerId, CancellationToken cancellationToken);
+
     /// <summary>A page at the provider where the customer subscribes to the plan.</summary>
     Task<Result<Uri>> CreateCheckoutAsync(CheckoutRequest request, CancellationToken cancellationToken);
 

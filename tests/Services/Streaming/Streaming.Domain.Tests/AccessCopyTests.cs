@@ -55,6 +55,19 @@ public sealed class AccessCopyTests
         => Assert.Throws<ArgumentOutOfRangeException>(() => SubscriptionCopy.Create(Guid.CreateVersion7(), Guid.CreateVersion7()).Stop(SubscriptionStatus.Active, 1));
 
     [Fact]
+    public void AProfileRemovedForGood_TakesNoLaterNews()
+    {
+        var profile = ProfileCopy.Create(Guid.CreateVersion7(), Guid.CreateVersion7());
+        profile.Apply(AgeRating.Age13, 1);
+
+        profile.RemoveForGood();
+
+        Assert.False(profile.Apply(AgeRating.Age18, 1_000_000));
+        Assert.False(profile.Remove(1_000_000));
+        Assert.Equal((true, AgeRating.Age13), (profile.IsRemoved, profile.MaxAgeRating));
+    }
+
+    [Fact]
     public void ARemovedProfile_StaysRemoved_WhenOlderNewsArrives()
     {
         var profile = ProfileCopy.Create(Guid.CreateVersion7(), Guid.CreateVersion7());

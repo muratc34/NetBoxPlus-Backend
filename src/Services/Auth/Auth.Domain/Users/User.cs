@@ -18,6 +18,9 @@ public sealed class User : AggregateRoot, IAuditableEntity
     /// <summary>The profile every account starts with.</summary>
     public const string FirstProfileName = "Main";
 
+    /// <summary>What a deleted account keeps as its password hash: no password verifies against it.</summary>
+    public const string DeletedPasswordHash = "deleted";
+
     private readonly List<UserRole> _roles = [];
     private readonly List<Profile> _profiles = [];
 
@@ -60,6 +63,12 @@ public sealed class User : AggregateRoot, IAuditableEntity
     public DateTimeOffset? EmailVerifiedAt { get; private set; }
 
     public bool IsEmailVerified => EmailVerifiedAt is not null;
+
+    /// <summary>
+    /// When the account was deleted. The row stays for the audit trail, anonymized: a deleted account
+    /// is hidden from every query and its address is free again.
+    /// </summary>
+    public DateTimeOffset? DeletedAt { get; private set; }
 
     public DateTimeOffset CreatedAt { get; private set; }
 
@@ -165,6 +174,36 @@ public sealed class User : AggregateRoot, IAuditableEntity
         {
             EmailVerifiedAt = now;
         }
+    }
+
+    /// <summary>
+    /// Deletes the account: the address is replaced with one that cannot receive mail, and the password,
+    /// profiles and roles go. The services that keep a copy of the user delete theirs when told.
+    /// Sessions and links are revoked by the caller, at once.
+    /// </summary>
+    public void Delete(DateTimeOffset now)
+    {
+        if (DeletedAt is not null)
+        {
+            return;
+        }
+
+        Email = EmailAddress.Create($"deleted-{Id:N}@deleted.invalid").Value;
+        EmailRevision++;
+        PasswordHash = DeletedPasswordHash;
+        IsDisabled = true;
+        EmailVerifiedAt = null;
+        FailedSignInCount = 0;
+        LockedOutUntil = null;
+        _roles.Clear();
+        foreach (var profile in _profiles)
+        {
+            profile.MarkRemoved();
+        }
+
+        _profiles.Clear();
+        DeletedAt = now;
+        RaiseDomainEvent(new UserDeletedDomainEvent(Id, now));
     }
 
     public void Disable() => IsDisabled = true;
@@ -284,5 +323,7 @@ public sealed record PasswordChangedDomainEvent(Guid UserId, Guid ChangeId, Date
 /// <summary>The address was proven for the first time.</summary>
 /// <summary>The account moved to a new address; <paramref name="Revision"/> is the new <see cref="User.EmailRevision"/>.</summary>
 public sealed record EmailChangedDomainEvent(Guid UserId, string Email, int Revision, DateTimeOffset ChangedAt) : IDomainEvent;
+
+public sealed record UserDeletedDomainEvent(Guid UserId, DateTimeOffset DeletedAt) : IDomainEvent;
 
 public sealed record EmailVerifiedDomainEvent(Guid UserId, string Email, DateTimeOffset VerifiedAt) : IDomainEvent;

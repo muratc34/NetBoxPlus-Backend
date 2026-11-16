@@ -30,6 +30,15 @@ public sealed class Viewer : AggregateRoot
 
     public int LiveSessions(DateTimeOffset now) => _sessions.Count(session => session.IsLive(now));
 
+    /// <summary>Ends every live session at once: the account was deleted.</summary>
+    public void EndAll(DateTimeOffset now)
+    {
+        foreach (var session in _sessions.Where(session => session.IsLive(now)))
+        {
+            session.End(now);
+        }
+    }
+
     public Result<PlaybackSession> Start(PlaybackGrant grant, int maxScreens, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(grant);
@@ -100,6 +109,8 @@ public sealed class PlaybackSession : Entity
     public DateTimeOffset? EndedAt { get; private set; }
 
     public bool IsLive(DateTimeOffset now) => EndedAt is null && now - LastHeartbeatAt < Timeout;
+
+    internal void End(DateTimeOffset now) => EndedAt ??= now;
 }
 
 public static class PlaybackErrors

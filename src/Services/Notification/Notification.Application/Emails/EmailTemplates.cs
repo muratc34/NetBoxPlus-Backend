@@ -83,6 +83,19 @@ internal static class EmailTemplates
             ("Şifremi sıfırla", reset));
     }
 
+    public static EmailContent AccountDeleted(DateTimeOffset deletedAt)
+    {
+        var when = deletedAt.ToUniversalTime().ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
+        return Render(
+            "Hesabın silindi",
+            [
+                $"NetBoxPlus hesabın {when} (UTC) tarihinde silindi. Profillerin, izleme geçmişin ve aboneliğin kaldırıldı; aboneliğin için bundan sonra ödeme alınmayacak.",
+                "Bu, sana gönderdiğimiz son e-posta. Adresin bizde kalmadı.",
+                "Bunu sen yapmadıysan bize ulaş.",
+            ],
+            null);
+    }
+
     /// <summary>The first letter of the local part and the whole domain: <c>m***@example.com</c>.</summary>
     internal static string Mask(string email)
     {

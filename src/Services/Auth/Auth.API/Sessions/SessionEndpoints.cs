@@ -4,6 +4,7 @@ using Auth.Application.Sessions.Refresh;
 using Auth.Application.Sessions.SignIn;
 using Auth.Application.Sessions.SignOut;
 using Auth.Application.Users.ChangePassword;
+using Auth.Application.Users.DeleteAccount;
 using Auth.Application.Users.GetMe;
 using Auth.Application.Users.Register;
 using Auth.Domain.RefreshTokens;
@@ -32,6 +33,8 @@ public sealed record RefreshRequest(string RefreshToken);
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 
 public sealed record ChangeEmailRequest(string? Password, string? NewEmail);
+
+public sealed record DeleteAccountRequest(string? Password);
 
 /// <summary>
 /// Accounts and sessions. The gateway calls these for the browser and keeps the tokens on its
@@ -106,6 +109,15 @@ internal static class SessionEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
+        sessions.MapPost("/me/deletion", DeleteAccountAsync)
+            .WithName("DeleteAccount")
+            .WithSummary("Deletes the caller's account after checking the password; its sessions end and the other services delete their data. Cannot be undone.")
+            .RequireAuthorization()
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         return endpoints;
     }
 
@@ -164,6 +176,13 @@ internal static class SessionEndpoints
         => (await dispatcher.Send(
             new RequestEmailChangeCommand(currentUser.Id!.Value, request.Password, request.NewEmail),
             cancellationToken)).ToHttpResult();
+
+    private static async Task<IResult> DeleteAccountAsync(
+        [FromBody] DeleteAccountRequest request,
+        [FromServices] ICurrentUser currentUser,
+        [FromServices] IDispatcher dispatcher,
+        CancellationToken cancellationToken)
+        => (await dispatcher.Send(new DeleteAccountCommand(currentUser.Id!.Value, request.Password), cancellationToken)).ToHttpResult();
 
     private static async ValueTask<object?> NoStore(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {

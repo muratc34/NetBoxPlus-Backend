@@ -19,6 +19,9 @@ public enum EmailKind
 
     /// <summary>The notice that the account moved; sent to the address it moved from.</summary>
     EmailChanged,
+
+    /// <summary>The last e-mail to a deleted account, to the address it had.</summary>
+    AccountDeleted,
 }
 
 public enum EmailStatus
@@ -228,6 +231,11 @@ public interface IOutgoingEmailRepository
     Task<OutgoingEmail?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
     Task<bool> ExistsAsync(EmailKind kind, string sourceKey, CancellationToken cancellationToken);
+
+    /// <summary>The user's e-mails, sent or not, to be forgotten with the account.</summary>
+    Task<IReadOnlyList<OutgoingEmail>> GetForUserAsync(Guid userId, CancellationToken cancellationToken);
+
+    void Remove(OutgoingEmail email);
 
     void Add(OutgoingEmail email);
 }

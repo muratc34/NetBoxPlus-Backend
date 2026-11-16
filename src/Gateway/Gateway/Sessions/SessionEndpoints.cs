@@ -11,6 +11,8 @@ public sealed record PasswordChangeRequest(string? CurrentPassword, string? NewP
 
 public sealed record EmailChangeRequest(string? Password, string? NewEmail);
 
+public sealed record AccountDeletionRequest(string? Password);
+
 public sealed record PasswordResetRequest(string? Email);
 
 public sealed record PasswordResetConfirmRequest(string? Token, string? NewPassword);
@@ -43,6 +45,11 @@ internal static class SessionEndpoints
 
         // Takes the password and sends an e-mail: rate-limited like the password change.
         customer.MapPost("/email", RequestEmailChangeAsync)
+            .RequireRateLimiting(RateLimitingServiceCollectionExtensions.CredentialsPolicy)
+            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(RouteGroups.Public, next));
+
+        // Takes the password: rate-limited like the password change.
+        customer.MapPost("/deletion", DeleteAccountAsync)
             .RequireRateLimiting(RateLimitingServiceCollectionExtensions.CredentialsPolicy)
             .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(RouteGroups.Public, next));
 
@@ -232,6 +239,42 @@ internal static class SessionEndpoints
         }
 
         return new AuthProblemResult(await auth.RequestEmailChangeAsync(outcome.Session!.AccessToken, request.Password, request.NewEmail, context.RequestAborted));
+    }
+
+    /// <summary>
+    /// Asks the auth service to delete the account; when it did, the session goes and the cookie is
+    /// cleared. Not cancelled with the request: once the account is gone, the session must go too.
+    /// </summary>
+    private static async Task<IResult> DeleteAccountAsync(
+        [FromBody] AccountDeletionRequest request,
+        HttpContext context,
+        [FromServices] AuthClient auth,
+        [FromServices] SessionManager sessions)
+    {
+        var hadCookie = SessionCookies.Read(context, SessionKind.Customer) is not null;
+        if (await sessions.LoadAsync(context, SessionKind.Customer) is not { } loaded)
+        {
+            return Ended(context, SessionKind.Customer, hadCookie);
+        }
+
+        if (!RequestGuards.IsCsrfSafe(context, loaded.Session))
+        {
+            return GatewayProblem.CsrfInvalid;
+        }
+
+        var outcome = await sessions.EnsureFreshAsync(loaded);
+        if (outcome.Status != RefreshStatus.Fresh)
+        {
+            return outcome.Status == RefreshStatus.Ended ? Ended(context, SessionKind.Customer, hadCookie: true) : GatewayProblem.AuthUnavailable;
+        }
+
+        var result = await auth.DeleteAccountAsync(outcome.Session!.AccessToken, request.Password, CancellationToken.None);
+        if (result.IsSuccess)
+        {
+            await sessions.ForgetAsync(context, loaded);
+        }
+
+        return new AuthProblemResult(result);
     }
 
     private static async Task<IResult> RequestPasswordResetAsync(

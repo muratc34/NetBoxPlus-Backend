@@ -28,6 +28,12 @@ public sealed class Recipient : AggregateRoot
     /// <summary>The revision of <see cref="Email"/> as the account service numbers it: 1 for the registration address.</summary>
     public int EmailRevision { get; private set; } = 1;
 
+    /// <summary>
+    /// When the user's account was deleted. The row stays without the address, so that nothing is sent to
+    /// the user any more and a late registration or change does not bring the address back.
+    /// </summary>
+    public DateTimeOffset? DeletedAt { get; private set; }
+
     /// <param name="emailRevision">1 for the registration address; higher when the first news of the user is a change.</param>
     public static Result<Recipient> Create(Guid userId, string? email, int emailRevision = 1)
     {
@@ -67,6 +73,22 @@ public sealed class Recipient : AggregateRoot
         EmailRevision = revision;
         return true;
     }
+
+    /// <summary>Forgets the address; no later change applies, whatever order the events come in.</summary>
+    public void Delete(DateTimeOffset now)
+    {
+        if (DeletedAt is not null)
+        {
+            return;
+        }
+
+        Email = DeletedEmail(Id);
+        EmailRevision = int.MaxValue;
+        DeletedAt = now;
+    }
+
+    /// <summary>The address a deleted recipient keeps: it cannot receive mail, and nothing is sent to it.</summary>
+    public static string DeletedEmail(Guid userId) => $"deleted-{userId:N}@deleted.invalid";
 
     private static string? Normalize(string? email)
     {

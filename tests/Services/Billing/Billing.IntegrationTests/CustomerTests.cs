@@ -215,6 +215,106 @@ public sealed class CustomerTests(BillingDatabaseFixture database)
         Assert.Equal("kept@example.com", Assert.Single(await CustomersAsync(services)).Email);
     }
 
+    [Fact]
+    public async Task ADeletedUser_LosesTheProvidersCustomer_TheAddressAndTheCards_ButKeepsTheInvoices()
+    {
+        var payments = new FakePaymentGateway();
+        await using var services = await database.CreateServicesAsync(payments);
+        var user = Guid.NewGuid();
+        await DeliverAsync(services, Guid.NewGuid(), new UserRegistered(user, "leaving@example.com", DateTimeOffset.UnixEpoch));
+        await LinkProviderAsync(services, user, "cus_leaving");
+        var invoiceId = await AddPaidInvoiceAsync(services, user);
+        var deletedAt = new DateTimeOffset(2026, 11, 16, 9, 0, 0, TimeSpan.Zero);
+
+        Assert.True(await DeliverDeletedAsync(services, Guid.NewGuid(), new UserDeleted(user, deletedAt, deletedAt), expectSuccess: true));
+        Assert.True(await DeliverDeletedAsync(services, Guid.NewGuid(), new UserDeleted(user, deletedAt, deletedAt), expectSuccess: true));
+
+        Assert.Equal("cus_leaving", Assert.Single(payments.CustomersDeleted));
+        var customer = Assert.Single(await CustomersAsync(services));
+        Assert.Equal(($"deleted-{user:N}@deleted.invalid", (DateTimeOffset?)deletedAt, (DateTimeOffset?)null), (customer.Email, customer.DeletedAt, customer.EmailVerifiedAt));
+        var invoice = await InvoiceAsync(services, invoiceId);
+        Assert.Equal((14999L, (string?)null, (string?)null), (invoice.AmountMinor, invoice.CardBrand, invoice.CardLast4));
+    }
+
+    [Fact]
+    public async Task ADeletionBeforeTheRegistration_KeepsTheAddressOut()
+    {
+        var payments = new FakePaymentGateway();
+        await using var services = await database.CreateServicesAsync(payments);
+        var user = Guid.NewGuid();
+
+        Assert.True(await DeliverDeletedAsync(services, Guid.NewGuid(), new UserDeleted(user, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch), expectSuccess: true));
+        await DeliverAsync(services, Guid.NewGuid(), new UserRegistered(user, "late@example.com", DateTimeOffset.UnixEpoch));
+        await DeliverChangedAsync(services, Guid.NewGuid(), new EmailChanged(user, "later@example.com", 2, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch));
+        await DeliverVerifiedAsync(services, Guid.NewGuid(), new EmailVerified(user, "later@example.com", DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch));
+
+        var customer = Assert.Single(await CustomersAsync(services));
+        Assert.Equal(($"deleted-{user:N}@deleted.invalid", (DateTimeOffset?)null), (customer.Email, customer.EmailVerifiedAt));
+        Assert.Empty(payments.CustomersDeleted);
+    }
+
+    [Fact]
+    public async Task AnUnreachableProvider_KeepsTheDeletionToBeTriedAgain()
+    {
+        var payments = new FakePaymentGateway();
+        await using var services = await database.CreateServicesAsync(payments);
+        var user = Guid.NewGuid();
+        var message = Guid.NewGuid();
+        var deleted = new UserDeleted(user, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch);
+        await DeliverAsync(services, Guid.NewGuid(), new UserRegistered(user, "retry-delete@example.com", DateTimeOffset.UnixEpoch));
+        await LinkProviderAsync(services, user, "cus_retry_delete");
+        payments.FailWith = Billing.Application.Abstractions.PaymentErrors.Unavailable;
+
+        await Assert.ThrowsAsync<Billing.Application.Customers.ChangeCustomerEmail.PaymentProviderUnavailableException>(() => DeliverDeletedAsync(services, message, deleted));
+        Assert.Null(Assert.Single(await CustomersAsync(services)).DeletedAt);
+
+        payments.Reset();
+        Assert.True(await DeliverDeletedAsync(services, message, deleted, expectSuccess: true));
+        Assert.NotNull(Assert.Single(await CustomersAsync(services)).DeletedAt);
+        Assert.Equal("cus_retry_delete", Assert.Single(payments.CustomersDeleted));
+    }
+
+    private static async Task<Guid> AddPaidInvoiceAsync(ServiceProvider services, Guid user)
+    {
+        await using var scope = services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<BillingDbContext>();
+        var plan = Billing.Domain.Plans.Plan.Create(
+            new Dictionary<string, Billing.Domain.Plans.PlanText> { ["tr"] = new("Temel", "SD izleme.") },
+            new Billing.Domain.Plans.PlanTerms(14999, "TRY", Billing.Domain.Plans.VideoQuality.Sd, 1, $"price_{Guid.NewGuid():N}")).Value;
+        var subscription = Billing.Domain.Subscriptions.Subscription.Start(
+            user, $"sub_{Guid.NewGuid():N}", new Billing.Domain.Subscriptions.SubscriptionState(Billing.Domain.Subscriptions.SubscriptionStatus.Active, plan.Id, null, false), DateTimeOffset.UnixEpoch);
+        var invoice = Billing.Domain.Invoices.Invoice.Record(user, subscription.Id, $"in_{Guid.NewGuid():N}", 14999, "TRY", DateTimeOffset.UnixEpoch);
+        invoice.MarkPaid(DateTimeOffset.UnixEpoch, Billing.Domain.Invoices.CardSummary.Create("visa", "4242").Value);
+        context.AddRange(plan, subscription, invoice);
+        await context.SaveChangesAsync(Cancellation);
+        return invoice.Id;
+    }
+
+    private static async Task<Billing.Domain.Invoices.Invoice> InvoiceAsync(ServiceProvider services, Guid id)
+    {
+        await using var scope = services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<BillingDbContext>().Invoices.AsNoTracking().SingleAsync(invoice => invoice.Id == id, Cancellation);
+    }
+
+    private static async Task<bool> DeliverDeletedAsync(ServiceProvider services, Guid messageId, UserDeleted deleted, bool expectSuccess = false)
+    {
+        await using var scope = services.CreateAsyncScope();
+        var handler = Assert.Single(scope.ServiceProvider.GetServices<IIntegrationEventHandler<UserDeleted>>());
+        Assert.Equal("Billing.Application.Customers.DeleteCustomerOnUserDeleted", handler.GetType().FullName);
+
+        return await scope.ServiceProvider.GetRequiredService<IInbox>()
+            .ProcessOnceAsync(
+                messageId,
+                handler.GetType().FullName!,
+                async token =>
+                {
+                    var result = await handler.Handle(deleted, token);
+                    Assert.True(!expectSuccess || result.IsSuccess, result.IsFailure ? result.Error.Code : null);
+                    return result;
+                },
+                Cancellation);
+    }
+
     private static async Task LinkProviderAsync(ServiceProvider services, Guid user, string providerCustomerId)
     {
         await using var scope = services.CreateAsyncScope();

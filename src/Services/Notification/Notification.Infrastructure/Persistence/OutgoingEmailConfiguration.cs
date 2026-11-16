@@ -38,5 +38,10 @@ internal sealed class OutgoingEmailRepository(NotificationDbContext context) : I
     public Task<bool> ExistsAsync(EmailKind kind, string sourceKey, CancellationToken cancellationToken)
         => context.Emails.AnyAsync(email => email.Kind == kind && email.SourceKey == sourceKey, cancellationToken);
 
+    public async Task<IReadOnlyList<OutgoingEmail>> GetForUserAsync(Guid userId, CancellationToken cancellationToken)
+        => await context.Emails.Where(email => email.UserId == userId).ToListAsync(cancellationToken).ConfigureAwait(false);
+
+    public void Remove(OutgoingEmail email) => context.Emails.Remove(email);
+
     public void Add(OutgoingEmail email) => context.Emails.Add(email);
 }

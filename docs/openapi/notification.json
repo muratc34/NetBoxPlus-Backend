@@ -318,7 +318,8 @@
           "PaymentFailed",
           "SubscriptionEnded",
           "EmailChangeVerification",
-          "EmailChanged"
+          "EmailChanged",
+          "AccountDeleted"
         ]
       },
       "EmailStatus": {

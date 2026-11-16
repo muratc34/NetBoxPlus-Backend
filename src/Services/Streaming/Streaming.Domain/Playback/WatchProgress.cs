@@ -146,4 +146,7 @@ public interface IWatchProgressRepository
 
     /// <summary>Removes, with the change being saved, all progress of a profile that no longer exists.</summary>
     Task RemoveForProfileAsync(Guid profileId, CancellationToken cancellationToken);
+
+    /// <summary>Removes, with the change being saved, all progress of a user whose account was deleted.</summary>
+    Task RemoveForUserAsync(Guid userId, CancellationToken cancellationToken);
 }

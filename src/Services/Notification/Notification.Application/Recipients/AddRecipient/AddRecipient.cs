@@ -11,6 +11,7 @@ namespace Notification.Application.Recipients.AddRecipient;
 /// Remembers where to write to a new user and queues their welcome e-mail. Coming again for the same
 /// user is a success that changes nothing. When an address change reached this service first, the
 /// recipient is already there with the newer address, which stays; the welcome e-mail is still queued.
+/// A recipient whose account was deleted gets nothing.
 /// </summary>
 public sealed record AddRecipientCommand(Guid UserId, string? Email) : ICommand;
 
@@ -26,9 +27,14 @@ internal sealed class AddRecipientHandler(IRecipientRepository recipients, IOutg
         }
 
         // A second delivery under a different message id; the primary keys settle a race, which is retried.
-        if (!await recipients.ExistsAsync(command.UserId, cancellationToken).ConfigureAwait(false))
+        var existing = await recipients.GetAsync(command.UserId, cancellationToken).ConfigureAwait(false);
+        if (existing is null)
         {
             recipients.Add(recipient.Value);
+        }
+        else if (existing.DeletedAt is not null)
+        {
+            return Result.Success();
         }
 
         var sourceKey = command.UserId.ToString("N");

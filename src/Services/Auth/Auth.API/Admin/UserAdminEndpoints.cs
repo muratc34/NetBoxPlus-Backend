@@ -1,4 +1,5 @@
 using Auth.Application.Users.AssignRole;
+using Auth.Application.Users.DeleteUser;
 using Auth.Application.Users.DisableUser;
 using Auth.Application.Users.EnableUser;
 using Auth.Application.Users.GetUser;
@@ -57,6 +58,15 @@ internal static class UserAdminEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        users.MapDelete("/{id:guid}", DeleteAsync)
+            .WithName("DeleteUser")
+            .WithSummary("Deletes the account and, through events, its data in every service. Not your own account, nor the last administrator; requires holding every permission of its roles. Cannot be undone.")
+            .RequirePermission(Permissions.Auth.UsersDelete)
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
         users.MapPut("/{id:guid}/roles/{roleId:guid}", AssignRoleAsync)
             .WithName("AssignRole")
             .WithSummary("Gives the account a role. Requires holding every permission of the role.")
@@ -92,6 +102,9 @@ internal static class UserAdminEndpoints
 
     private static async Task<IResult> DisableAsync(Guid id, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
         => (await dispatcher.Send(new DisableUserCommand(id), cancellationToken)).ToHttpResult();
+
+    private static async Task<IResult> DeleteAsync(Guid id, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
+        => (await dispatcher.Send(new DeleteUserCommand(id), cancellationToken)).ToHttpResult();
 
     private static async Task<IResult> EnableAsync(Guid id, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
         => (await dispatcher.Send(new EnableUserCommand(id), cancellationToken)).ToHttpResult();

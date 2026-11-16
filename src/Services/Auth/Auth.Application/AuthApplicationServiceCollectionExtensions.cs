@@ -1,5 +1,6 @@
-using Auth.Application.UserTokens;
 using Auth.Application.Sessions;
+using Auth.Application.Users.DeleteAccount;
+using Auth.Application.UserTokens;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Shared.Application;
@@ -16,6 +17,7 @@ public static class AuthApplicationServiceCollectionExtensions
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<SessionTokens>();
         services.AddScoped<UserTokenIssuer>();
+        services.AddScoped<AccountDeletion>();
         services.AddSingleton<UnknownUserPassword>();
         services.AddSingleton<AuthMetrics>();
 
