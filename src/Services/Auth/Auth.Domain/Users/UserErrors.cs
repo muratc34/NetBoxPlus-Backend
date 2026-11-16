@@ -30,6 +30,8 @@ public static class UserErrors
 
     public static readonly Error NotFound = Error.NotFound("User.NotFound", "The user was not found.");
 
+    public static readonly Error EmailUnchanged = Error.Validation("User.EmailUnchanged", "The new e-mail address is the current one.");
+
     public static readonly Error EmailTaken = Error.Conflict("User.EmailTaken", "An account with this e-mail address already exists.");
 
     /// <summary>

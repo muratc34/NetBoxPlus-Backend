@@ -316,7 +316,9 @@
           "SubscriptionStarted",
           "SubscriptionResumed",
           "PaymentFailed",
-          "SubscriptionEnded"
+          "SubscriptionEnded",
+          "EmailChangeVerification",
+          "EmailChanged"
         ]
       },
       "EmailStatus": {

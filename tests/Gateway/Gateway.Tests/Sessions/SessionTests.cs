@@ -390,6 +390,43 @@ public sealed class SessionTests(ValkeyFixture valkey)
     }
 
     [Fact]
+    public async Task EmailChange_GoesToAuthWithTheSessionsToken_AndKeepsTheSession()
+    {
+        await using var harness = await SessionHarness.StartAsync(valkey);
+        var browser = harness.NewBrowser();
+        await browser.SignInAsync();
+        await browser.SendAsync(HttpMethod.Get, "/downstream/notes");
+        var accessToken = harness.Downstream.Received.Single().Headers["Authorization"]["Bearer ".Length..];
+
+        var wrong = await browser.SendAsync(HttpMethod.Post, "/session/email", new { password = "nope", newEmail = "new@example.com" });
+        var asked = await browser.SendAsync(HttpMethod.Post, "/session/email", new { password = FakeAuthService.Password, newEmail = "new@example.com" });
+        var after = await browser.SendAsync(HttpMethod.Get, "/session");
+
+        Assert.Equal("User.PasswordIncorrect", await CodeAsync(wrong));
+        Assert.Equal(HttpStatusCode.NoContent, asked.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, after.StatusCode);
+        Assert.All(harness.Auth.EmailChanges, change => Assert.Equal((accessToken, "new@example.com"), change));
+        Assert.Equal(2, harness.Auth.EmailChanges.Count);
+    }
+
+    [Fact]
+    public async Task EmailChange_NeedsTheSessionAndItsCsrfToken()
+    {
+        await using var harness = await SessionHarness.StartAsync(valkey);
+        var anonymous = harness.NewBrowser();
+        var noSession = await anonymous.SendAsync(HttpMethod.Post, "/session/email", new { password = FakeAuthService.Password, newEmail = "new@example.com" });
+        var browser = harness.NewBrowser();
+        await browser.SignInAsync();
+        browser.CsrfToken = "forged";
+
+        var forged = await browser.SendAsync(HttpMethod.Post, "/session/email", new { password = FakeAuthService.Password, newEmail = "new@example.com" });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, noSession.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, forged.StatusCode);
+        Assert.Empty(harness.Auth.EmailChanges);
+    }
+
+    [Fact]
     public async Task StoredSession_IsEncrypted_AndNotKeyedByTheCookie()
     {
         await using var harness = await SessionHarness.StartAsync(valkey);

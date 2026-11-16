@@ -48,6 +48,9 @@ public interface IPaymentGateway
     /// <summary>The provider's customer for the user, created at most once however often it is asked for.</summary>
     Task<Result<string>> EnsureCustomerAsync(Guid userId, string email, CancellationToken cancellationToken);
 
+    /// <summary>Puts the address on the provider's customer, where receipts go.</summary>
+    Task<Result> UpdateCustomerEmailAsync(string providerCustomerId, string email, CancellationToken cancellationToken);
+
     /// <summary>A page at the provider where the customer subscribes to the plan.</summary>
     Task<Result<Uri>> CreateCheckoutAsync(CheckoutRequest request, CancellationToken cancellationToken);
 

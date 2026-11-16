@@ -93,7 +93,7 @@ internal sealed partial class EmailDispatcher(
             return;
         }
 
-        var address = await context.Recipients.Where(recipient => recipient.Id == email.UserId).Select(recipient => recipient.Email)
+        var address = email.ToAddress ?? await context.Recipients.Where(recipient => recipient.Id == email.UserId).Select(recipient => recipient.Email)
             .FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
         var now = timeProvider.GetUtcNow();
         EmailDelivery? delivery = null;

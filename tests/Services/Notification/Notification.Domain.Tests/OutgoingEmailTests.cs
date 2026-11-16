@@ -8,6 +8,29 @@ public sealed class OutgoingEmailTests
 
     private static readonly EmailContent Content = new("Hoş geldin", "<p>Merhaba</p>", "Merhaba");
 
+    [Fact]
+    public void AFixedAddress_IsKeptUntilTheContentIsForgotten()
+    {
+        var sent = OutgoingEmail.Queue(Guid.CreateVersion7(), EmailKind.EmailChanged, "k", Content, Now, " old@example.com ").Value;
+        var failed = OutgoingEmail.Queue(Guid.CreateVersion7(), EmailKind.EmailChanged, "k", Content, Now, "old@example.com").Value;
+        Assert.Equal("old@example.com", sent.ToAddress);
+        Assert.Null(Queued().ToAddress);
+
+        sent.MarkSent(Now);
+        failed.MarkRejected("550");
+
+        Assert.Null(sent.ToAddress);
+        Assert.Equal("old@example.com", failed.ToAddress);
+        failed.Forget();
+        Assert.Null(failed.ToAddress);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("no-at-sign")]
+    public void AFixedAddressThatIsNoAddress_IsRefused(string address)
+        => Assert.Equal(OutgoingEmailErrors.ToAddressInvalid, OutgoingEmail.Queue(Guid.CreateVersion7(), EmailKind.EmailChanged, "k", Content, Now, address).Error);
+
     private static OutgoingEmail Queued() => OutgoingEmail.Queue(Guid.CreateVersion7(), EmailKind.Welcome, "user-1", Content, Now).Value;
 
     [Fact]

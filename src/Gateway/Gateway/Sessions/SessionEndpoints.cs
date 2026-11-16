@@ -9,6 +9,8 @@ public sealed record CredentialsRequest(string? Email, string? Password);
 
 public sealed record PasswordChangeRequest(string? CurrentPassword, string? NewPassword);
 
+public sealed record EmailChangeRequest(string? Password, string? NewEmail);
+
 public sealed record PasswordResetRequest(string? Email);
 
 public sealed record PasswordResetConfirmRequest(string? Token, string? NewPassword);
@@ -36,6 +38,11 @@ internal static class SessionEndpoints
             .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(RouteGroups.Public, next));
 
         customer.MapPost("/password", ChangePasswordAsync)
+            .RequireRateLimiting(RateLimitingServiceCollectionExtensions.CredentialsPolicy)
+            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(RouteGroups.Public, next));
+
+        // Takes the password and sends an e-mail: rate-limited like the password change.
+        customer.MapPost("/email", RequestEmailChangeAsync)
             .RequireRateLimiting(RateLimitingServiceCollectionExtensions.CredentialsPolicy)
             .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(RouteGroups.Public, next));
 
@@ -197,6 +204,36 @@ internal static class SessionEndpoints
     }
 
     /// <summary>Passes the auth service's answer on: 202 whether or not the address has an account.</summary>
+    /// <summary>
+    /// Asks the auth service to send a change link to the new address; the session stays as it is,
+    /// since the address is not part of it. The answer is passed on as it is.
+    /// </summary>
+    private static async Task<IResult> RequestEmailChangeAsync(
+        [FromBody] EmailChangeRequest request,
+        HttpContext context,
+        [FromServices] AuthClient auth,
+        [FromServices] SessionManager sessions)
+    {
+        var hadCookie = SessionCookies.Read(context, SessionKind.Customer) is not null;
+        if (await sessions.LoadAsync(context, SessionKind.Customer) is not { } loaded)
+        {
+            return Ended(context, SessionKind.Customer, hadCookie);
+        }
+
+        if (!RequestGuards.IsCsrfSafe(context, loaded.Session))
+        {
+            return GatewayProblem.CsrfInvalid;
+        }
+
+        var outcome = await sessions.EnsureFreshAsync(loaded);
+        if (outcome.Status != RefreshStatus.Fresh)
+        {
+            return outcome.Status == RefreshStatus.Ended ? Ended(context, SessionKind.Customer, hadCookie: true) : GatewayProblem.AuthUnavailable;
+        }
+
+        return new AuthProblemResult(await auth.RequestEmailChangeAsync(outcome.Session!.AccessToken, request.Password, request.NewEmail, context.RequestAborted));
+    }
+
     private static async Task<IResult> RequestPasswordResetAsync(
         [FromBody] PasswordResetRequest request,
         [FromServices] AuthClient auth,

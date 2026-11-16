@@ -24,6 +24,9 @@ public sealed class BillingCustomer : AggregateRoot, IAuditableEntity
 
     public string Email { get; private set; } = string.Empty;
 
+    /// <summary>The revision of <see cref="Email"/> as auth numbers it: 1 for the registration address, higher after each change.</summary>
+    public int EmailRevision { get; private set; } = 1;
+
     /// <summary>When the address was first proven, as auth reported it; a subscription needs it.</summary>
     public DateTimeOffset? EmailVerifiedAt { get; private set; }
 
@@ -38,6 +41,25 @@ public sealed class BillingCustomer : AggregateRoot, IAuditableEntity
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(email);
         return new BillingCustomer(Guid.CreateVersion7(), userId, email);
+    }
+
+    /// <summary>
+    /// Takes the address of a later revision; an older or the same revision changes nothing, so
+    /// changes may arrive in any order.
+    /// </summary>
+    /// <returns>Whether the address was taken.</returns>
+    public bool ChangeEmail(string email, int revision)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(email);
+
+        if (revision <= EmailRevision)
+        {
+            return false;
+        }
+
+        Email = email;
+        EmailRevision = revision;
+        return true;
     }
 
     /// <summary>Records the verification; the first time stays, whatever order the reports come in.</summary>

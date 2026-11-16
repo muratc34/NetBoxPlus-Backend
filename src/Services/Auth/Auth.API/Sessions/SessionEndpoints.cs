@@ -1,3 +1,4 @@
+using Auth.Application.EmailChange.RequestEmailChange;
 using Auth.Application.Sessions;
 using Auth.Application.Sessions.Refresh;
 using Auth.Application.Sessions.SignIn;
@@ -29,6 +30,8 @@ public sealed record SignInRequest(string Email, string Password);
 public sealed record RefreshRequest(string RefreshToken);
 
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
+
+public sealed record ChangeEmailRequest(string? Password, string? NewEmail);
 
 /// <summary>
 /// Accounts and sessions. The gateway calls these for the browser and keeps the tokens on its
@@ -93,6 +96,16 @@ internal static class SessionEndpoints
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status401Unauthorized);
 
+        sessions.MapPost("/me/email", ChangeEmailAsync)
+            .WithName("RequestEmailChange")
+            .WithSummary("Sends a link to the new address; the account moves there when the link is followed. Once a minute at most.")
+            .RequireAuthorization()
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
         return endpoints;
     }
 
@@ -141,6 +154,15 @@ internal static class SessionEndpoints
         CancellationToken cancellationToken)
         => (await dispatcher.Send(
             new ChangePasswordCommand(currentUser.Id!.Value, request.CurrentPassword, request.NewPassword),
+            cancellationToken)).ToHttpResult();
+
+    private static async Task<IResult> ChangeEmailAsync(
+        [FromBody] ChangeEmailRequest request,
+        [FromServices] ICurrentUser currentUser,
+        [FromServices] IDispatcher dispatcher,
+        CancellationToken cancellationToken)
+        => (await dispatcher.Send(
+            new RequestEmailChangeCommand(currentUser.Id!.Value, request.Password, request.NewEmail),
             cancellationToken)).ToHttpResult();
 
     private static async ValueTask<object?> NoStore(EndpointFilterInvocationContext context, EndpointFilterDelegate next)

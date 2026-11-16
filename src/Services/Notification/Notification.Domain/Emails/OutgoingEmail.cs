@@ -13,6 +13,12 @@ public enum EmailKind
     SubscriptionResumed,
     PaymentFailed,
     SubscriptionEnded,
+
+    /// <summary>The link that moves the account to a new address; sent to that address.</summary>
+    EmailChangeVerification,
+
+    /// <summary>The notice that the account moved; sent to the address it moved from.</summary>
+    EmailChanged,
 }
 
 public enum EmailStatus
@@ -28,7 +34,8 @@ public enum EmailStatus
 /// One e-mail to one user, waiting to be sent or sent. The content is made when it is queued and
 /// emptied once it is sent or has failed for good: a link with a token in it, or what a user was told,
 /// does not stay longer than needed. The address is read when it is sent, so an e-mail can be queued
-/// before the account service's registration has reached this service.
+/// before the account service's registration has reached this service, unless the e-mail must go to
+/// another address than the user's current one (<see cref="ToAddress"/>).
 /// </summary>
 public sealed class OutgoingEmail : AggregateRoot, IAuditableEntity
 {
@@ -50,10 +57,11 @@ public sealed class OutgoingEmail : AggregateRoot, IAuditableEntity
         TimeSpan.FromHours(12),
     ];
 
-    private OutgoingEmail(Guid id, Guid userId, EmailKind kind, string sourceKey, EmailContent content, DateTimeOffset now)
+    private OutgoingEmail(Guid id, Guid userId, EmailKind kind, string sourceKey, EmailContent content, string? toAddress, DateTimeOffset now)
         : base(id)
     {
         UserId = userId;
+        ToAddress = toAddress;
         Kind = kind;
         SourceKey = sourceKey;
         Subject = content.Subject;
@@ -80,6 +88,12 @@ public sealed class OutgoingEmail : AggregateRoot, IAuditableEntity
 
     public string? TextBody { get; private set; }
 
+    /// <summary>
+    /// The address fixed when it was queued, for an e-mail that does not go to the user's current
+    /// address: a change link to the new one, a notice to the old one. Emptied with the content.
+    /// </summary>
+    public string? ToAddress { get; private set; }
+
     public EmailStatus Status { get; private set; }
 
     public int Attempts { get; private set; }
@@ -94,7 +108,8 @@ public sealed class OutgoingEmail : AggregateRoot, IAuditableEntity
 
     public DateTimeOffset? ModifiedAt { get; private set; }
 
-    public static Result<OutgoingEmail> Queue(Guid userId, EmailKind kind, string sourceKey, EmailContent content, DateTimeOffset now)
+    /// <param name="toAddress">Only when the e-mail must not go to the user's current address.</param>
+    public static Result<OutgoingEmail> Queue(Guid userId, EmailKind kind, string sourceKey, EmailContent content, DateTimeOffset now, string? toAddress = null)
     {
         ArgumentNullException.ThrowIfNull(content);
 
@@ -113,7 +128,12 @@ public sealed class OutgoingEmail : AggregateRoot, IAuditableEntity
             return OutgoingEmailErrors.SubjectInvalid;
         }
 
-        return new OutgoingEmail(Guid.CreateVersion7(), userId, kind, sourceKey, content, now);
+        if (toAddress is not null && (string.IsNullOrWhiteSpace(toAddress) || toAddress.Length > Recipients.Recipient.EmailMaxLength || !toAddress.Contains('@', StringComparison.Ordinal)))
+        {
+            return OutgoingEmailErrors.ToAddressInvalid;
+        }
+
+        return new OutgoingEmail(Guid.CreateVersion7(), userId, kind, sourceKey, content, toAddress?.Trim(), now);
     }
 
     /// <summary>The provider took it.</summary>
@@ -175,6 +195,7 @@ public sealed class OutgoingEmail : AggregateRoot, IAuditableEntity
     {
         HtmlBody = null;
         TextBody = null;
+        ToAddress = null;
     }
 
     private void Fail() => Status = EmailStatus.Failed;
@@ -192,6 +213,8 @@ public static class OutgoingEmailErrors
     public static readonly Error UserRequired = Error.Validation("Email.UserRequired", "The user id is required.");
 
     public static readonly Error SourceKeyInvalid = Error.Validation("Email.SourceKeyInvalid", $"The source key is required, at most {OutgoingEmail.SourceKeyMaxLength} characters.");
+
+    public static readonly Error ToAddressInvalid = Error.Validation("Email.ToAddressInvalid", $"The address is at most {Recipients.Recipient.EmailMaxLength} characters.");
 
     public static readonly Error SubjectInvalid = Error.Validation("Email.SubjectInvalid", $"The subject is required, at most {OutgoingEmail.SubjectMaxLength} characters.");
 

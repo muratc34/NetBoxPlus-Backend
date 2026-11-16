@@ -28,6 +28,9 @@ internal sealed class UserTokenIssuer(IUserTokenRepository tokens, TimeProvider 
     public UserToken IssuePasswordReset(Guid userId)
         => Add(UserToken.IssuePasswordReset(userId, NewValue(out var hash), hash, timeProvider.GetUtcNow()));
 
+    public UserToken IssueEmailChange(Guid userId, string newEmail)
+        => Add(UserToken.IssueEmailChange(userId, newEmail, NewValue(out var hash), hash, timeProvider.GetUtcNow()));
+
     private static string NewValue(out byte[] hash)
     {
         var value = Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(ValueLength));
@@ -62,5 +65,15 @@ internal sealed class PublishPasswordResetRequested(IIntegrationEventPublisher p
     public Task Handle(PasswordResetTokenIssuedDomainEvent domainEvent, CancellationToken cancellationToken)
         => publisher.PublishAsync(
             new PasswordResetRequested(domainEvent.UserId, domainEvent.TokenId, domainEvent.Token, domainEvent.ExpiresAt, timeProvider.GetUtcNow()),
+            cancellationToken);
+}
+
+/// <inheritdoc cref="PublishEmailVerificationRequested"/>
+internal sealed class PublishEmailChangeRequested(IIntegrationEventPublisher publisher, TimeProvider timeProvider)
+    : IDomainEventHandler<EmailChangeTokenIssuedDomainEvent>
+{
+    public Task Handle(EmailChangeTokenIssuedDomainEvent domainEvent, CancellationToken cancellationToken)
+        => publisher.PublishAsync(
+            new EmailChangeRequested(domainEvent.UserId, domainEvent.TokenId, domainEvent.Token, domainEvent.NewEmail, domainEvent.ExpiresAt, timeProvider.GetUtcNow()),
             cancellationToken);
 }

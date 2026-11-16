@@ -43,6 +43,7 @@ internal sealed class BillingCustomerConfiguration : IEntityTypeConfiguration<Bi
         builder.HasKey(customer => customer.Id);
         builder.Property(customer => customer.Id).ValueGeneratedNever();
         builder.Property(customer => customer.Email).HasMaxLength(BillingCustomer.EmailMaxLength).IsRequired();
+        builder.Property(customer => customer.EmailRevision).HasDefaultValue(1).ValueGeneratedNever();
         builder.Property(customer => customer.ProviderCustomerId).HasMaxLength(BillingCustomer.ProviderCustomerIdMaxLength);
         builder.HasIndex(customer => customer.UserId).IsUnique();
         builder.HasIndex(customer => customer.ProviderCustomerId).IsUnique();

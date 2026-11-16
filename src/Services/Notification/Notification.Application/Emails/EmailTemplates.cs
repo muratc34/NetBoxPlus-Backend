@@ -50,6 +50,46 @@ internal static class EmailTemplates
             ("Şifremi sıfırla", link));
     }
 
+    /// <param name="validFor">How long the link still works; shown in whole hours, at least one.</param>
+    public static EmailContent EmailChangeVerification(Uri link, TimeSpan validFor)
+    {
+        ArgumentNullException.ThrowIfNull(link);
+        var hours = Math.Max(1, (int)Math.Round(validFor.TotalHours, MidpointRounding.AwayFromZero));
+        return Render(
+            "Yeni e-posta adresini onayla",
+            [
+                "NetBoxPlus hesabının e-posta adresini bu adresle değiştirmek istedin. Değişikliği tamamlamak için aşağıdaki bağlantıyı aç.",
+                $"Bağlantı {hours} saat geçerli ve yalnızca bir kez kullanılabilir. Bağlantıyı açana kadar hesabın eski adresinde kalır.",
+                "Bu isteği sen yapmadıysan bu e-postayı yok sayabilirsin; hesap değişmez.",
+            ],
+            ("Adresimi onayla", link));
+    }
+
+    /// <param name="newEmail">Shown masked, so that a reader of the old mailbox learns no more than needed.</param>
+    /// <param name="changedAt">Shown in UTC: users have no time zone preference yet.</param>
+    /// <param name="reset">Where to reset the password if it was not the user who changed it.</param>
+    public static EmailContent EmailChanged(string newEmail, DateTimeOffset changedAt, Uri reset)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(newEmail);
+        ArgumentNullException.ThrowIfNull(reset);
+        var when = changedAt.ToUniversalTime().ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
+        return Render(
+            "E-posta adresin değiştirildi",
+            [
+                $"NetBoxPlus hesabının e-posta adresi {when} (UTC) tarihinde {Mask(newEmail)} olarak değiştirildi. Bundan sonraki e-postalar o adrese gidecek.",
+                "Bunu sen yaptıysan başka bir şey yapmana gerek yok.",
+                "Sen yapmadıysan hemen şifreni sıfırla ve bize ulaş.",
+            ],
+            ("Şifremi sıfırla", reset));
+    }
+
+    /// <summary>The first letter of the local part and the whole domain: <c>m***@example.com</c>.</summary>
+    internal static string Mask(string email)
+    {
+        var at = email.IndexOf('@', StringComparison.Ordinal);
+        return at <= 0 ? "***" : string.Concat(email.AsSpan(0, 1), "***", email.AsSpan(at));
+    }
+
     /// <param name="changedAt">Shown in UTC: users have no time zone preference yet.</param>
     /// <param name="reset">Where to reset the password if it was not the user who changed it.</param>
     public static EmailContent PasswordChanged(DateTimeOffset changedAt, Uri reset)

@@ -132,6 +132,116 @@ public sealed class CustomerTests(BillingDatabaseFixture database)
         Assert.Empty(await CustomersAsync(services));
     }
 
+    [Fact]
+    public async Task AChangedAddress_ReachesTheCustomer_AndThePaymentProvider()
+    {
+        var payments = new FakePaymentGateway();
+        await using var services = await database.CreateServicesAsync(payments);
+        var user = Guid.NewGuid();
+        await DeliverAsync(services, Guid.NewGuid(), new UserRegistered(user, "old@example.com", DateTimeOffset.UnixEpoch));
+        await LinkProviderAsync(services, user, "cus_changed");
+
+        Assert.True(await DeliverChangedAsync(services, Guid.NewGuid(), new EmailChanged(user, "new@example.com", 2, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch), expectSuccess: true));
+
+        var customer = Assert.Single(await CustomersAsync(services));
+        Assert.Equal(("new@example.com", 2), (customer.Email, customer.EmailRevision));
+        Assert.Equal(("cus_changed", "new@example.com"), Assert.Single(payments.EmailUpdates));
+    }
+
+    [Fact]
+    public async Task AnOlderChange_ArrivingLate_ChangesNothing()
+    {
+        var payments = new FakePaymentGateway();
+        await using var services = await database.CreateServicesAsync(payments);
+        var user = Guid.NewGuid();
+        await DeliverAsync(services, Guid.NewGuid(), new UserRegistered(user, "first@example.com", DateTimeOffset.UnixEpoch));
+        await LinkProviderAsync(services, user, "cus_order");
+
+        await DeliverChangedAsync(services, Guid.NewGuid(), new EmailChanged(user, "third@example.com", 3, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch), expectSuccess: true);
+        Assert.True(await DeliverChangedAsync(services, Guid.NewGuid(), new EmailChanged(user, "second@example.com", 2, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch), expectSuccess: true));
+
+        var customer = Assert.Single(await CustomersAsync(services));
+        Assert.Equal(("third@example.com", 3), (customer.Email, customer.EmailRevision));
+        Assert.Equal(("cus_order", "third@example.com"), Assert.Single(payments.EmailUpdates));
+    }
+
+    [Fact]
+    public async Task AChangeBeforeTheRegistration_MakesTheCustomer_WithoutCallingTheProvider()
+    {
+        var payments = new FakePaymentGateway();
+        await using var services = await database.CreateServicesAsync(payments);
+        var user = Guid.NewGuid();
+
+        Assert.True(await DeliverChangedAsync(services, Guid.NewGuid(), new EmailChanged(user, "moved@example.com", 2, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch), expectSuccess: true));
+        Assert.True(await DeliverAsync(services, Guid.NewGuid(), new UserRegistered(user, "registered@example.com", DateTimeOffset.UnixEpoch), expectSuccess: true));
+
+        var customer = Assert.Single(await CustomersAsync(services));
+        Assert.Equal(("moved@example.com", 2), (customer.Email, customer.EmailRevision));
+        Assert.Empty(payments.EmailUpdates);
+    }
+
+    [Fact]
+    public async Task AnUnreachableProvider_IsRetried_NotRecorded()
+    {
+        var payments = new FakePaymentGateway();
+        await using var services = await database.CreateServicesAsync(payments);
+        var user = Guid.NewGuid();
+        var message = Guid.NewGuid();
+        var changed = new EmailChanged(user, "retry@example.com", 2, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch);
+        await DeliverAsync(services, Guid.NewGuid(), new UserRegistered(user, "before@example.com", DateTimeOffset.UnixEpoch));
+        await LinkProviderAsync(services, user, "cus_retry");
+        payments.FailWith = Billing.Application.Abstractions.PaymentErrors.Unavailable;
+
+        await Assert.ThrowsAsync<Billing.Application.Customers.ChangeCustomerEmail.PaymentProviderUnavailableException>(() => DeliverChangedAsync(services, message, changed));
+        Assert.Equal("before@example.com", Assert.Single(await CustomersAsync(services)).Email);
+
+        payments.Reset();
+        Assert.True(await DeliverChangedAsync(services, message, changed, expectSuccess: true));
+        Assert.Equal("retry@example.com", Assert.Single(await CustomersAsync(services)).Email);
+        Assert.Equal(("cus_retry", "retry@example.com"), Assert.Single(payments.EmailUpdates));
+    }
+
+    [Fact]
+    public async Task AProviderThatRefuses_LeavesBillingsOwnCopyChanged()
+    {
+        var payments = new FakePaymentGateway { FailWith = Billing.Application.Abstractions.PaymentErrors.ProviderRejected };
+        await using var services = await database.CreateServicesAsync(payments);
+        var user = Guid.NewGuid();
+        await DeliverAsync(services, Guid.NewGuid(), new UserRegistered(user, "before@example.com", DateTimeOffset.UnixEpoch));
+        await LinkProviderAsync(services, user, "cus_gone");
+
+        Assert.True(await DeliverChangedAsync(services, Guid.NewGuid(), new EmailChanged(user, "kept@example.com", 2, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch), expectSuccess: true));
+
+        Assert.Equal("kept@example.com", Assert.Single(await CustomersAsync(services)).Email);
+    }
+
+    private static async Task LinkProviderAsync(ServiceProvider services, Guid user, string providerCustomerId)
+    {
+        await using var scope = services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<BillingDbContext>().Customers
+            .Where(customer => customer.UserId == user)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(customer => customer.ProviderCustomerId, providerCustomerId), Cancellation);
+    }
+
+    private static async Task<bool> DeliverChangedAsync(ServiceProvider services, Guid messageId, EmailChanged changed, bool expectSuccess = false)
+    {
+        await using var scope = services.CreateAsyncScope();
+        var handler = Assert.Single(scope.ServiceProvider.GetServices<IIntegrationEventHandler<EmailChanged>>());
+        Assert.Equal("Billing.Application.Customers.ChangeCustomerEmailOnEmailChanged", handler.GetType().FullName);
+
+        return await scope.ServiceProvider.GetRequiredService<IInbox>()
+            .ProcessOnceAsync(
+                messageId,
+                handler.GetType().FullName!,
+                async token =>
+                {
+                    var result = await handler.Handle(changed, token);
+                    Assert.True(!expectSuccess || result.IsSuccess, result.IsFailure ? result.Error.Code : null);
+                    return result;
+                },
+                Cancellation);
+    }
+
     private static async Task<bool> DeliverVerifiedAsync(ServiceProvider services, Guid messageId, EmailVerified verified, bool expectSuccess = false)
     {
         await using var scope = services.CreateAsyncScope();

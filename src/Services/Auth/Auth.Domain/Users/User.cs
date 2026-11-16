@@ -35,6 +35,12 @@ public sealed class User : AggregateRoot, IAuditableEntity
 
     public EmailAddress Email { get; private set; } = null!;
 
+    /// <summary>
+    /// Goes up with every change of <see cref="Email"/>, starting at 1 for the address the account was
+    /// registered with. Services that copy the address apply a change only if its revision is higher.
+    /// </summary>
+    public int EmailRevision { get; private set; } = 1;
+
     public string PasswordHash { get; private set; } = string.Empty;
 
     /// <summary>
@@ -132,6 +138,33 @@ public sealed class User : AggregateRoot, IAuditableEntity
 
         EmailVerifiedAt = now;
         RaiseDomainEvent(new EmailVerifiedDomainEvent(Id, Email.Value, now));
+    }
+
+    /// <summary>
+    /// Moves the account to <paramref name="email"/>, after the user followed the link sent there: the
+    /// new address is verified by it. The first verification of the account is announced as well.
+    /// </summary>
+    public void ChangeEmail(EmailAddress email, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(email);
+
+        if (email == Email)
+        {
+            return;
+        }
+
+        Email = email;
+        EmailRevision++;
+        RaiseDomainEvent(new EmailChangedDomainEvent(Id, email.Value, EmailRevision, now));
+
+        if (EmailVerifiedAt is null)
+        {
+            VerifyEmail(now);
+        }
+        else
+        {
+            EmailVerifiedAt = now;
+        }
     }
 
     public void Disable() => IsDisabled = true;
@@ -249,4 +282,7 @@ public sealed record UserRegisteredDomainEvent(Guid UserId, string Email) : IDom
 public sealed record PasswordChangedDomainEvent(Guid UserId, Guid ChangeId, DateTimeOffset ChangedAt) : IDomainEvent;
 
 /// <summary>The address was proven for the first time.</summary>
+/// <summary>The account moved to a new address; <paramref name="Revision"/> is the new <see cref="User.EmailRevision"/>.</summary>
+public sealed record EmailChangedDomainEvent(Guid UserId, string Email, int Revision, DateTimeOffset ChangedAt) : IDomainEvent;
+
 public sealed record EmailVerifiedDomainEvent(Guid UserId, string Email, DateTimeOffset VerifiedAt) : IDomainEvent;

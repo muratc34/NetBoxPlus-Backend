@@ -43,6 +43,7 @@ app.MapRoleAdminEndpoints();
 app.MapProfileEndpoints();
 app.MapEmailVerificationEndpoints();
 app.MapPasswordResetEndpoints();
+app.MapEmailChangeEndpoints();
 app.MapDefaultEndpoints();
 
 app.Run();

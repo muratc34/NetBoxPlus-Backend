@@ -11,10 +11,11 @@ public sealed class Recipient : AggregateRoot
     /// <summary>The longest address the account service accepts.</summary>
     public const int EmailMaxLength = 320;
 
-    private Recipient(Guid userId, string email)
+    private Recipient(Guid userId, string email, int emailRevision)
         : base(userId)
     {
         Email = email;
+        EmailRevision = emailRevision;
     }
 
     /// <summary>Used by EF Core when materializing.</summary>
@@ -24,20 +25,53 @@ public sealed class Recipient : AggregateRoot
 
     public string Email { get; private set; } = string.Empty;
 
-    public static Result<Recipient> Create(Guid userId, string? email)
+    /// <summary>The revision of <see cref="Email"/> as the account service numbers it: 1 for the registration address.</summary>
+    public int EmailRevision { get; private set; } = 1;
+
+    /// <param name="emailRevision">1 for the registration address; higher when the first news of the user is a change.</param>
+    public static Result<Recipient> Create(Guid userId, string? email, int emailRevision = 1)
     {
         if (userId == Guid.Empty)
         {
             return RecipientErrors.UserRequired;
         }
 
-        var trimmed = email?.Trim();
-        if (string.IsNullOrEmpty(trimmed) || trimmed.Length > EmailMaxLength || !trimmed.Contains('@', StringComparison.Ordinal))
+        var address = Normalize(email);
+        if (address is null)
         {
             return RecipientErrors.EmailInvalid;
         }
 
-        return new Recipient(userId, trimmed);
+        return new Recipient(userId, address, Math.Max(1, emailRevision));
+    }
+
+    /// <summary>
+    /// Takes the address of a later revision; an older or the same revision changes nothing, so changes
+    /// may arrive in any order.
+    /// </summary>
+    /// <returns>Whether the address was taken.</returns>
+    public Result<bool> ChangeEmail(string? email, int revision)
+    {
+        var address = Normalize(email);
+        if (address is null)
+        {
+            return RecipientErrors.EmailInvalid;
+        }
+
+        if (revision <= EmailRevision)
+        {
+            return false;
+        }
+
+        Email = address;
+        EmailRevision = revision;
+        return true;
+    }
+
+    private static string? Normalize(string? email)
+    {
+        var trimmed = email?.Trim();
+        return string.IsNullOrEmpty(trimmed) || trimmed.Length > EmailMaxLength || !trimmed.Contains('@', StringComparison.Ordinal) ? null : trimmed;
     }
 }
 
@@ -51,6 +85,8 @@ public static class RecipientErrors
 public interface IRecipientRepository
 {
     Task<bool> ExistsAsync(Guid userId, CancellationToken cancellationToken);
+
+    Task<Recipient?> GetAsync(Guid userId, CancellationToken cancellationToken);
 
     void Add(Recipient recipient);
 }

@@ -63,6 +63,9 @@ public sealed class FakeAuthService : IAsyncDisposable
     /// <summary>Bearer tokens that came with password changes.</summary>
     public ConcurrentQueue<string> PasswordChanges { get; } = new();
 
+    /// <summary>Bearer tokens and new addresses that came with e-mail change requests.</summary>
+    public ConcurrentQueue<(string Bearer, string? NewEmail)> EmailChanges { get; } = new();
+
     /// <summary>Addresses for which a password reset was asked.</summary>
     public ConcurrentQueue<string?> PasswordResetRequests { get; } = new();
 
@@ -93,6 +96,12 @@ public sealed class FakeAuthService : IAsyncDisposable
             return request.CurrentPassword == Password
                 ? Results.Ok(service.Issue(new Account(new JsonWebToken(bearer).Subject, "customer@example.com", false), service.RefreshedAccessTokenLifetime))
                 : Problem(400, "User.PasswordIncorrect");
+        });
+
+        app.MapPost("/me/email", (HttpContext context, EmailRequest request) =>
+        {
+            service.EmailChanges.Enqueue((context.Request.Headers.Authorization.ToString()["Bearer ".Length..], request.NewEmail));
+            return request.Password == Password ? Results.NoContent() : Problem(400, "User.PasswordIncorrect");
         });
 
         app.MapPost("/password-reset", (ResetRequest request) =>
@@ -190,6 +199,8 @@ public sealed class FakeAuthService : IAsyncDisposable
     public sealed record PasswordRequest(string? CurrentPassword, string? NewPassword);
 
     public sealed record ResetRequest(string? Email);
+
+    public sealed record EmailRequest(string? Password, string? NewEmail);
 
     public sealed record ResetConfirmRequest(string? Token, string? NewPassword);
 }

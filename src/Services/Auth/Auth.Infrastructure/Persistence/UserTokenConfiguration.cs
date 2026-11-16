@@ -16,6 +16,7 @@ internal sealed class UserTokenConfiguration : IEntityTypeConfiguration<UserToke
         builder.Property(token => token.Purpose).HasConversion<string>().HasMaxLength(32);
         builder.Property(token => token.TokenHash).HasMaxLength(UserToken.HashLength).IsRequired();
         builder.HasIndex(token => token.TokenHash).IsUnique();
+        builder.Property(token => token.Email).HasMaxLength(EmailAddress.MaxLength);
         builder.HasIndex(token => new { token.UserId, token.Purpose, token.CreatedAt });
 
         builder.HasOne<User>()

@@ -18,7 +18,11 @@ public sealed class UserTokenTests
         Assert.True(token.IsActive(Now));
         var issued = Assert.IsType<EmailVerificationTokenIssuedDomainEvent>(Assert.Single(token.DomainEvents));
         Assert.Equal(new EmailVerificationTokenIssuedDomainEvent(UserId, token.Id, "raw-value", token.ExpiresAt), issued);
-        Assert.DoesNotContain(typeof(UserToken).GetProperties(), property => property.PropertyType == typeof(string));
+        // The value is never kept: the only text a token stores is an e-mail change's new address.
+        Assert.Equal(
+            [nameof(UserToken.Email)],
+            typeof(UserToken).GetProperties().Where(property => property.PropertyType == typeof(string)).Select(property => property.Name));
+        Assert.Null(token.Email);
     }
 
     [Fact]
@@ -32,6 +36,26 @@ public sealed class UserTokenTests
         Assert.False(token.IsActive(token.ExpiresAt));
         var issued = Assert.IsType<PasswordResetTokenIssuedDomainEvent>(Assert.Single(token.DomainEvents));
         Assert.Equal(new PasswordResetTokenIssuedDomainEvent(UserId, token.Id, "raw-value", token.ExpiresAt), issued);
+    }
+
+    [Fact]
+    public void IssueEmailChange_KeepsTheNewAddress_LivesADay_AndHandsTheValueOnlyToItsEvent()
+    {
+        var token = UserToken.IssueEmailChange(UserId, "new@example.com", "raw-value", Hash(3), Now);
+
+        Assert.Equal((UserTokenPurpose.EmailChange, "new@example.com", Now + TimeSpan.FromHours(24)), (token.Purpose, token.Email, token.ExpiresAt));
+        Assert.Equal(Hash(3), token.TokenHash);
+        var issued = Assert.IsType<EmailChangeTokenIssuedDomainEvent>(Assert.Single(token.DomainEvents));
+        Assert.Equal(new EmailChangeTokenIssuedDomainEvent(UserId, token.Id, "raw-value", "new@example.com", token.ExpiresAt), issued);
+        Assert.Null(UserToken.IssuePasswordReset(UserId, "raw-value", Hash(2), Now).Email);
+    }
+
+    [Fact]
+    public void AnEmailChangeTokenWithoutValidInput_IsAProgrammingError()
+    {
+        Assert.ThrowsAny<ArgumentException>(() => UserToken.IssueEmailChange(UserId, " ", "raw-value", Hash(1), Now));
+        Assert.ThrowsAny<ArgumentException>(() => UserToken.IssueEmailChange(UserId, "new@example.com", " ", Hash(1), Now));
+        Assert.Throws<ArgumentException>(() => UserToken.IssueEmailChange(UserId, "new@example.com", "raw-value", new byte[31], Now));
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+using Billing.Application.Abstractions;
 using Billing.Application;
 using Billing.Infrastructure;
 using Billing.Infrastructure.Persistence;
@@ -37,7 +38,8 @@ public sealed class BillingDatabaseFixture : IAsyncLifetime
         }
     }
 
-    public async Task<ServiceProvider> CreateServicesAsync()
+    /// <param name="payments">Stands in for the payment provider; a fresh fake when not given.</param>
+    public async Task<ServiceProvider> CreateServicesAsync(FakePaymentGateway? payments = null)
     {
         Assert.SkipUnless(IsAvailable, SkipReason);
 
@@ -51,6 +53,7 @@ public sealed class BillingDatabaseFixture : IAsyncLifetime
         services.AddBillingApplication();
         services.AddBillingPersistence(connectionString);
         services.RetryLostConnectionAttempts<BillingDbContext>();
+        services.AddSingleton<IPaymentGateway>(payments ?? new FakePaymentGateway());
 
         var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
 

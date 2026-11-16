@@ -7,10 +7,13 @@ public enum UserTokenPurpose
 {
     EmailVerification,
     PasswordReset,
+
+    /// <summary>Moves the account to the address in <see cref="UserToken.Email"/>, which the link was sent to.</summary>
+    EmailChange,
 }
 
 /// <summary>
-/// A single-use token sent to the user by e-mail: an e-mail verification or a password reset link. Only the
+/// A single-use token sent to the user by e-mail: an e-mail verification, a password reset or an e-mail change link. Only the
 /// SHA-256 hash of its value is stored; the value itself leaves in the domain event and reaches the
 /// user only through the notification service.
 /// </summary>
@@ -32,7 +35,12 @@ public sealed class UserToken : AggregateRoot
     /// </summary>
     public static readonly TimeSpan PasswordResetCooldown = TimeSpan.FromSeconds(60);
 
-    private UserToken(Guid id, Guid userId, UserTokenPurpose purpose, byte[] tokenHash, DateTimeOffset createdAt, DateTimeOffset expiresAt)
+    public static readonly TimeSpan EmailChangeLifetime = TimeSpan.FromHours(24);
+
+    /// <summary>A new e-mail change cannot be asked for sooner than this after the last one.</summary>
+    public static readonly TimeSpan EmailChangeCooldown = TimeSpan.FromSeconds(60);
+
+    private UserToken(Guid id, Guid userId, UserTokenPurpose purpose, byte[] tokenHash, DateTimeOffset createdAt, DateTimeOffset expiresAt, string? email = null)
         : base(id)
     {
         UserId = userId;
@@ -40,6 +48,7 @@ public sealed class UserToken : AggregateRoot
         TokenHash = tokenHash;
         CreatedAt = createdAt;
         ExpiresAt = expiresAt;
+        Email = email;
     }
 
     /// <summary>Used by EF Core when materializing.</summary>
@@ -56,6 +65,9 @@ public sealed class UserToken : AggregateRoot
     public DateTimeOffset CreatedAt { get; private set; }
 
     public DateTimeOffset ExpiresAt { get; private set; }
+
+    /// <summary>For an e-mail change: the new address, which the link was sent to. Null for the other purposes.</summary>
+    public string? Email { get; private set; }
 
     public DateTimeOffset? UsedAt { get; private set; }
 
@@ -92,6 +104,23 @@ public sealed class UserToken : AggregateRoot
         return token;
     }
 
+    /// <summary>
+    /// A new e-mail change token for <paramref name="newEmail"/>, which the link goes to: following it
+    /// proves the user owns the new address. <paramref name="value"/> is only carried by the domain
+    /// event, which hands it on to be e-mailed; it is never stored.
+    /// </summary>
+    public static UserToken IssueEmailChange(Guid userId, string newEmail, string value, byte[] tokenHash, DateTimeOffset now)
+    {
+        Ensure.NotEmpty(userId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(newEmail);
+        ArgumentException.ThrowIfNullOrWhiteSpace(value);
+        CheckHash(tokenHash);
+
+        var token = new UserToken(Guid.CreateVersion7(), userId, UserTokenPurpose.EmailChange, tokenHash, now, now + EmailChangeLifetime, newEmail);
+        token.RaiseDomainEvent(new EmailChangeTokenIssuedDomainEvent(userId, token.Id, value, newEmail, token.ExpiresAt));
+        return token;
+    }
+
     /// <summary>Not used, not revoked and not expired.</summary>
     public bool IsActive(DateTimeOffset now) => UsedAt is null && RevokedAt is null && ExpiresAt > now;
 
@@ -121,6 +150,9 @@ public sealed record EmailVerificationTokenIssuedDomainEvent(Guid UserId, Guid T
 /// <summary>Carries the token value, in memory only, to the handler that publishes it for the e-mail.</summary>
 public sealed record PasswordResetTokenIssuedDomainEvent(Guid UserId, Guid TokenId, string Token, DateTimeOffset ExpiresAt) : IDomainEvent;
 
+/// <summary>Carries the token value and the new address, in memory only, to the handler that publishes them for the e-mail.</summary>
+public sealed record EmailChangeTokenIssuedDomainEvent(Guid UserId, Guid TokenId, string Token, string NewEmail, DateTimeOffset ExpiresAt) : IDomainEvent;
+
 public static class UserTokenErrors
 {
     /// <summary>
@@ -143,6 +175,18 @@ public static class UserTokenErrors
     public static readonly Error PasswordResetInvalid = Error.Validation(
         "PasswordReset.TokenInvalid",
         "The password reset link is not valid or has expired. Ask for a new one.");
+
+    /// <summary>
+    /// Unknown, expired, used or replaced, or the account is disabled: the caller cannot tell which,
+    /// and asks for a new link.
+    /// </summary>
+    public static readonly Error EmailChangeInvalid = Error.Validation(
+        "EmailChange.TokenInvalid",
+        "The e-mail change link is not valid or has expired. Ask for a new one.");
+
+    public static readonly Error EmailChangeRequestedRecently = Error.Conflict(
+        "EmailChange.RequestedRecently",
+        "An e-mail change link was sent moments ago. Wait a minute before asking again.");
 }
 
 /// <summary>

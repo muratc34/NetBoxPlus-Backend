@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Notification.Domain.Emails;
+using Notification.Domain.Recipients;
 
 namespace Notification.Infrastructure.Persistence;
 
@@ -18,6 +19,7 @@ internal sealed class OutgoingEmailConfiguration : IEntityTypeConfiguration<Outg
         builder.Property(email => email.Status).HasConversion<string>().HasMaxLength(16);
         builder.Property(email => email.SourceKey).HasMaxLength(OutgoingEmail.SourceKeyMaxLength).IsRequired();
         builder.Property(email => email.Subject).HasMaxLength(OutgoingEmail.SubjectMaxLength).IsRequired();
+        builder.Property(email => email.ToAddress).HasMaxLength(Recipient.EmailMaxLength);
         builder.Property(email => email.LastError).HasMaxLength(OutgoingEmail.LastErrorMaxLength);
         builder.Property<DateTimeOffset?>(LeasedUntil);
 

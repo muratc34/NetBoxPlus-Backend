@@ -12,6 +12,7 @@ internal sealed class RecipientConfiguration : IEntityTypeConfiguration<Recipien
         builder.HasKey(recipient => recipient.Id);
         builder.Property(recipient => recipient.Id).ValueGeneratedNever();
         builder.Property(recipient => recipient.Email).HasMaxLength(Recipient.EmailMaxLength).IsRequired();
+        builder.Property(recipient => recipient.EmailRevision).HasDefaultValue(1).ValueGeneratedNever();
     }
 }
 
@@ -19,6 +20,9 @@ internal sealed class RecipientRepository(NotificationDbContext context) : IReci
 {
     public Task<bool> ExistsAsync(Guid userId, CancellationToken cancellationToken)
         => context.Recipients.AnyAsync(recipient => recipient.Id == userId, cancellationToken);
+
+    public Task<Recipient?> GetAsync(Guid userId, CancellationToken cancellationToken)
+        => context.Recipients.FirstOrDefaultAsync(recipient => recipient.Id == userId, cancellationToken);
 
     public void Add(Recipient recipient) => context.Recipients.Add(recipient);
 }

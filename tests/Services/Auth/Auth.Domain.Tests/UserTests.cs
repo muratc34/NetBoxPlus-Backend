@@ -230,5 +230,48 @@ public sealed class UserTests
         Assert.ThrowsAny<ArgumentException>(() => user.ResetPassword(hash, now));
     }
 
+    [Fact]
+    public void ChangeEmail_MovesTheAccount_RaisesTheNextRevision_AndVerifiesTheFirstTime()
+    {
+        var user = NewUser();
+        user.ClearDomainEvents();
+        var newEmail = EmailAddress.Create("jane.new@example.com").Value;
+
+        user.ChangeEmail(newEmail, Now);
+
+        Assert.Equal((newEmail, 2, Now), (user.Email, user.EmailRevision, user.EmailVerifiedAt));
+        Assert.Equal(
+            [new EmailChangedDomainEvent(user.Id, "jane.new@example.com", 2, Now), new EmailVerifiedDomainEvent(user.Id, "jane.new@example.com", Now)],
+            user.DomainEvents);
+    }
+
+    [Fact]
+    public void ChangeEmail_OfAVerifiedAccount_KeepsItVerified_WithoutAnnouncingIt()
+    {
+        var user = NewUser();
+        user.VerifyEmail(Now);
+        user.ClearDomainEvents();
+        var later = Now.AddDays(3);
+
+        user.ChangeEmail(EmailAddress.Create("jane.new@example.com").Value, later);
+        user.ChangeEmail(EmailAddress.Create("jane.third@example.com").Value, later.AddDays(1));
+
+        Assert.Equal((3, later.AddDays(1)), (user.EmailRevision, user.EmailVerifiedAt));
+        Assert.Equal([2, 3], user.DomainEvents.OfType<EmailChangedDomainEvent>().Select(changed => changed.Revision));
+        Assert.Empty(user.DomainEvents.OfType<EmailVerifiedDomainEvent>());
+    }
+
+    [Fact]
+    public void ChangeEmail_ToTheSameAddress_ChangesNothing()
+    {
+        var user = NewUser();
+        user.ClearDomainEvents();
+
+        user.ChangeEmail(EmailAddress.Create("JANE@example.com").Value, Now);
+
+        Assert.Equal((1, (DateTimeOffset?)null), (user.EmailRevision, user.EmailVerifiedAt));
+        Assert.Empty(user.DomainEvents);
+    }
+
     private static User NewUser() => User.Register(EmailAddress.Create("jane@example.com").Value, "hash");
 }

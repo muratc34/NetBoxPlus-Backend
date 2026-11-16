@@ -5,7 +5,7 @@ mikroservisler, servis başına Clean Architecture, ortak kod `src/BuildingBlock
 Her geliştirmeden sonra bu dosya ve ilgili doküman güncellenir.
 
 - Kararlar ve gerekçeleri: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- Aktif faz ve iş dökümü: [docs/PHASE-6.md](docs/PHASE-6.md) (bitenler: [docs/PHASE-0.md](docs/PHASE-0.md), [docs/PHASE-1.md](docs/PHASE-1.md), [docs/PHASE-2.md](docs/PHASE-2.md), [docs/PHASE-3.md](docs/PHASE-3.md), [docs/PHASE-4.md](docs/PHASE-4.md), [docs/PHASE-5.md](docs/PHASE-5.md))
+- Aktif faz ve iş dökümü: [docs/PHASE-7.md](docs/PHASE-7.md) (bitenler: [docs/PHASE-0.md](docs/PHASE-0.md), [docs/PHASE-1.md](docs/PHASE-1.md), [docs/PHASE-2.md](docs/PHASE-2.md), [docs/PHASE-3.md](docs/PHASE-3.md), [docs/PHASE-4.md](docs/PHASE-4.md), [docs/PHASE-5.md](docs/PHASE-5.md), [docs/PHASE-6.md](docs/PHASE-6.md))
 
 Bu dokümanlar **sadece lokalde** durur, repoya commit edilmez (`.gitignore`'da `/docs/*.md`).
 GitHub'da yokturlar; commit'lenen hiçbir dosya (README dahil) onlara link vermez.
@@ -242,7 +242,7 @@ Migrator'daki seed):
 ## Gateway — `src/Gateway/Gateway`
 
 - İş mantığı yok; sadece `Shared.Infrastructure.API`'yi referans alır.
-- Auth'tan tarayıcıya sadece `/auth/profiles/...` (`auth-profiles`) ve `/auth/email-verification/...` (`auth-email-verification`) açık; token dönen uçlar kapalı. Bir route kaldırdığından fazlasını eşleştirirse (`/auth/profiles` → `/auth` kaldırılır) fazlası kapsamıdır; `Location` sadece kapsam içindeyse çevrilir.
+- Auth'tan tarayıcıya sadece `/auth/profiles/...` (`auth-profiles`), `/auth/email-verification/...` (`auth-email-verification`) ve `/auth/email-change/...` (`auth-email-change`) açık; token dönen uçlar kapalı. Bir route kaldırdığından fazlasını eşleştirirse (`/auth/profiles` → `/auth` kaldırılır) fazlası kapsamıdır; `Location` sadece kapsam içindeyse çevrilir.
 - Üç route grubu: `public`, `admin`, `webhooks` (`/<s>/webhooks/{**remainder}`, `PathRemovePrefix: /<s>`; CORS yok, kendi rate limit'i, `Cookie`/`Authorization` servise gitmez; ör. `billing-webhooks`).
 - Route'un CORS ve rate limiter policy'si **grubundan** gelir (`RouteGroupConfigFilter`); route'a
   `CorsPolicy`/`RateLimiterPolicy` yazılmaz. Kurala uymayan route'la gateway başlamaz.
@@ -255,7 +255,8 @@ Migrator'daki seed):
   servise `Authorization: Bearer` ekler, `Cookie` ve `X-CSRF-Token`'ı servise iletmez. Cookie'li
   değiştiren istek `X-CSRF-Token` ister. Refresh oturum başına tek (Valkey kilidi) ve asla tekrar
   denenmez. Şifre sıfırlama da burada (`/session/password-reset`, `/confirm`): oturum ve cookie
-  istemez, Auth'un yanıtını aynen geçirir. Parola alan veya e-posta gönderen uçlar `Credentials`
+  istemez, Auth'un yanıtını aynen geçirir. E-posta değiştirme isteği `/session/email` (oturum + CSRF, Auth'un `/me/email`'ine,
+  yanıt aynen; oturum değişmez). Parola alan veya e-posta gönderen uçlar `Credentials`
   limitindedir. Ayarlar `ConnectionStrings:Valkey`, `Session`, `RateLimiting:Credentials`.
 
 ## Çalışma kuralları
@@ -341,8 +342,8 @@ Migrator'daki seed):
   oynatma, Notification e-posta. Health check servisinin logu Error seviyesinde: `Degraded` her probe'da tekrar
   loglanmaz (olayı izleyicisi bir kez loglar), `Unhealthy` loglanır. Container'lar metriği 15 sn'de bir gönderir.
 - **Auth endpoint'leri:** `/register`, `/sign-in`, `/sign-in/admin`, `/refresh`, `/sign-out`, `/me`,
-  `/me/password`, `/email-verification` (GET durum, POST yeniden gönder), `/email-verification/confirm`,
-  `/password-reset`, `/password-reset/confirm` — token dönenler gateway'den proxy'lenmez, onları sadece gateway çağırır. `/register` hesabı ve
+  `/me/password`, `/me/email`, `/email-verification` (GET durum, POST yeniden gönder), `/email-verification/confirm`,
+  `/email-change/confirm`, `/password-reset`, `/password-reset/confirm` — token dönenler gateway'den proxy'lenmez, onları sadece gateway çağırır. `/register` hesabı ve
   ilk müşteri oturumunu tek transaction'da açar (201, id + token çifti); gateway'in kaydı ayrıca `/sign-in` yapmaz (ikinci PBKDF2 yok). Giriş hatası her durumda `User.InvalidCredentials` (hesabın varlığı ve kilidi
   belli olmaz); bilinmeyen e-postada da bir hash doğrulanır. Tekrar kullanılan refresh token ailenin
   tamamını iptal eder.
@@ -364,7 +365,8 @@ Migrator'daki seed):
 - **Yerel kopyalar (Streaming):** oynatma kararı için abonelik (`Subscriptions`, abonelik başına), profil (`Profiles`, silinen işaretli kalır) ve izlenebilir içerik (`PlayableTitles`/`PlayableItems`) kopyaları; sadece event'le değişir, revision büyükse uygulanır (`Revision` concurrency token). Catalog'un `PlayableChanged`'i (`Catalog.Contracts`) başlığın tam listesini taşır; `ContentItem.PlayabilityRevision` `Version`'dan ayrı.
 - **Playback (Streaming):** `POST /playback-sessions` kuralları kopyalardan kontrol eder (profil → abonelik → içerik → yaş), ekran sınırı `Viewer` aggregate'inde (`Version` token); heartbeat (30 sn, 2 dk sessizlik oturumu bitirir) kuralları yeniden kontrol eder, heartbeat ve bitirme `ExecuteUpdate`. Playlist'ler `/playback/{id}/...m3u8` token'sız, HMAC imzalı (`Playback:SigningKey`, `dev.ps1 secrets` bir kez üretir); segmentler `videos`'tan okuma SAS'ı. Plan kalitesi yüksekliği sınırlar (Sd ≤480, Hd ≤1080).
 - **İzleme konumu (Streaming):** heartbeat/bitirme `positionSeconds` taşır → `WatchProgress` (profil + içerik, upsert); oturum yanıtında `resumeFromSeconds`; `GET /profiles/{id}/progress?titleId=` ve `/continue-watching` (en fazla 20, sonraki bölüm `PlayableItem.Sequence` ile). Başlık kopyası eşit revision'ı yeniden uygular (contract'a eklenen alan backfill'le gelsin).
-- **Notification:** tamamen event'le (port 5107, `notification` DB); alıcı kopyası `Recipients` (`UserRegistered`). E-posta `IEmailSender` arkasında: SMTP (MailKit; lokalde Mailpit) veya Brevo (düz HTTP, `Email:Brevo:ApiKey`); ayarlar `Email` bölümünde, geçersizse servis başlamaz. Sonuç gönderildi / tekrar dene (ulaşılamadı, 4xx SMTP, 429, 5xx) / reddedildi (5xx SMTP, diğer 4xx); adres ve anahtar loglanmaz. E-postalar `OutgoingEmails` kuyruğunda (event başına tek, `Kind` + `SourceKey` unique); `EmailSendingService` `SKIP LOCKED` + lease ile gönderir, artan bekleme, 8 denemede `Failed`; gönderilenin gövdesi hemen, başarısızınki 7 gün sonra silinir. Admin `/admin/emails` (`notification:emails:read`/`write`), gateway `/admin/notification/...`. Billing e-postaları (`QueueBillingEmails`): abonelik başladı / ödeme alındı (`Activated` `Started`/`Resumed`), ödeme alınamadı (`PaymentFailed`, fatura başına), abonelik bitti (`Canceled`); anahtar abonelik + `Revision`, sıralama yok; tekrar yayın, plan değişikliği ve askıya alma e-posta üretmez.
+- **E-posta değiştirme (Auth):** `POST /me/email` (şifre + yeni adres; önce şifre, yanlışsa başarısız giriş sayılır; sonra 400 `User.EmailUnchanged`, 409 `User.EmailTaken`, 60 sn'de bir 409 `EmailChange.RequestedRecently`, öncekiler iptal) → `UserTokens` `EmailChange` (24 saat, yeni adres token'ın `Email` kolonunda) → `EmailChangeRequested` (yeni adresle). `POST /email-change/confirm` anonim; token hataları ve kapalı hesap aynı 400 `EmailChange.TokenInvalid`, adres bu arada alındıysa 409 `User.EmailTaken`. Başarıda adres değişir ve doğrulanmış sayılır (ilk doğrulamaysa `EmailVerified` de), kullanıcının diğer kullanılmamış token'ları (eski adrese gitmişlerdi) iptal, oturumlar kalır. `User.EmailRevision` (kayıtta 1) artar, `EmailChanged` (`Revision`) yayınlanır; kopyalar (Billing müşterisi + Stripe müşterisi, Notification alıcısı) daha büyük revision'ı uygular, kopya yoksa oluşturur.
+- **Notification:** tamamen event'le (port 5107, `notification` DB); alıcı kopyası `Recipients` (`UserRegistered`, `EmailChanged`). E-posta `IEmailSender` arkasında: SMTP (MailKit; lokalde Mailpit) veya Brevo (düz HTTP, `Email:Brevo:ApiKey`); ayarlar `Email` bölümünde, geçersizse servis başlamaz. Sonuç gönderildi / tekrar dene (ulaşılamadı, 4xx SMTP, 429, 5xx) / reddedildi (5xx SMTP, diğer 4xx); adres ve anahtar loglanmaz. E-postalar `OutgoingEmails` kuyruğunda (event başına tek, `Kind` + `SourceKey` unique); `EmailSendingService` `SKIP LOCKED` + lease ile gönderir, artan bekleme, 8 denemede `Failed`; gönderilenin gövdesi hemen, başarısızınki 7 gün sonra silinir. Adres gönderimde alıcı kopyasından okunur; alıcının güncel adresine gitmeyecek e-posta (değiştirme linki yeni adrese, "adresin değişti" bildirimi eski adrese) adresi `ToAddress`'e sabitler, gövdeyle birlikte silinir. Admin `/admin/emails` (`notification:emails:read`/`write`), gateway `/admin/notification/...`. Billing e-postaları (`QueueBillingEmails`): abonelik başladı / ödeme alındı (`Activated` `Started`/`Resumed`), ödeme alınamadı (`PaymentFailed`, fatura başına), abonelik bitti (`Canceled`); anahtar abonelik + `Revision`, sıralama yok; tekrar yayın, plan değişikliği ve askıya alma e-posta üretmez.
 - **Eş zamanlı yazma:** kaydetmede yarışı kaybeden command (concurrency, unique, FK) 409 `Data.Conflict` alır. Düzenlenen
   aggregate'ler `Version` taşır; istemci yüklediği değeri geri gönderir (ör. Catalog `ContentItem`).
 - **Audit:** `IAuditedCommand` işaretli başarılı command'lar aynı transaction'da

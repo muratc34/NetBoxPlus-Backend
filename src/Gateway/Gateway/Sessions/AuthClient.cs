@@ -46,6 +46,9 @@ internal sealed partial class AuthClient(IHttpClientFactory httpClientFactory, I
     public Task<AuthResult> ChangePasswordAsync(string accessToken, string? currentPassword, string? newPassword, CancellationToken cancellationToken)
         => SendAsync(HttpMethod.Post, "/me/password", new { currentPassword, newPassword }, accessToken, cancellationToken);
 
+    public Task<AuthResult> RequestEmailChangeAsync(string accessToken, string? password, string? newEmail, CancellationToken cancellationToken)
+        => SendAsync(HttpMethod.Post, "/me/email", new { password, newEmail }, accessToken, cancellationToken);
+
     public Task<AuthResult> RequestPasswordResetAsync(string? email, CancellationToken cancellationToken)
         => SendAsync(HttpMethod.Post, "/password-reset", new { email }, null, cancellationToken);
 

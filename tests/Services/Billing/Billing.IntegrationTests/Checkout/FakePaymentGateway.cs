@@ -13,6 +13,9 @@ public sealed class FakePaymentGateway : IPaymentGateway
 
     public ConcurrentQueue<string> Portals { get; } = new();
 
+    /// <summary>The provider customers whose address was updated, with the address, in order.</summary>
+    public ConcurrentQueue<(string CustomerId, string Email)> EmailUpdates { get; } = new();
+
     public ConcurrentDictionary<string, SubscriptionSnapshot> Subscriptions { get; } = new();
 
     public ConcurrentDictionary<string, InvoiceSnapshot> Invoices { get; } = new();
@@ -41,6 +44,17 @@ public sealed class FakePaymentGateway : IPaymentGateway
 
         CustomersCreated.Enqueue(userId);
         return Task.FromResult<Result<string>>($"cus_{userId:N}");
+    }
+
+    public Task<Result> UpdateCustomerEmailAsync(string providerCustomerId, string email, CancellationToken cancellationToken)
+    {
+        if (FailWith is { } error)
+        {
+            return Task.FromResult<Result>(error);
+        }
+
+        EmailUpdates.Enqueue((providerCustomerId, email));
+        return Task.FromResult(Result.Success());
     }
 
     public async Task<Result<Uri>> CreateCheckoutAsync(CheckoutRequest request, CancellationToken cancellationToken)

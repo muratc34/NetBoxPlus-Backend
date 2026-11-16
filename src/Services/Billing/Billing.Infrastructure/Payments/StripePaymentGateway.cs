@@ -27,6 +27,20 @@ internal sealed partial class StripePaymentGateway(IStripeClient client, IOption
             return customer.Id;
         });
 
+    public async Task<Result> UpdateCustomerEmailAsync(string providerCustomerId, string email, CancellationToken cancellationToken)
+    {
+        var result = await CallAsync("customer-email", async () =>
+        {
+            await new CustomerService(client).UpdateAsync(
+                providerCustomerId,
+                new CustomerUpdateOptions { Email = email },
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+            return true;
+        }).ConfigureAwait(false);
+
+        return result.IsSuccess ? Result.Success() : result.Error;
+    }
+
     public Task<Result<Uri>> CreateCheckoutAsync(CheckoutRequest request, CancellationToken cancellationToken)
         => CallAsync("checkout", async () =>
         {
@@ -173,6 +187,13 @@ internal sealed class UnconfiguredPaymentGateway : IPaymentGateway
 {
     public Task<Result<string>> EnsureCustomerAsync(Guid userId, string email, CancellationToken cancellationToken)
         => Task.FromResult<Result<string>>(PaymentErrors.Unavailable);
+
+    /// <summary>
+    /// Nothing to update without a provider. Not "unavailable": an event handler would retry that
+    /// until the message dead-letters, for a key that may never be configured.
+    /// </summary>
+    public Task<Result> UpdateCustomerEmailAsync(string providerCustomerId, string email, CancellationToken cancellationToken)
+        => Task.FromResult(Result.Success());
 
     public Task<Result<Uri>> CreateCheckoutAsync(CheckoutRequest request, CancellationToken cancellationToken)
         => Task.FromResult<Result<Uri>>(PaymentErrors.Unavailable);

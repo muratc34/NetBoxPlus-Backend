@@ -372,6 +372,25 @@ public sealed class InvoiceTests
 public sealed class BillingCustomerTests
 {
     [Fact]
+    public void ChangeEmail_TakesOnlyALaterRevision()
+    {
+        var customer = BillingCustomer.Create(Guid.NewGuid(), "one@example.com");
+
+        Assert.True(customer.ChangeEmail("three@example.com", 3));
+        Assert.False(customer.ChangeEmail("two@example.com", 2));
+        Assert.False(customer.ChangeEmail("again@example.com", 3));
+
+        Assert.Equal(("three@example.com", 3), (customer.Email, customer.EmailRevision));
+    }
+
+    [Fact]
+    public void ANewCustomer_HasTheRegistrationRevision()
+    {
+        Assert.Equal(1, BillingCustomer.Create(Guid.NewGuid(), "one@example.com").EmailRevision);
+        Assert.False(BillingCustomer.Create(Guid.NewGuid(), "one@example.com").ChangeEmail("same-revision@example.com", 1));
+    }
+
+    [Fact]
     public void LinkProvider_AcceptsTheSameCustomerAgain()
     {
         var customer = BillingCustomer.Create(Guid.NewGuid(), "a@example.com");

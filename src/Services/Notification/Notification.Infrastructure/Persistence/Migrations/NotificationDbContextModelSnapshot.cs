@@ -75,6 +75,10 @@ namespace Notification.Infrastructure.Persistence.Migrations
                     b.Property<string>("TextBody")
                         .HasColumnType("text");
 
+                    b.Property<string>("ToAddress")
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
@@ -99,6 +103,10 @@ namespace Notification.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(320)
                         .HasColumnType("character varying(320)");
+
+                    b.Property<int>("EmailRevision")
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
 
                     b.HasKey("Id");
 
