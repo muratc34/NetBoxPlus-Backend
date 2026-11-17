@@ -3,13 +3,14 @@ using Shared.Application.Cqrs;
 using Shared.Application.Messaging;
 using Shared.Domain;
 using Streaming.Domain.Access;
+using Streaming.Domain.Lists;
 using Streaming.Domain.Playback;
 
 namespace Streaming.Application.Access;
 
 /// <summary>
 /// The user's account was deleted: their profiles are removed for good (a profile event arriving late
-/// cannot bring one back), what they watched is forgotten, and their sessions end at once. The
+/// cannot bring one back), what they watched and saved is forgotten, and their sessions end at once. The
 /// subscription copy follows billing's cancellation like any other. Coming again changes nothing.
 /// </summary>
 public sealed record ForgetUserCommand(Guid UserId) : ICommand;
@@ -17,6 +18,7 @@ public sealed record ForgetUserCommand(Guid UserId) : ICommand;
 internal sealed class ForgetUserHandler(
     IProfileCopyRepository profiles,
     IWatchProgressRepository progress,
+    IMyListRepository lists,
     IViewerRepository viewers,
     TimeProvider timeProvider) : ICommandHandler<ForgetUserCommand>
 {
@@ -28,6 +30,7 @@ internal sealed class ForgetUserHandler(
         }
 
         await progress.RemoveForUserAsync(command.UserId, cancellationToken).ConfigureAwait(false);
+        await lists.RemoveForUserAsync(command.UserId, cancellationToken).ConfigureAwait(false);
 
         if (await viewers.GetAsync(command.UserId, cancellationToken).ConfigureAwait(false) is { } viewer)
         {

@@ -7,6 +7,7 @@ using Shared.Infrastructure.Persistence.Outbox;
 using Shared.Infrastructure.Persistence.Retention;
 using Streaming.Application.Abstractions;
 using Streaming.Domain.Access;
+using Streaming.Domain.Lists;
 using Streaming.Domain.Playback;
 using Streaming.Domain.Videos;
 using Streaming.Infrastructure.Media;
@@ -88,6 +89,7 @@ public static class StreamingInfrastructureServiceCollectionExtensions
         services.AddScoped<IViewerRepository, ViewerRepository>();
         services.AddScoped<IPlaybackSessionRepository, PlaybackSessionRepository>();
         services.AddScoped<IWatchProgressRepository, WatchProgressRepository>();
+        services.AddScoped<IMyListRepository, MyListRepository>();
         return services;
     }
 

@@ -1,4 +1,5 @@
 using Streaming.Domain.Access;
+using Streaming.Domain.Lists;
 using Streaming.Domain.Playback;
 using Streaming.Domain.Videos;
 
@@ -46,6 +47,9 @@ public interface IStreamingReadModel
 
     /// <summary>Copies of what the catalog says can be watched.</summary>
     IQueryable<PlayableTitle> PlayableTitles { get; }
+
+    /// <summary>The titles on the profiles' lists.</summary>
+    IQueryable<MyListEntry> MyListEntries { get; }
 }
 
 /// <summary>

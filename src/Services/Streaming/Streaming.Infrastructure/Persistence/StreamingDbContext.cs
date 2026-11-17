@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Shared.Infrastructure.Persistence;
 using Streaming.Application.Abstractions;
 using Streaming.Domain.Access;
+using Streaming.Domain.Lists;
 using Streaming.Domain.Playback;
 using Streaming.Domain.Videos;
 
@@ -26,6 +27,8 @@ public sealed class StreamingDbContext(DbContextOptions<StreamingDbContext> opti
 
     public DbSet<PlayableTitle> PlayableTitles => Set<PlayableTitle>();
 
+    public DbSet<MyList> MyLists => Set<MyList>();
+
     IQueryable<Video> IStreamingReadModel.Videos => Videos.AsNoTracking();
 
     IQueryable<PlaybackSession> IStreamingReadModel.PlaybackSessions => PlaybackSessions.AsNoTracking();
@@ -37,6 +40,8 @@ public sealed class StreamingDbContext(DbContextOptions<StreamingDbContext> opti
     IQueryable<ProfileCopy> IStreamingReadModel.Profiles => Profiles.AsNoTracking();
 
     IQueryable<PlayableTitle> IStreamingReadModel.PlayableTitles => PlayableTitles.AsNoTracking();
+
+    IQueryable<MyListEntry> IStreamingReadModel.MyListEntries => Set<MyListEntry>().AsNoTracking();
 
     protected override void ConfigureModel(ModelBuilder modelBuilder)
         => modelBuilder.ApplyConfigurationsFromAssembly(typeof(StreamingDbContext).Assembly);

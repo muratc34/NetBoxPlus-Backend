@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Shared.Infrastructure.API.Hosting;
 using Streaming.API.Admin;
+using Streaming.API.Lists;
 using Streaming.API.Playback;
 using Shared.Infrastructure.API.Security;
 using Streaming.Application;
@@ -34,6 +35,7 @@ if (app.Environment.IsDevelopment())
 
 app.MapVideoAdminEndpoints();
 app.MapPlaybackEndpoints();
+app.MapMyListEndpoints();
 app.MapDefaultEndpoints();
 
 app.Run();

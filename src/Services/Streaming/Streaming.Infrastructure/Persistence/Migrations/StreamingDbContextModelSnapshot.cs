@@ -205,6 +205,43 @@ namespace Streaming.Infrastructure.Persistence.Migrations
                     b.ToTable("Subscriptions", (string)null);
                 });
 
+            modelBuilder.Entity("Streaming.Domain.Lists.MyList", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("MyLists", (string)null);
+                });
+
+            modelBuilder.Entity("Streaming.Domain.Lists.MyListEntry", b =>
+                {
+                    b.Property<Guid>("ProfileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TitleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AddedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("ProfileId", "TitleId");
+
+                    b.HasIndex("ProfileId", "AddedAt");
+
+                    b.ToTable("MyListEntries", (string)null);
+                });
+
             modelBuilder.Entity("Streaming.Domain.Playback.PlaybackSession", b =>
                 {
                     b.Property<Guid>("Id")
@@ -398,6 +435,15 @@ namespace Streaming.Infrastructure.Persistence.Migrations
                     b.Navigation("Items");
                 });
 
+            modelBuilder.Entity("Streaming.Domain.Lists.MyListEntry", b =>
+                {
+                    b.HasOne("Streaming.Domain.Lists.MyList", null)
+                        .WithMany("Entries")
+                        .HasForeignKey("ProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Streaming.Domain.Playback.PlaybackSession", b =>
                 {
                     b.HasOne("Streaming.Domain.Playback.Viewer", null)
@@ -446,6 +492,11 @@ namespace Streaming.Infrastructure.Persistence.Migrations
                         .HasForeignKey("VideoId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Streaming.Domain.Lists.MyList", b =>
+                {
+                    b.Navigation("Entries");
                 });
 
             modelBuilder.Entity("Streaming.Domain.Playback.Viewer", b =>
