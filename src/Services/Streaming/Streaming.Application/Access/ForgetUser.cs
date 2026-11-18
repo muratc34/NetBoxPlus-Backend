@@ -19,6 +19,7 @@ internal sealed class ForgetUserHandler(
     IProfileCopyRepository profiles,
     IWatchProgressRepository progress,
     IMyListRepository lists,
+    IPlaybackPreferenceRepository preferences,
     IViewerRepository viewers,
     TimeProvider timeProvider) : ICommandHandler<ForgetUserCommand>
 {
@@ -31,6 +32,7 @@ internal sealed class ForgetUserHandler(
 
         await progress.RemoveForUserAsync(command.UserId, cancellationToken).ConfigureAwait(false);
         await lists.RemoveForUserAsync(command.UserId, cancellationToken).ConfigureAwait(false);
+        await preferences.RemoveForUserAsync(command.UserId, cancellationToken).ConfigureAwait(false);
 
         if (await viewers.GetAsync(command.UserId, cancellationToken).ConfigureAwait(false) is { } viewer)
         {

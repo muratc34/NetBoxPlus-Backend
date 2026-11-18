@@ -72,10 +72,17 @@ internal static class ContentItemMapping
         builder.Navigation(content => content.Credits).UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 
+    /// <summary>Room for every media language, tags of up to 16 characters and their commas.</summary>
+    private const int LanguageListMaxLength = 200;
+
     /// <summary>The video columns of a movie or an episode, prefixed <c>Video_</c>.</summary>
     public static void MapVideo(ComplexPropertyBuilder<ContentVideo> video)
     {
         video.Property(item => item.LatestState).HasConversion<string>().HasMaxLength(16);
         video.Ignore(item => item.IsPlayable);
+        video.Ignore(item => item.AudioLanguages);
+        video.Ignore(item => item.SubtitleLanguages);
+        video.Property(item => item.AudioLanguageList).HasMaxLength(LanguageListMaxLength);
+        video.Property(item => item.SubtitleLanguageList).HasMaxLength(LanguageListMaxLength);
     }
 }

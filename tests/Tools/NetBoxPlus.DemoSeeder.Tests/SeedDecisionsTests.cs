@@ -54,5 +54,57 @@ public sealed class SeedDecisionsTests
     public void OnlyATestModeStripeKey_IsUsed(string key, bool allowed)
         => Assert.Equal(allowed, SeedDecisions.IsTestModeKey(key));
 
+    [Fact]
+    public void AVideoOfTheOldLayout_IsConvertedAgain_BeforeAnyLanguage()
+    {
+        var plan = SeedDecisions.ForLanguages(new VideoDetails(Guid.CreateVersion7(), "Ready", null, "Muxed"));
+
+        Assert.True(plan.ConvertAgain);
+        Assert.Equal(TrackStep.None, plan.Dub);
+        Assert.Empty(plan.Subtitles);
+    }
+
+    [Fact]
+    public void WhatIsMissing_IsUploaded_AndWhatAnEarlierRunLeftWaiting_IsMadeAgain()
+    {
+        var video = new VideoDetails(
+            Guid.CreateVersion7(), "Ready", null, "Separate",
+            [new(Guid.CreateVersion7(), "tr-TR", "Ready")],
+            [new(Guid.CreateVersion7(), "tr-TR", "AwaitingUpload")]);
+
+        var plan = SeedDecisions.ForLanguages(video);
+
+        Assert.False(plan.ConvertAgain);
+        Assert.Equal(TrackStep.Upload, plan.Dub);
+        Assert.Equal(TrackStep.ReplaceAndUpload, plan.Subtitles["tr-TR"]);
+        Assert.Equal(TrackStep.Upload, plan.Subtitles["en-US"]);
+    }
+
+    [Theory]
+    [InlineData("Ready", "None")]
+    [InlineData("Queued", "None")]
+    [InlineData("AwaitingUpload", "ReplaceAndUpload")]
+    [InlineData("Failed", "Upload")]
+    public void TheDub_FollowsItsState(string status, string step)
+    {
+        var video = new VideoDetails(Guid.CreateVersion7(), "Ready", null, "Separate", [new(Guid.CreateVersion7(), "en-US", status)], []);
+
+        Assert.Equal(Enum.Parse<TrackStep>(step), SeedDecisions.ForLanguages(video).Dub);
+    }
+
+    [Fact]
+    public void ADubbedMovie_WithEverything_NeedsNothing()
+    {
+        var video = new VideoDetails(
+            Guid.CreateVersion7(), "Ready", null, "Separate",
+            [new(Guid.CreateVersion7(), "tr-TR", "Ready"), new(Guid.CreateVersion7(), "en-US", "Ready")],
+            [new(Guid.CreateVersion7(), "tr-TR", "Ready"), new(Guid.CreateVersion7(), "en-US", "Ready")]);
+
+        var plan = SeedDecisions.ForLanguages(video);
+
+        Assert.Equal(TrackStep.None, plan.Dub);
+        Assert.All(plan.Subtitles.Values, step => Assert.Equal(TrackStep.None, step));
+    }
+
     private static VideoItem Video(string status, int minutesAgo) => new(Guid.CreateVersion7(), status, Now.AddMinutes(-minutesAgo));
 }

@@ -1,4 +1,5 @@
 using Catalog.Application.Videos.ApplyVideoState;
+using Catalog.Application.Videos.ApplyVideoTracks;
 using Catalog.Domain.Content;
 using Shared.Application.Cqrs;
 using Shared.Application.Messaging;
@@ -13,13 +14,16 @@ namespace Catalog.Application.Videos;
 /// or moving it would process the messages it already handled again.
 /// </summary>
 internal sealed class ApplyVideoEvents(IDispatcher dispatcher)
-    : IIntegrationEventHandler<VideoQueued>, IIntegrationEventHandler<VideoReady>, IIntegrationEventHandler<VideoFailed>
+    : IIntegrationEventHandler<VideoQueued>, IIntegrationEventHandler<VideoReady>, IIntegrationEventHandler<VideoFailed>, IIntegrationEventHandler<VideoTracksChanged>
 {
     public Task<Result> Handle(VideoQueued integrationEvent, CancellationToken cancellationToken)
         => dispatcher.Send(new ApplyVideoStateCommand(integrationEvent.ContentKind, integrationEvent.ContentId, integrationEvent.VideoId, VideoState.Processing, integrationEvent.Revision), cancellationToken);
 
     public Task<Result> Handle(VideoReady integrationEvent, CancellationToken cancellationToken)
         => dispatcher.Send(new ApplyVideoStateCommand(integrationEvent.ContentKind, integrationEvent.ContentId, integrationEvent.VideoId, VideoState.Ready, integrationEvent.Revision), cancellationToken);
+
+    public Task<Result> Handle(VideoTracksChanged integrationEvent, CancellationToken cancellationToken)
+        => dispatcher.Send(new ApplyVideoTracksCommand(integrationEvent.ContentKind, integrationEvent.ContentId, integrationEvent.VideoId, integrationEvent.AudioLanguages, integrationEvent.SubtitleLanguages, integrationEvent.Revision), cancellationToken);
 
     public Task<Result> Handle(VideoFailed integrationEvent, CancellationToken cancellationToken)
         => dispatcher.Send(new ApplyVideoStateCommand(integrationEvent.ContentKind, integrationEvent.ContentId, integrationEvent.VideoId, VideoState.Failed, integrationEvent.Revision), cancellationToken);

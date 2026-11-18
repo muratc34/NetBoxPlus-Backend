@@ -66,6 +66,9 @@ public interface IStreamingReadModel
     /// <summary>The titles on the profiles' lists.</summary>
     IQueryable<MyListEntry> MyListEntries { get; }
 
+    /// <summary>The languages profiles chose in the player.</summary>
+    IQueryable<PlaybackPreference> PlaybackPreferences { get; }
+
     /// <summary>How many profiles started each title on the finished days of the last week.</summary>
     IQueryable<DailyPlays> DailyPlays { get; }
 }

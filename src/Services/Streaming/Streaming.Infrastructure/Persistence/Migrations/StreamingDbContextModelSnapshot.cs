@@ -242,6 +242,29 @@ namespace Streaming.Infrastructure.Persistence.Migrations
                     b.ToTable("MyListEntries", (string)null);
                 });
 
+            modelBuilder.Entity("Streaming.Domain.Playback.PlaybackPreference", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AudioLanguage")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("SubtitleLanguage")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("PlaybackPreferences", (string)null);
+                });
+
             modelBuilder.Entity("Streaming.Domain.Playback.PlaybackSession", b =>
                 {
                     b.Property<Guid>("Id")

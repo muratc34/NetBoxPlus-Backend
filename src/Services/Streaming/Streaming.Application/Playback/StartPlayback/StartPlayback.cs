@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Shared.Application.Cqrs;
 using Shared.Application.Validation;
 using Shared.Domain;
@@ -14,7 +15,9 @@ public sealed record StartPlaybackCommand(Guid UserId, Guid ProfileId, Guid Cont
 /// </param>
 /// <param name="HeartbeatSeconds">How often the player must report that it is still watching.</param>
 /// <param name="ResumeFromSeconds">Where the profile stopped last time; 0 when new or watched to the end.</param>
-public sealed record PlaybackStarted(Guid SessionId, string Playlist, int HeartbeatSeconds, double ResumeFromSeconds);
+/// <param name="AudioLanguages">The languages of the sound the playlist offers, BCP 47 tags, the original first.</param>
+/// <param name="SubtitleLanguages">The languages of subtitles the playlist offers, BCP 47 tags.</param>
+public sealed record PlaybackStarted(Guid SessionId, string Playlist, int HeartbeatSeconds, double ResumeFromSeconds, IReadOnlyList<string> AudioLanguages, IReadOnlyList<string> SubtitleLanguages);
 
 internal sealed class StartPlaybackValidator : IValidator<StartPlaybackCommand>
 {
@@ -41,6 +44,7 @@ internal sealed class StartPlaybackHandler(
     IViewerRepository viewers,
     IWatchProgressRepository progress,
     IPlaybackSigner signer,
+    IStreamingReadModel readModel,
     StreamingMetrics metrics,
     TimeProvider timeProvider)
     : ICommandHandler<StartPlaybackCommand, PlaybackStarted>
@@ -74,10 +78,14 @@ internal sealed class StartPlaybackHandler(
         var resume = await progress.FindAsync(command.ProfileId, command.ContentId, cancellationToken).ConfigureAwait(false);
         metrics.PlaybackStarted("started");
         var query = signer.Sign(session.Id, PlaybackLinks.MasterPlaylist, now + PlaybackLinks.MasterLifetime);
+        var video = await readModel.Videos.FirstOrDefaultAsync(item => item.Id == session.VideoId, cancellationToken).ConfigureAwait(false);
+        var (audio, subtitles) = video?.ReadyLanguages() ?? ([], []);
         return new PlaybackStarted(
             session.Id,
             $"playback/{session.Id}/{PlaybackLinks.MasterPlaylist}?{query}",
             (int)PlaybackSession.HeartbeatInterval.TotalSeconds,
-            resume?.ResumeFromSeconds ?? 0);
+            resume?.ResumeFromSeconds ?? 0,
+            audio,
+            subtitles);
     }
 }

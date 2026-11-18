@@ -27,7 +27,20 @@ internal sealed record VideoUploadTicket(Guid VideoId, Uri UploadAddress);
 
 internal sealed record VideoItem(Guid Id, string Status, DateTimeOffset CreatedAt);
 
-internal sealed record VideoDetails(Guid Id, string Status, string? FailureReason);
+internal sealed record VideoDetails(
+    Guid Id,
+    string Status,
+    string? FailureReason,
+    string AudioLayout = "Separate",
+    IReadOnlyList<TrackItem>? AudioTracks = null,
+    IReadOnlyList<TrackItem>? Subtitles = null);
+
+/// <summary>An audio track or subtitles of a video, as the admin API lists them.</summary>
+internal sealed record TrackItem(Guid Id, string Language, string Status, string? FailureReason = null);
+
+internal sealed record AudioTrackUploadTicket(Guid TrackId, Uri UploadAddress);
+
+internal sealed record SubtitleUploadTicket(Guid SubtitleId, Uri UploadAddress);
 
 internal sealed record PlanItem(Guid Id, bool IsActive);
 

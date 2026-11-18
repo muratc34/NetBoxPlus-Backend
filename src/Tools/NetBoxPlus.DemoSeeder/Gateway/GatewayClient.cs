@@ -57,6 +57,11 @@ internal sealed class GatewayClient(HttpClient http)
         using var response = await SendAsync(HttpMethod.Put, path, body, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task DeleteAsync(string path, CancellationToken cancellationToken)
+    {
+        using var response = await SendAsync(HttpMethod.Delete, path, body: null, cancellationToken).ConfigureAwait(false);
+    }
+
     private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
     {
         if (_cookie is null || _csrfToken is null)

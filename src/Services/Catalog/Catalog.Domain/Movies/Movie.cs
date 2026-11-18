@@ -36,6 +36,9 @@ public sealed class Movie : ContentItem
         }
     }
 
+    public void ApplyVideoTracks(Guid videoId, IReadOnlyCollection<string> audio, IReadOnlyCollection<string> subtitles, int revision)
+        => Video.ApplyTracks(videoId, audio, subtitles, revision);
+
     protected override Result CheckPlayable() => Video.IsPlayable ? Result.Success() : ContentErrors.VideoRequired;
 
     protected override IReadOnlyList<PlayableVideo> PlayableVideos()

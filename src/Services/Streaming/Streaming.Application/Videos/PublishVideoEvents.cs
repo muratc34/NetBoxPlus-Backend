@@ -22,6 +22,14 @@ internal sealed class PublishVideoReady(IIntegrationEventPublisher publisher, Ti
             cancellationToken);
 }
 
+internal sealed class PublishVideoTracksChanged(IIntegrationEventPublisher publisher, TimeProvider timeProvider) : IDomainEventHandler<VideoTracksChangedDomainEvent>
+{
+    public Task Handle(VideoTracksChangedDomainEvent domainEvent, CancellationToken cancellationToken)
+        => publisher.PublishAsync(
+            new VideoTracksChanged(domainEvent.VideoId, domainEvent.ContentKind.ToString(), domainEvent.ContentId, domainEvent.AudioLanguages, domainEvent.SubtitleLanguages, domainEvent.Revision, timeProvider.GetUtcNow()),
+            cancellationToken);
+}
+
 internal sealed class PublishVideoFailed(IIntegrationEventPublisher publisher, TimeProvider timeProvider) : IDomainEventHandler<VideoFailedDomainEvent>
 {
     public Task Handle(VideoFailedDomainEvent domainEvent, CancellationToken cancellationToken)

@@ -22,7 +22,8 @@ public sealed record GetSubtitlePlaylistQuery(Guid SessionId, string SubtitleId,
 
 /// <summary>What a session may be served of its video.</summary>
 /// <param name="Audio">The ready audio tracks, the original first; none for a video whose sound is inside its renditions.</param>
-internal sealed record SessionMedia(Video Video, List<Rendition> Renditions, List<AudioTrack> Audio, List<Subtitle> Subtitles);
+/// <param name="Preference">The languages the session's profile last chose, if it chose.</param>
+internal sealed record SessionMedia(Video Video, List<Rendition> Renditions, List<AudioTrack> Audio, List<Subtitle> Subtitles, PlaybackPreference? Preference);
 
 internal sealed class PlaylistSource(IStreamingReadModel readModel, IPlaybackSigner signer, TimeProvider timeProvider)
 {
@@ -58,7 +59,8 @@ internal sealed class PlaylistSource(IStreamingReadModel readModel, IPlaybackSig
         var subtitles = video.Subtitles.Where(subtitle => subtitle.Status == TrackStatus.Ready && subtitle.File is not null)
             .OrderBy(subtitle => subtitle.Language, StringComparer.Ordinal)
             .ToList();
-        return new SessionMedia(video, renditions, audio, subtitles);
+        var preference = await readModel.PlaybackPreferences.FirstOrDefaultAsync(item => item.Id == session.ProfileId, cancellationToken).ConfigureAwait(false);
+        return new SessionMedia(video, renditions, audio, subtitles, preference);
     }
 }
 
@@ -76,22 +78,25 @@ internal sealed class GetMasterPlaylistHandler(PlaylistSource source, IPlaybackS
             return opened.Error;
         }
 
-        var (video, renditions, audio, subtitles) = opened.Value;
+        var (video, renditions, audio, subtitles, preference) = opened.Value;
         var expiresAt = source.Now + PlaybackLinks.LifetimeFor(video.DurationSeconds);
         var playlist = new StringBuilder("#EXTM3U\n#EXT-X-VERSION:3\n");
 
-        // Each language of the sound is a rendition of its own, the original chosen unless the player picks another.
+        // Each language of the sound is a rendition of its own: the one the profile chose if the video has it,
+        // the original otherwise. The player may switch to any other.
+        var chosenAudio = audio.Exists(track => track.Language == preference?.AudioLanguage) ? preference!.AudioLanguage : null;
         foreach (var track in audio)
         {
-            var isDefault = track.IsOriginal ? "YES" : "NO";
+            var isDefault = (chosenAudio is null ? track.IsOriginal : track.Language == chosenAudio) ? "YES" : "NO";
             playlist.Append(CultureInfo.InvariantCulture, $"#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"{AudioGroup}\",LANGUAGE=\"{track.Language}\",NAME=\"{MediaLanguages.Names[track.Language]}\",DEFAULT={isDefault},AUTOSELECT=YES,URI=\"{track.Playlist}?{signer.Sign(query.SessionId, track.Playlist!, expiresAt)}\"\n");
         }
 
-        // Subtitles are off until the viewer turns them on.
+        // Subtitles are off unless the profile chose a language the video has.
         foreach (var subtitle in subtitles)
         {
             var path = PlaybackLinks.SubtitlePlaylist(subtitle.Id);
-            playlist.Append(CultureInfo.InvariantCulture, $"#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"{SubtitleGroup}\",LANGUAGE=\"{subtitle.Language}\",NAME=\"{MediaLanguages.Names[subtitle.Language]}\",DEFAULT=NO,AUTOSELECT=YES,FORCED=NO,URI=\"{path}?{signer.Sign(query.SessionId, path, expiresAt)}\"\n");
+            var isDefault = subtitle.Language == preference?.SubtitleLanguage ? "YES" : "NO";
+            playlist.Append(CultureInfo.InvariantCulture, $"#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"{SubtitleGroup}\",LANGUAGE=\"{subtitle.Language}\",NAME=\"{MediaLanguages.Names[subtitle.Language]}\",DEFAULT={isDefault},AUTOSELECT=YES,FORCED=NO,URI=\"{path}?{signer.Sign(query.SessionId, path, expiresAt)}\"\n");
         }
 
         var audioBandwidth = audio.Count == 0 ? 0 : audio.Max(track => track.Bandwidth ?? 0);
@@ -119,7 +124,7 @@ internal sealed class GetRenditionPlaylistHandler(PlaylistSource source, IVideoS
             return opened.Error;
         }
 
-        var (video, renditions, audio, _) = opened.Value;
+        var (video, renditions, audio, _, _) = opened.Value;
         if (!renditions.Exists(rendition => rendition.Playlist == path) && !audio.Exists(track => track.Playlist == path))
         {
             return PlaybackErrors.NotAvailable;

@@ -12,6 +12,8 @@ namespace Catalog.Application.Browse.GetPublishedSeries;
 /// <summary>A published series with its published episodes; a season with none does not show.</summary>
 public sealed record GetPublishedSeriesQuery(Guid SeriesId, string Language) : IQuery<PublishedSeries>;
 
+/// <param name="AudioLanguages">The languages of the sound in any of its episodes, BCP 47 tags.</param>
+/// <param name="SubtitleLanguages">The languages of subtitles in any of its episodes, BCP 47 tags.</param>
 public sealed record PublishedSeries(
     Guid Id,
     string Title,
@@ -24,11 +26,15 @@ public sealed record PublishedSeries(
     Uri? BackdropUrl,
     IReadOnlyList<GenreReference> Genres,
     IReadOnlyList<CreditResponse> Credits,
-    IReadOnlyList<PublishedSeason> Seasons);
+    IReadOnlyList<PublishedSeason> Seasons,
+    IReadOnlyList<string> AudioLanguages,
+    IReadOnlyList<string> SubtitleLanguages);
 
 public sealed record PublishedSeason(Guid Id, int Number, string? Title, IReadOnlyList<PublishedEpisode> Episodes);
 
-public sealed record PublishedEpisode(Guid Id, int Number, string Title, string Language, string Synopsis, int RuntimeMinutes);
+/// <param name="AudioLanguages">The languages of the episode's sound, BCP 47 tags, the original first.</param>
+/// <param name="SubtitleLanguages">The languages of the episode's subtitles, BCP 47 tags.</param>
+public sealed record PublishedEpisode(Guid Id, int Number, string Title, string Language, string Synopsis, int RuntimeMinutes, IReadOnlyList<string> AudioLanguages, IReadOnlyList<string> SubtitleLanguages);
 
 internal sealed class GetPublishedSeriesValidator : IValidator<GetPublishedSeriesQuery>
 {
@@ -60,7 +66,7 @@ internal sealed class GetPublishedSeriesHandler(ICatalogReadModel readModel, Con
                     .Where(episode => episode.IsPublished)
                     .OrderBy(episode => episode.Number)
                     .Select(episode => (Episode: episode, Text: episode.TextFor(query.Language)))
-                    .Select(item => new PublishedEpisode(item.Episode.Id, item.Episode.Number, item.Text.Title, item.Text.Language, item.Text.Synopsis, item.Episode.RuntimeMinutes))]))
+                    .Select(item => new PublishedEpisode(item.Episode.Id, item.Episode.Number, item.Text.Title, item.Text.Language, item.Text.Synopsis, item.Episode.RuntimeMinutes, item.Episode.Video.AudioLanguages, item.Episode.Video.SubtitleLanguages))]))
             .Where(season => season.Episodes.Count > 0)
             .ToList();
 
@@ -76,6 +82,8 @@ internal sealed class GetPublishedSeriesHandler(ICatalogReadModel readModel, Con
             names.ImageAddress(series.BackdropImage),
             names.GenresOf(series, query.Language),
             names.CreditsOf(series),
-            seasons);
+            seasons,
+            [.. seasons.SelectMany(season => season.Episodes).SelectMany(episode => episode.AudioLanguages).Distinct(StringComparer.Ordinal)],
+            [.. seasons.SelectMany(season => season.Episodes).SelectMany(episode => episode.SubtitleLanguages).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)]);
     }
 }

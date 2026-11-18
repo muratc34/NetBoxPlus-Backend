@@ -30,6 +30,8 @@ public sealed class StreamingDbContext(DbContextOptions<StreamingDbContext> opti
 
     public DbSet<MyList> MyLists => Set<MyList>();
 
+    public DbSet<PlaybackPreference> PlaybackPreferences => Set<PlaybackPreference>();
+
     public DbSet<PopularityRanking> PopularityRankings => Set<PopularityRanking>();
 
     public DbSet<DailyPlays> DailyPlays => Set<DailyPlays>();
@@ -47,6 +49,8 @@ public sealed class StreamingDbContext(DbContextOptions<StreamingDbContext> opti
     IQueryable<PlayableTitle> IStreamingReadModel.PlayableTitles => PlayableTitles.AsNoTracking();
 
     IQueryable<MyListEntry> IStreamingReadModel.MyListEntries => Set<MyListEntry>().AsNoTracking();
+
+    IQueryable<PlaybackPreference> IStreamingReadModel.PlaybackPreferences => PlaybackPreferences.AsNoTracking();
 
     IQueryable<DailyPlays> IStreamingReadModel.DailyPlays => DailyPlays.AsNoTracking();
 

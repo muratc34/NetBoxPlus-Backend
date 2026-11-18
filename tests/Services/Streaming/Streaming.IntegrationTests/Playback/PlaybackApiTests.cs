@@ -120,6 +120,38 @@ public sealed class PlaybackApiTests(StreamingApiFixture api)
     }
 
     [Fact]
+    public async Task TheProfilesChoice_IsWhatTheSessionStartsWith_WhereTheVideoHasIt()
+    {
+        var setup = await SetUpAsync(VideoQuality.Hd, screens: 2, dubbed: true);
+        using var player = api.CreateClientFor(setup.User);
+        Assert.Equal(HttpStatusCode.NoContent, (await player.PutAsJsonAsync($"/profiles/{setup.ProfileId}/playback-preferences", new { audioLanguage = "en-US", subtitleLanguage = "tr-TR" }, Json, Cancellation)).StatusCode);
+
+        var started = await StartAsync(player, setup);
+        Assert.Equal(["tr-TR", "en-US"], started.AudioLanguages);
+        Assert.Equal(["en-US", "tr-TR"], started.SubtitleLanguages);
+        var chosen = await MediaLinesAsync(player, started);
+        Assert.Equal(["en-US"], chosen.Where(line => line.Contains("DEFAULT=YES", StringComparison.Ordinal) && line.Contains("TYPE=AUDIO", StringComparison.Ordinal)).Select(LanguageOf));
+        Assert.Equal(["tr-TR"], chosen.Where(line => line.Contains("DEFAULT=YES", StringComparison.Ordinal) && line.Contains("TYPE=SUBTITLES", StringComparison.Ordinal)).Select(LanguageOf));
+
+        // A language the video does not have: the original sound, subtitles off.
+        await player.PutAsJsonAsync($"/profiles/{setup.ProfileId}/playback-preferences", new { audioLanguage = "fr-FR", subtitleLanguage = "de-DE" }, Json, Cancellation);
+        var fallback = await MediaLinesAsync(player, await StartAsync(player, setup));
+        Assert.Equal(["tr-TR"], fallback.Where(line => line.Contains("DEFAULT=YES", StringComparison.Ordinal)).Select(LanguageOf));
+    }
+
+    private static async Task<List<string>> MediaLinesAsync(HttpClient player, PlaybackStarted started)
+    {
+        var master = await player.GetStringAsync(new Uri(new Uri(player.BaseAddress!, "/playback-sessions"), started.Playlist), Cancellation);
+        return [.. master.Split('\n').Where(line => line.StartsWith("#EXT-X-MEDIA:", StringComparison.Ordinal))];
+    }
+
+    private static string LanguageOf(string mediaLine)
+    {
+        var start = mediaLine.IndexOf("LANGUAGE=\"", StringComparison.Ordinal) + 10;
+        return mediaLine[start..mediaLine.IndexOf('"', start)];
+    }
+
+    [Fact]
     public async Task AnSdPlan_GetsNothingTallerThan480Lines()
     {
         var setup = await SetUpAsync(VideoQuality.Sd, screens: 1);

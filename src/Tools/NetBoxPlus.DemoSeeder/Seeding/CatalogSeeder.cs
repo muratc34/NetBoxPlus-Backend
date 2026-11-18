@@ -50,6 +50,11 @@ internal sealed class CatalogSeeder(
 
         await WaitForVideosAsync(cancellationToken).ConfigureAwait(false);
 
+        foreach (var (seed, id) in movies.Where(movie => movie.Seed.Dubbed))
+        {
+            await SeedLanguagesAsync(seed, id, cancellationToken).ConfigureAwait(false);
+        }
+
         foreach (var (seed, id) in movies)
         {
             await PublishMovieAsync(seed, id, cancellationToken).ConfigureAwait(false);
@@ -280,6 +285,90 @@ internal sealed class CatalogSeeder(
                 _pendingVideos.Add(ticket.VideoId);
                 Changed(contentKind, name, "video uploaded");
                 return;
+        }
+    }
+
+    /// <summary>
+    /// An English dub and Turkish and English subtitles for the movie's ready video. A video converted
+    /// before audio tracks is uploaded again first, since only the new layout takes a dub.
+    /// </summary>
+    private async Task SeedLanguagesAsync(MovieSeed movie, Guid id, CancellationToken cancellationToken)
+    {
+        var video = await ReadyVideoAsync(id, cancellationToken).ConfigureAwait(false);
+        var plan = SeedDecisions.ForLanguages(video);
+        if (plan.ConvertAgain)
+        {
+            var file = await media.VideoAsync(movie.Turkish.Title, movie.VideoHeight, cancellationToken).ConfigureAwait(false);
+            var ticket = await gateway.PostAsync<VideoUploadTicket>($"{Streaming}/videos", new { contentKind = "Movie", contentId = id }, cancellationToken).ConfigureAwait(false);
+            await uploader.UploadAsync(ticket.UploadAddress, file, "video/mp4", cancellationToken).ConfigureAwait(false);
+            await gateway.PostAsync($"{Streaming}/videos/{ticket.VideoId}/uploaded", body: null, cancellationToken).ConfigureAwait(false);
+            _pendingVideos.Add(ticket.VideoId);
+            Changed("Movie", movie.OriginalTitle, "video uploaded again for its languages");
+            await WaitForVideosAsync(cancellationToken).ConfigureAwait(false);
+            video = await gateway.GetAsync<VideoDetails>($"{Streaming}/videos/{ticket.VideoId}", cancellationToken).ConfigureAwait(false);
+            plan = SeedDecisions.ForLanguages(video);
+        }
+
+        var path = $"{Streaming}/videos/{video.Id}";
+        if (plan.Dub != TrackStep.None)
+        {
+            if (plan.Dub == TrackStep.ReplaceAndUpload)
+            {
+                await gateway.DeleteAsync($"{path}/audio-tracks/{SeedDecisions.DubLanguage}", cancellationToken).ConfigureAwait(false);
+            }
+
+            var ticket = await gateway.PostAsync<AudioTrackUploadTicket>($"{path}/audio-tracks", new { language = SeedDecisions.DubLanguage }, cancellationToken).ConfigureAwait(false);
+            await uploader.UploadAsync(ticket.UploadAddress, await media.DubAsync(cancellationToken).ConfigureAwait(false), "audio/mp4", cancellationToken).ConfigureAwait(false);
+            await gateway.PostAsync($"{path}/audio-tracks/{ticket.TrackId}/uploaded", body: null, cancellationToken).ConfigureAwait(false);
+            Changed("Movie", movie.OriginalTitle, $"{SeedDecisions.DubLanguage} dub uploaded");
+        }
+
+        foreach (var (language, step) in plan.Subtitles.Where(item => item.Value != TrackStep.None))
+        {
+            if (step == TrackStep.ReplaceAndUpload)
+            {
+                await gateway.DeleteAsync($"{path}/subtitles/{language}", cancellationToken).ConfigureAwait(false);
+            }
+
+            var ticket = await gateway.PostAsync<SubtitleUploadTicket>($"{path}/subtitles", new { language }, cancellationToken).ConfigureAwait(false);
+            await uploader.UploadAsync(ticket.UploadAddress, await media.SubtitlesAsync(language, cancellationToken).ConfigureAwait(false), "application/x-subrip", cancellationToken).ConfigureAwait(false);
+            await gateway.PostAsync($"{path}/subtitles/{ticket.SubtitleId}/uploaded", body: null, cancellationToken).ConfigureAwait(false);
+            Changed("Movie", movie.OriginalTitle, $"{language} subtitles added");
+        }
+
+        await WaitForDubAsync(video.Id, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<VideoDetails> ReadyVideoAsync(Guid contentId, CancellationToken cancellationToken)
+    {
+        var videos = await gateway.GetAsync<Page<VideoItem>>($"{Streaming}/videos?contentId={contentId}&status=Ready&pageSize=100", cancellationToken).ConfigureAwait(false);
+        var latest = videos.Items.MaxBy(item => item.CreatedAt) ?? throw new InvalidOperationException($"Movie {contentId} has no ready video.");
+        return await gateway.GetAsync<VideoDetails>($"{Streaming}/videos/{latest.Id}", cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task WaitForDubAsync(Guid videoId, CancellationToken cancellationToken)
+    {
+        var deadline = time.GetUtcNow() + options.TranscodeTimeout;
+        while (true)
+        {
+            var video = await gateway.GetAsync<VideoDetails>($"{Streaming}/videos/{videoId}", cancellationToken).ConfigureAwait(false);
+            var dub = video.AudioTracks?.FirstOrDefault(track => track.Language == SeedDecisions.DubLanguage);
+            if (dub?.Status is null or "Ready")
+            {
+                return;
+            }
+
+            if (dub.Status == "Failed")
+            {
+                throw new InvalidOperationException($"The dub of video {videoId} failed: {dub.FailureReason}");
+            }
+
+            if (time.GetUtcNow() > deadline)
+            {
+                throw new TimeoutException($"The dub of video {videoId} was not converted within {options.TranscodeTimeout}. Is the transcoder running?");
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(5), time, cancellationToken).ConfigureAwait(false);
         }
     }
 

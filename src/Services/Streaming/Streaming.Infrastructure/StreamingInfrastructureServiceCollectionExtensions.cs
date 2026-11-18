@@ -97,6 +97,7 @@ public static class StreamingInfrastructureServiceCollectionExtensions
         services.AddScoped<IPlaybackSessionRepository, PlaybackSessionRepository>();
         services.AddScoped<IWatchProgressRepository, WatchProgressRepository>();
         services.AddScoped<IMyListRepository, MyListRepository>();
+        services.AddScoped<IPlaybackPreferenceRepository, PlaybackPreferenceRepository>();
         services.AddScoped<IPopularityRepository, PopularityRepository>();
         return services;
     }

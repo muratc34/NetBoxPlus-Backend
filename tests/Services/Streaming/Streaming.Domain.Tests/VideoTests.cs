@@ -69,9 +69,13 @@ public sealed class VideoTests
 
         Assert.True(video.MarkReady(12.5, Renditions).IsSuccess);
 
-        Assert.Equal((VideoStatus.Ready, 12.5, 2), (video.Status, video.DurationSeconds, video.Revision));
+        Assert.Equal((VideoStatus.Ready, 12.5, 3), (video.Status, video.DurationSeconds, video.Revision));
         Assert.Equal([360, 720], video.Renditions.Select(rendition => rendition.Height));
-        Assert.Equal(2, Assert.IsType<VideoReadyDomainEvent>(Assert.Single(video.DomainEvents)).Revision);
+
+        // Ready, then what it offers: a silent video offers no language.
+        Assert.Equal(2, Assert.IsType<VideoReadyDomainEvent>(video.DomainEvents.First()).Revision);
+        var tracks = Assert.IsType<VideoTracksChangedDomainEvent>(video.DomainEvents.Last());
+        Assert.Equal((3, 0, 0), (tracks.Revision, tracks.AudioLanguages.Count, tracks.SubtitleLanguages.Count));
     }
 
     [Fact]

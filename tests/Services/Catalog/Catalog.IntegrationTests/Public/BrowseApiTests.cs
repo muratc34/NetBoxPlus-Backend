@@ -10,7 +10,12 @@ using Catalog.Application.Browse.GetTitles;
 using Catalog.Application.Content;
 using Catalog.Application.Movies.GetMovie;
 using Catalog.Application.Shows.GetSeries;
+using Catalog.Application.Videos.ApplyVideoState;
+using Catalog.Application.Videos.ApplyVideoTracks;
+using Catalog.Domain.Content;
 using Catalog.IntegrationTests.Admin;
+using Microsoft.Extensions.DependencyInjection;
+using Shared.Application.Cqrs;
 using Shared.Application.Paging;
 
 namespace Catalog.IntegrationTests.Public;
@@ -77,6 +82,31 @@ public sealed class BrowseApiTests(CatalogApiFixture api)
         }
 
         Assert.Equal(HttpStatusCode.NotFound, (await visitor.GetAsync($"/series/{draftSeries.Id}", Cancellation)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Details_ShowTheLanguagesOfThePlayableVideo()
+    {
+        using var admin = api.CreateClient(Everything);
+        using var visitor = api.CreateAnonymousClient();
+        var genre = await GenreAsync(admin);
+        var movie = await MovieAsync(admin, "Dubbed", genre, publish: true);
+        var series = await SeriesAsync(admin, genre, publishSeries: true);
+        var episode = Assert.Single(Assert.Single((await ReadAsync<PublishedSeries>(await visitor.GetAsync($"/series/{series.Id}", Cancellation))).Seasons).Episodes).Id;
+
+        await NewVideoAsync("Movie", movie, ["tr-TR", "en-US"], ["en-US"]);
+        await NewVideoAsync("Episode", episode, ["en-GB"], ["tr-TR", "de-DE"]);
+
+        var movieDetails = await ReadAsync<PublishedMovie>(await visitor.GetAsync($"/movies/{movie}", Cancellation));
+        Assert.Equal(["tr-TR", "en-US"], movieDetails.AudioLanguages);
+        Assert.Equal(["en-US"], movieDetails.SubtitleLanguages);
+
+        var seriesDetails = await ReadAsync<PublishedSeries>(await visitor.GetAsync($"/series/{series.Id}", Cancellation));
+        var published = Assert.Single(Assert.Single(seriesDetails.Seasons).Episodes);
+        Assert.Equal(["en-GB"], published.AudioLanguages);
+        Assert.Equal(["tr-TR", "de-DE"], published.SubtitleLanguages);
+        Assert.Equal(["en-GB"], seriesDetails.AudioLanguages);
+        Assert.Equal(["de-DE", "tr-TR"], seriesDetails.SubtitleLanguages);
     }
 
     [Fact]
@@ -270,6 +300,16 @@ public sealed class BrowseApiTests(CatalogApiFixture api)
 
     private static async Task<Guid> PersonAsync(HttpClient admin)
         => await PostOkAsync(admin, "/admin/people", TestRequests.Person("Ada", null));
+
+    /// <summary>A newer video becomes the content's playable one, with the languages it offers.</summary>
+    private async Task NewVideoAsync(string kind, Guid contentId, string[] audio, string[] subtitles)
+    {
+        var video = Guid.CreateVersion7();
+        await using var scope = api.CreateScope();
+        var dispatcher = scope.ServiceProvider.GetRequiredService<IDispatcher>();
+        Assert.True((await dispatcher.Send(new ApplyVideoTracksCommand(kind, contentId, video, audio, subtitles, 3), Cancellation)).IsSuccess);
+        Assert.True((await dispatcher.Send(new ApplyVideoStateCommand(kind, contentId, video, VideoState.Ready, 2), Cancellation)).IsSuccess);
+    }
 
     private async Task<Guid> MovieAsync(HttpClient admin, string title, Guid genre, bool publish, Guid? person = null)
     {

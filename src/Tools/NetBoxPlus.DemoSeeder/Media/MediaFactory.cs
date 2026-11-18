@@ -52,6 +52,34 @@ internal sealed class MediaFactory(SeederOptions options)
         return file;
     }
 
+    /// <summary>A dub as long as the videos: a tone of another pitch, so that switching is heard.</summary>
+    public async Task<string> DubAsync(CancellationToken cancellationToken)
+    {
+        var file = OutputFile("dub", "660", ".m4a");
+        if (!File.Exists(file))
+        {
+            await RunAsync(["-f", "lavfi", "-i", $"sine=frequency=660:duration={VideoSeconds}", "-c:a", "aac", "-b:a", "96k"], file, cancellationToken).ConfigureAwait(false);
+        }
+
+        return file;
+    }
+
+    /// <summary>Subtitles in SRT, one line every five seconds of the video, naming the language and the time.</summary>
+    public async Task<string> SubtitlesAsync(string language, CancellationToken cancellationToken)
+    {
+        var file = OutputFile("subtitles", language, ".srt");
+        var text = new StringBuilder();
+        for (var cue = 0; cue < VideoSeconds / 5; cue++)
+        {
+            var start = TimeSpan.FromSeconds(cue * 5);
+            var end = start + TimeSpan.FromSeconds(4);
+            text.Append(CultureInfo.InvariantCulture, $"{cue + 1}\n{start:hh\\:mm\\:ss},000 --> {end:hh\\:mm\\:ss},000\n{language}: {start:mm\\:ss}\n\n");
+        }
+
+        await File.WriteAllTextAsync(file, text.ToString(), new UTF8Encoding(false), cancellationToken).ConfigureAwait(false);
+        return file;
+    }
+
     private async Task<string> ImageAsync(string kind, string title, Palette palette, int width, int height, int fontSize, CancellationToken cancellationToken)
     {
         var file = OutputFile(kind, $"{title}|{palette}|{width}x{height}", ".png");

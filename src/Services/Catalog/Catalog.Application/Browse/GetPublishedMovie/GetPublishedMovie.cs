@@ -12,6 +12,8 @@ namespace Catalog.Application.Browse.GetPublishedMovie;
 /// <summary>A published movie; anything else does not exist as far as customers can tell.</summary>
 public sealed record GetPublishedMovieQuery(Guid MovieId, string Language) : IQuery<PublishedMovie>;
 
+/// <param name="AudioLanguages">The languages of the sound, BCP 47 tags such as <c>tr-TR</c>, the original first.</param>
+/// <param name="SubtitleLanguages">The languages of subtitles, BCP 47 tags.</param>
 public sealed record PublishedMovie(
     Guid Id,
     string Title,
@@ -24,7 +26,9 @@ public sealed record PublishedMovie(
     Uri? PosterUrl,
     Uri? BackdropUrl,
     IReadOnlyList<GenreReference> Genres,
-    IReadOnlyList<CreditResponse> Credits);
+    IReadOnlyList<CreditResponse> Credits,
+    IReadOnlyList<string> AudioLanguages,
+    IReadOnlyList<string> SubtitleLanguages);
 
 internal sealed class GetPublishedMovieValidator : IValidator<GetPublishedMovieQuery>
 {
@@ -58,6 +62,8 @@ internal sealed class GetPublishedMovieHandler(ICatalogReadModel readModel, Cont
             names.ImageAddress(movie.PosterImage),
             names.ImageAddress(movie.BackdropImage),
             names.GenresOf(movie, query.Language),
-            names.CreditsOf(movie));
+            names.CreditsOf(movie),
+            movie.Video.AudioLanguages,
+            movie.Video.SubtitleLanguages);
     }
 }

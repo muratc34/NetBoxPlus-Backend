@@ -4315,7 +4315,9 @@
           "title",
           "language",
           "synopsis",
-          "runtimeMinutes"
+          "runtimeMinutes",
+          "audioLanguages",
+          "subtitleLanguages"
         ],
         "type": "object",
         "properties": {
@@ -4347,6 +4349,18 @@
               "string"
             ],
             "format": "int32"
+          },
+          "audioLanguages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "subtitleLanguages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -4363,7 +4377,9 @@
           "posterUrl",
           "backdropUrl",
           "genres",
-          "credits"
+          "credits",
+          "audioLanguages",
+          "subtitleLanguages"
         ],
         "type": "object",
         "properties": {
@@ -4430,6 +4446,18 @@
             "items": {
               "$ref": "#/components/schemas/CreditResponse"
             }
+          },
+          "audioLanguages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "subtitleLanguages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -4481,7 +4509,9 @@
           "backdropUrl",
           "genres",
           "credits",
-          "seasons"
+          "seasons",
+          "audioLanguages",
+          "subtitleLanguages"
         ],
         "type": "object",
         "properties": {
@@ -4545,6 +4575,18 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/PublishedSeason"
+            }
+          },
+          "audioLanguages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "subtitleLanguages": {
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           }
         }

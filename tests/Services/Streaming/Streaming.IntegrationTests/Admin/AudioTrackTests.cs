@@ -61,6 +61,14 @@ public sealed class AudioTrackTests(StreamingApiFixture api)
         await using var scope = api.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<StreamingDbContext>();
         Assert.False(await context.Set<TranscodeJob>().AnyAsync(job => job.Id == track, Cancellation));
+        var announced = (await context.OutboxMessages
+            .Where(message => message.Type == "Streaming.Contracts.VideoTracksChanged")
+            .Select(message => message.Payload)
+            .ToListAsync(Cancellation))
+            .Where(payload => payload.Contains(id.ToString(), StringComparison.Ordinal))
+            .ToList();
+        Assert.Equal(2, announced.Count);
+        Assert.Contains(announced, payload => payload.Replace(" ", string.Empty, StringComparison.Ordinal).Contains("[\"tr-TR\",\"en-US\"]", StringComparison.Ordinal));
         Assert.False(await StorageConnections.CreateClient(api.VideosConnectionString).GetBlobContainerClient(VideoBlobStorage.UploadsContainer)
             .GetBlobClient(track.ToString("N")).ExistsAsync(Cancellation));
     }

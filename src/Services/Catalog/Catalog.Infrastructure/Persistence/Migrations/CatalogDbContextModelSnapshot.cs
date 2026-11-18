@@ -143,6 +143,11 @@ namespace Catalog.Infrastructure.Persistence.Migrations
                         {
                             b1.IsRequired();
 
+                            b1.Property<string>("AudioLanguageList")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)");
+
                             b1.Property<int>("LatestRevision")
                                 .HasColumnType("integer");
 
@@ -155,6 +160,17 @@ namespace Catalog.Infrastructure.Persistence.Migrations
                                 .HasColumnType("uuid");
 
                             b1.Property<Guid?>("PlayableVideoId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("SubtitleLanguageList")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)");
+
+                            b1.Property<int>("TracksRevision")
+                                .HasColumnType("integer");
+
+                            b1.Property<Guid?>("TracksVideoId")
                                 .HasColumnType("uuid");
                         });
 
@@ -252,6 +268,11 @@ namespace Catalog.Infrastructure.Persistence.Migrations
                         {
                             b1.IsRequired();
 
+                            b1.Property<string>("AudioLanguageList")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)");
+
                             b1.Property<int>("LatestRevision")
                                 .HasColumnType("integer");
 
@@ -264,6 +285,17 @@ namespace Catalog.Infrastructure.Persistence.Migrations
                                 .HasColumnType("uuid");
 
                             b1.Property<Guid?>("PlayableVideoId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("SubtitleLanguageList")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)");
+
+                            b1.Property<int>("TracksRevision")
+                                .HasColumnType("integer");
+
+                            b1.Property<Guid?>("TracksVideoId")
                                 .HasColumnType("uuid");
                         });
 

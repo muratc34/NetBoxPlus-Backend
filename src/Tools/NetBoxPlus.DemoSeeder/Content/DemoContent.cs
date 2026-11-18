@@ -13,6 +13,7 @@ internal sealed record CreditSeed(string Person, string Role, string? Character 
 internal sealed record Palette(string From, string To);
 
 /// <param name="VideoHeight">The generated video's height: 720 or 1080.</param>
+/// <param name="Dubbed">The movie gets an English dub and Turkish and English subtitles, to show both in the player.</param>
 internal sealed record MovieSeed(
     string OriginalTitle,
     Texts Turkish,
@@ -23,7 +24,8 @@ internal sealed record MovieSeed(
     IReadOnlyList<string> Genres,
     IReadOnlyList<CreditSeed> Credits,
     Palette Palette,
-    int VideoHeight = 720);
+    int VideoHeight = 720,
+    bool Dubbed = false);
 
 internal sealed record EpisodeSeed(int Number, Texts Turkish, Texts English, int RuntimeMinutes);
 
@@ -78,7 +80,7 @@ internal static class DemoContent
             new("Northern Light", "A keeper living alone in a northern lighthouse faces his past when a stranger knocks on his door on a stormy night."),
             2023, "Age13", 108, ["Dram"],
             [new("Kerem Yalçın", "Director"), new("Elif Karadağ", "Writer"), new("Defne Aksoy", "Actor", "Nehir"), new("Can Erdem", "Actor", "Fener Bekçisi")],
-            new("navy", "teal"), VideoHeight: 1080),
+            new("navy", "teal"), VideoHeight: 1080, Dubbed: true),
         new(
             "Last Stop Mars",
             new("Son Durak Mars", "Mars'a giden son kargo gemisinin mürettebatı, rotalarında olmaması gereken bir sinyal yakalar."),

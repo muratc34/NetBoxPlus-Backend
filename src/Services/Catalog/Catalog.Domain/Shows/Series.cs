@@ -209,6 +209,17 @@ public sealed class Series : ContentItem
         return Result.Success();
     }
 
+    public Result ApplyEpisodeVideoTracks(Guid episodeId, Guid videoId, IReadOnlyCollection<string> audio, IReadOnlyCollection<string> subtitles, int revision)
+    {
+        if (Find(episodeId) is not (_, var episode))
+        {
+            return SeriesErrors.EpisodeNotFound;
+        }
+
+        episode.Video.ApplyTracks(videoId, audio, subtitles, revision);
+        return Result.Success();
+    }
+
     /// <summary>Hides the episode; a published series must keep at least one.</summary>
     public Result UnpublishEpisode(Guid episodeId)
     {

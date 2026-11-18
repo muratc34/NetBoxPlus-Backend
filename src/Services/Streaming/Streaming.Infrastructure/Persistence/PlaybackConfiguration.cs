@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Streaming.Domain.Playback;
+using Streaming.Domain.Videos;
 
 namespace Streaming.Infrastructure.Persistence;
 
@@ -100,4 +101,31 @@ internal sealed class WatchProgressRepository(StreamingDbContext context) : IWat
 
     public async Task RemoveForProfileAsync(Guid profileId, CancellationToken cancellationToken)
         => context.WatchProgress.RemoveRange(await context.WatchProgress.Where(progress => progress.ProfileId == profileId).ToListAsync(cancellationToken).ConfigureAwait(false));
+}
+
+internal sealed class PlaybackPreferenceConfiguration : IEntityTypeConfiguration<PlaybackPreference>
+{
+    public void Configure(EntityTypeBuilder<PlaybackPreference> builder)
+    {
+        builder.ToTable("PlaybackPreferences");
+        builder.HasKey(preference => preference.Id);
+        builder.Property(preference => preference.Id).ValueGeneratedNever();
+        builder.Property(preference => preference.AudioLanguage).HasMaxLength(MediaLanguages.MaxLength);
+        builder.Property(preference => preference.SubtitleLanguage).HasMaxLength(MediaLanguages.MaxLength);
+        builder.HasIndex(preference => preference.UserId);
+    }
+}
+
+internal sealed class PlaybackPreferenceRepository(StreamingDbContext context) : IPlaybackPreferenceRepository
+{
+    public Task<PlaybackPreference?> GetAsync(Guid profileId, CancellationToken cancellationToken)
+        => context.PlaybackPreferences.FirstOrDefaultAsync(preference => preference.Id == profileId, cancellationToken);
+
+    public void Add(PlaybackPreference preference) => context.PlaybackPreferences.Add(preference);
+
+    public async Task RemoveForProfileAsync(Guid profileId, CancellationToken cancellationToken)
+        => context.PlaybackPreferences.RemoveRange(await context.PlaybackPreferences.Where(preference => preference.Id == profileId).ToListAsync(cancellationToken).ConfigureAwait(false));
+
+    public async Task RemoveForUserAsync(Guid userId, CancellationToken cancellationToken)
+        => context.PlaybackPreferences.RemoveRange(await context.PlaybackPreferences.Where(preference => preference.UserId == userId).ToListAsync(cancellationToken).ConfigureAwait(false));
 }

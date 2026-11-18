@@ -12,6 +12,15 @@ public sealed record VideoQueued(Guid VideoId, string ContentKind, Guid ContentI
 /// <param name="ContentKind"><c>Movie</c> or <c>Episode</c>.</param>
 public sealed record VideoReady(Guid VideoId, string ContentKind, Guid ContentId, double DurationSeconds, int Revision, DateTimeOffset OccurredAt);
 
+/// <summary>
+/// The languages a ready video offers changed: when it became ready, and with every audio track or
+/// subtitles added or removed. Its Revision is the video's, so it orders with the other video events.
+/// </summary>
+/// <param name="ContentKind"><c>Movie</c> or <c>Episode</c>.</param>
+/// <param name="AudioLanguages">BCP 47 tags such as <c>tr-TR</c>, the original first; empty for a video whose sound is inside its renditions.</param>
+/// <param name="SubtitleLanguages">BCP 47 tags, in order.</param>
+public sealed record VideoTracksChanged(Guid VideoId, string ContentKind, Guid ContentId, IReadOnlyList<string> AudioLanguages, IReadOnlyList<string> SubtitleLanguages, int Revision, DateTimeOffset OccurredAt);
+
 /// <summary>The video could not be converted; the content keeps any video it already had.</summary>
 /// <param name="ContentKind"><c>Movie</c> or <c>Episode</c>.</param>
 public sealed record VideoFailed(Guid VideoId, string ContentKind, Guid ContentId, string Reason, int Revision, DateTimeOffset OccurredAt);

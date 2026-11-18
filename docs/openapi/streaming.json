@@ -1622,6 +1622,131 @@
           }
         }
       }
+    },
+    "/profiles/{profileId}/playback-preferences": {
+      "get": {
+        "tags": [
+          "Playback"
+        ],
+        "summary": "The languages of sound and subtitles the profile last chose.",
+        "operationId": "GetPlaybackPreferences",
+        "parameters": [
+          {
+            "name": "profileId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaybackPreferences"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Playback"
+        ],
+        "summary": "Keeps the profile's choice; its next sessions start with it where the video offers the language.",
+        "operationId": "SetPlaybackPreferences",
+        "parameters": [
+          {
+            "name": "profileId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPlaybackPreferencesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1875,12 +2000,35 @@
           }
         }
       },
+      "PlaybackPreferences": {
+        "required": [
+          "audioLanguage",
+          "subtitleLanguage"
+        ],
+        "type": "object",
+        "properties": {
+          "audioLanguage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "subtitleLanguage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "PlaybackStarted": {
         "required": [
           "sessionId",
           "playlist",
           "heartbeatSeconds",
-          "resumeFromSeconds"
+          "resumeFromSeconds",
+          "audioLanguages",
+          "subtitleLanguages"
         ],
         "type": "object",
         "properties": {
@@ -1906,6 +2054,18 @@
               "string"
             ],
             "format": "double"
+          },
+          "audioLanguages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "subtitleLanguages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -2021,6 +2181,27 @@
           },
           "playlist": {
             "type": "string"
+          }
+        }
+      },
+      "SetPlaybackPreferencesRequest": {
+        "required": [
+          "audioLanguage",
+          "subtitleLanguage"
+        ],
+        "type": "object",
+        "properties": {
+          "audioLanguage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "subtitleLanguage": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

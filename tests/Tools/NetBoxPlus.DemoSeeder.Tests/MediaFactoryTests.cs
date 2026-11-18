@@ -23,6 +23,26 @@ public sealed class MediaFactoryTests : IDisposable
     }
 
     [Fact]
+    public async Task Subtitles_AreSrt_WithACueEveryFiveSeconds()
+    {
+        var text = await File.ReadAllTextAsync(await Factory().SubtitlesAsync("en-US", Cancellation), Cancellation);
+
+        var cues = text.Split("\n\n", StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal(MediaFactory.VideoSeconds / 5, cues.Length);
+        Assert.Equal("1\n00:00:00,000 --> 00:00:04,000\nen-US: 00:00", cues[0]);
+        Assert.Equal("6\n00:00:25,000 --> 00:00:29,000\nen-US: 00:25", cues[^1]);
+    }
+
+    [Fact]
+    public async Task TheDub_IsSound_AsLongAsTheVideos()
+    {
+        var dub = await Factory().DubAsync(Cancellation);
+
+        Assert.True(new FileInfo(dub).Length > 10_000);
+        Assert.Equal(dub, await Factory().DubAsync(Cancellation));
+    }
+
+    [Fact]
     public async Task AVideo_IsMadeOnce_AndReused()
     {
         var media = Factory();

@@ -173,6 +173,7 @@ public sealed class Video : AggregateRoot, IAuditableEntity
 
         ChangeStatus(VideoStatus.Ready);
         RaiseDomainEvent(new VideoReadyDomainEvent(Id, ContentKind, ContentId, durationSeconds, Revision));
+        TracksChanged();
         return Result.Success();
     }
 
@@ -277,6 +278,7 @@ public sealed class Video : AggregateRoot, IAuditableEntity
         }
 
         track.MarkReady(bandwidth);
+        TracksChanged();
         return Result.Success();
     }
 
@@ -314,6 +316,11 @@ public sealed class Video : AggregateRoot, IAuditableEntity
         }
 
         _audioTracks.Remove(track);
+        if (track.Status == TrackStatus.Ready)
+        {
+            TracksChanged();
+        }
+
         return Result.Success();
     }
 
@@ -376,11 +383,41 @@ public sealed class Video : AggregateRoot, IAuditableEntity
         }
 
         subtitle.Value.Accept();
+        TracksChanged();
         return Result.Success();
     }
 
     public Result RemoveSubtitle(string language)
-        => _subtitles.RemoveAll(item => item.Language == language) > 0 ? Result.Success() : VideoErrors.SubtitleNotFound;
+    {
+        var subtitle = _subtitles.Find(item => item.Language == language);
+        if (subtitle is null)
+        {
+            return VideoErrors.SubtitleNotFound;
+        }
+
+        _subtitles.Remove(subtitle);
+        if (subtitle.Status == TrackStatus.Ready)
+        {
+            TracksChanged();
+        }
+
+        return Result.Success();
+    }
+
+    /// <summary>The languages players are offered now: ready audio tracks, the original first, and ready subtitles.</summary>
+    public (IReadOnlyList<string> Audio, IReadOnlyList<string> Subtitles) ReadyLanguages()
+        => (
+            [.. _audioTracks.Where(track => track.Status == TrackStatus.Ready && AudioLayout == AudioLayout.Separate)
+                .OrderByDescending(track => track.IsOriginal).ThenBy(track => track.Language, StringComparer.Ordinal).Select(track => track.Language)],
+            [.. _subtitles.Where(subtitle => subtitle.Status == TrackStatus.Ready).OrderBy(subtitle => subtitle.Language, StringComparer.Ordinal).Select(subtitle => subtitle.Language)]);
+
+    /// <summary>What players are offered changed: the revision goes up and the change is announced.</summary>
+    private void TracksChanged()
+    {
+        Revision++;
+        var (audio, subtitles) = ReadyLanguages();
+        RaiseDomainEvent(new VideoTracksChangedDomainEvent(Id, ContentKind, ContentId, audio, subtitles, Revision));
+    }
 
     /// <summary>The upload was not finished in time; nothing outside the service heard of it.</summary>
     public void Expire(DateTimeOffset now)
@@ -442,5 +479,7 @@ public static class VideoErrors
 public sealed record VideoQueuedDomainEvent(Guid VideoId, ContentKind ContentKind, Guid ContentId, int Revision) : IDomainEvent;
 
 public sealed record VideoReadyDomainEvent(Guid VideoId, ContentKind ContentKind, Guid ContentId, double DurationSeconds, int Revision) : IDomainEvent;
+
+public sealed record VideoTracksChangedDomainEvent(Guid VideoId, ContentKind ContentKind, Guid ContentId, IReadOnlyList<string> AudioLanguages, IReadOnlyList<string> SubtitleLanguages, int Revision) : IDomainEvent;
 
 public sealed record VideoFailedDomainEvent(Guid VideoId, ContentKind ContentKind, Guid ContentId, string Reason, int Revision) : IDomainEvent;
