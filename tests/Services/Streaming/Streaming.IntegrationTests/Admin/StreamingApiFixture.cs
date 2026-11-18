@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
@@ -55,7 +56,7 @@ public sealed class StreamingApiFixture : IAsyncLifetime
         }
 
         VideosConnectionString = _azurite.GetConnectionString();
-        await VideoStorageSetup.EnsureAsync(VideosConnectionString, [], []);
+        await VideoStorageSetup.EnsureAsync(StorageConnections.CreateClient(VideosConnectionString), [], []);
         _factory = new StreamingApiFactory(ContainerConnections.ConnectionString(_postgres.GetConnectionString()), VideosConnectionString, _signingKey);
 
         await using var scope = _factory.Services.CreateAsyncScope();
@@ -135,6 +136,7 @@ public sealed class StreamingApiFixture : IAsyncLifetime
             builder.ConfigureTestServices(services =>
             {
                 services.RetryLostConnectionAttempts<StreamingDbContext>();
+                services.Replace(ServiceDescriptor.Singleton(StorageConnections.CreateClient(videos)));
 
                 var workers = services
                     .Where(service => service.ServiceType == typeof(IHostedService)

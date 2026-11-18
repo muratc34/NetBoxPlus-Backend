@@ -1,5 +1,6 @@
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
+using NetBoxPlus.Testing;
 using Streaming.Infrastructure.Media;
 
 namespace Streaming.IntegrationTests.Admin;
@@ -14,7 +15,7 @@ public sealed class StorageSetupTests(StreamingApiFixture api)
     public async Task Setup_AddsItsRules_KeepsEveryoneElses_AndRunsAgainWithoutDuplicates()
     {
         Assert.SkipUnless(api.IsAvailable, "Docker is not available.");
-        var blobs = new BlobServiceClient(api.VideosConnectionString);
+        var blobs = StorageConnections.CreateClient(api.VideosConnectionString);
         var properties = (await blobs.GetPropertiesAsync(Cancellation)).Value;
         var foreign = new BlobCorsRule { AllowedOrigins = "https://other.test", AllowedMethods = "PUT", AllowedHeaders = "x-ms-blob-type", ExposedHeaders = string.Empty, MaxAgeInSeconds = 60 };
         properties.Cors = [foreign];

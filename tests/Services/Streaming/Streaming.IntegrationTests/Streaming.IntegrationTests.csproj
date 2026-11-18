@@ -14,6 +14,8 @@
   <ItemGroup>
     <Compile Include="../../../TestSupport/DockerAvailability.cs" Link="TestSupport/DockerAvailability.cs" />
     <Compile Include="../../../TestSupport/ContainerConnections.cs" Link="TestSupport/ContainerConnections.cs" />
+    <Compile Include="../../../TestSupport/StorageConnections.cs" Link="TestSupport/StorageConnections.cs" />
+    <Compile Include="../../../TestSupport/BlackHoleProxy.cs" Link="TestSupport/BlackHoleProxy.cs" />
     <Compile Include="../../../TestSupport/FfmpegAvailability.cs" Link="TestSupport/FfmpegAvailability.cs" />
   </ItemGroup>
 

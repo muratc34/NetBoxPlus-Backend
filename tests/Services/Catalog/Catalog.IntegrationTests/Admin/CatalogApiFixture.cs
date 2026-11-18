@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
@@ -65,7 +66,7 @@ public sealed class CatalogApiFixture : IAsyncLifetime
             return;
         }
 
-        await ImageStorageSetup.EnsureAsync(_azurite.GetConnectionString(), []);
+        await ImageStorageSetup.EnsureAsync(StorageConnections.CreateClient(_azurite.GetConnectionString()), []);
         _images = _azurite.GetConnectionString();
         _database = ContainerConnections.ConnectionString(_postgres.GetConnectionString());
         _factory = new CatalogApiFactory(_database, _images, $"http://127.0.0.1:{_elasticsearch.GetMappedPublicPort(9200)}", _signingKey);
@@ -164,6 +165,7 @@ public sealed class CatalogApiFixture : IAsyncLifetime
             builder.ConfigureTestServices(services =>
             {
                 services.RetryLostConnectionAttempts<CatalogDbContext>();
+                services.Replace(ServiceDescriptor.Singleton(StorageConnections.CreateClient(images)));
 
                 var workers = services
                     .Where(service => service.ServiceType == typeof(IHostedService)

@@ -62,7 +62,10 @@ ile yapar (`tests/TestSupport/DockerAvailability.cs`, csproj'a link'lenir). Post
 her fixture bağlantı dizesini `ContainerConnections.ConnectionString(...)` ile kurar ve
 `RetryLostConnectionAttempts<TContext>()` ekler (`tests/TestSupport/ContainerConnections.cs`): Docker Desktop'ın
 port yönlendirmesi yük altında tek tük bağlantıyı kabul edip container'a hiç iletmiyor; açılış 5 s'de kesilip
-yeniden denenir (timeout'u büyütmek işe yaramaz, kayıp bağlantı hiç toparlanmaz). Test image'ları
+yeniden denenir (timeout'u büyütmek işe yaramaz, kayıp bağlantı hiç toparlanmaz). Aynı kural RabbitMQ ve Azurite'te:
+testin kendi broker bağlantısı `BrokerConnections.OpenAsync` (deneme 5 sn'de bırakılır; istemcinin el sıkışma beklemesi token'ı
+dinlemiyor), Azurite'e giden her client `StorageConnections.CreateClient`/`CreateHttpClient` (istek başına 10 sn, 3 deneme); fixture'lar
+servisin `BlobServiceClient`'ını bununla değiştirir. Dayanıklılık `BlackHoleProxy` (ilk bağlantıyı kabul edip yutan TCP proxy) ile test edilir. Test image'ları
 `deploy/compose.yaml` ile aynı sürümde tutulur.
 
 **CI** (`.github/workflows/ci.yml`, `v2` ve `master`'a push ve PR'larda): Release build (uyarı =

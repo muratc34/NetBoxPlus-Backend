@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using Catalog.Application.Images.RequestImageUpload;
+using NetBoxPlus.Testing;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
@@ -9,7 +10,7 @@ namespace Catalog.IntegrationTests.Admin;
 /// <summary>Real image files, and the upload a browser would do: straight to storage, not through the API.</summary>
 internal static class TestImages
 {
-    private static readonly HttpClient Storage = new();
+    private static readonly HttpClient Storage = StorageConnections.CreateHttpClient();
 
     public static byte[] Png(int width, int height) => Encode(width, height, (image, stream) => image.SaveAsPng(stream));
 

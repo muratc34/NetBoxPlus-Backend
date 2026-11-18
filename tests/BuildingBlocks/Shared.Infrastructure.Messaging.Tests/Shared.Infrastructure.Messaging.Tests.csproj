@@ -13,6 +13,8 @@
 
   <ItemGroup>
     <Compile Include="../../TestSupport/DockerAvailability.cs" Link="TestSupport/DockerAvailability.cs" />
+    <Compile Include="../../TestSupport/BrokerConnections.cs" Link="TestSupport/BrokerConnections.cs" />
+    <Compile Include="../../TestSupport/BlackHoleProxy.cs" Link="TestSupport/BlackHoleProxy.cs" />
   </ItemGroup>
 
 </Project>

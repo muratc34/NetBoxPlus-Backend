@@ -9,7 +9,7 @@ namespace Streaming.IntegrationTests.Admin;
 /// <summary>Real video files, made by ffmpeg's own test sources; nothing is kept in the repository.</summary>
 internal static class TestVideos
 {
-    private static readonly HttpClient Storage = new();
+    private static readonly HttpClient Storage = StorageConnections.CreateHttpClient();
 
     public static async Task<byte[]> CreateAsync(int width, int height, int seconds, bool audio)
     {

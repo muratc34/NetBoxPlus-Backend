@@ -83,13 +83,21 @@ internal sealed class VideoBlobStorage(BlobServiceClient blobs, PublicBlobAddres
 /// <summary>Creates the containers and lets the admin panel upload and players read. Safe to run again.</summary>
 public static class VideoStorageSetup
 {
-    public static async Task EnsureAsync(
+    public static Task EnsureAsync(
         string connectionString,
         IReadOnlyCollection<string> uploadOrigins,
         IReadOnlyCollection<string> playbackOrigins,
         CancellationToken cancellationToken = default)
+        => EnsureAsync(new BlobServiceClient(connectionString), uploadOrigins, playbackOrigins, cancellationToken);
+
+    /// <summary>As above, through a client the caller configured.</summary>
+    public static async Task EnsureAsync(
+        BlobServiceClient blobs,
+        IReadOnlyCollection<string> uploadOrigins,
+        IReadOnlyCollection<string> playbackOrigins,
+        CancellationToken cancellationToken = default)
     {
-        var blobs = new BlobServiceClient(connectionString);
+        ArgumentNullException.ThrowIfNull(blobs);
         await blobs.GetBlobContainerClient(VideoBlobStorage.UploadsContainer).CreateIfNotExistsAsync(PublicAccessType.None, cancellationToken: cancellationToken).ConfigureAwait(false);
         await blobs.GetBlobContainerClient(VideoBlobStorage.VideosContainer).CreateIfNotExistsAsync(PublicAccessType.None, cancellationToken: cancellationToken).ConfigureAwait(false);
 

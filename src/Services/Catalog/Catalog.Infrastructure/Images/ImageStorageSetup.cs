@@ -6,9 +6,13 @@ namespace Catalog.Infrastructure.Images;
 /// <summary>Creates the containers and lets the admin panel upload from the browser. Safe to run again.</summary>
 public static class ImageStorageSetup
 {
-    public static async Task EnsureAsync(string connectionString, IReadOnlyCollection<string> uploadOrigins, CancellationToken cancellationToken = default)
+    public static Task EnsureAsync(string connectionString, IReadOnlyCollection<string> uploadOrigins, CancellationToken cancellationToken = default)
+        => EnsureAsync(new BlobServiceClient(connectionString), uploadOrigins, cancellationToken);
+
+    /// <summary>As above, through a client the caller configured.</summary>
+    public static async Task EnsureAsync(BlobServiceClient blobs, IReadOnlyCollection<string> uploadOrigins, CancellationToken cancellationToken = default)
     {
-        var blobs = new BlobServiceClient(connectionString);
+        ArgumentNullException.ThrowIfNull(blobs);
 
         await blobs.GetBlobContainerClient(BlobImageStorage.IncomingContainer)
             .CreateIfNotExistsAsync(PublicAccessType.None, cancellationToken: cancellationToken)

@@ -3,6 +3,7 @@ using Azure.Storage.Blobs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using NetBoxPlus.Testing;
 using Streaming.Infrastructure;
 using Streaming.Infrastructure.Media;
 
@@ -21,7 +22,7 @@ public sealed class PublicBlobAddressTests(StreamingApiFixture api)
     public async Task SignedAddresses_UseThePublicEndpoint_AndStillWork()
     {
         Assert.SkipUnless(api.IsAvailable, "Docker is not available.");
-        var blobs = new BlobServiceClient(api.VideosConnectionString);
+        var blobs = StorageConnections.CreateClient(api.VideosConnectionString);
         var publicEndpoint = OtherHostFor(blobs.Uri);
         var storage = Storage(blobs, publicEndpoint);
         var videoId = Guid.CreateVersion7();
@@ -31,7 +32,7 @@ public sealed class PublicBlobAddressTests(StreamingApiFixture api)
         Assert.StartsWith(publicEndpoint.AbsoluteUri.TrimEnd('/') + "/" + VideoBlobStorage.UploadsContainer + "/", upload.AbsoluteUri, StringComparison.Ordinal);
         Assert.Contains("sig=", upload.Query, StringComparison.Ordinal);
 
-        using var http = new HttpClient();
+        using var http = StorageConnections.CreateHttpClient();
         using var put = new HttpRequestMessage(HttpMethod.Put, upload) { Content = new ByteArrayContent([1, 2, 3]) };
         put.Headers.Add("x-ms-blob-type", "BlockBlob");
         Assert.Equal(HttpStatusCode.Created, (await http.SendAsync(put, Cancellation)).StatusCode);
@@ -48,7 +49,7 @@ public sealed class PublicBlobAddressTests(StreamingApiFixture api)
     public void WithoutAPublicEndpoint_AddressesAreHandedOutAsMade()
     {
         Assert.SkipUnless(api.IsAvailable, "Docker is not available.");
-        var blobs = new BlobServiceClient(api.VideosConnectionString);
+        var blobs = StorageConnections.CreateClient(api.VideosConnectionString);
 
         var address = Storage(blobs, publicEndpoint: null).CreateReadAddress(Guid.CreateVersion7(), "master.m3u8", DateTimeOffset.UtcNow.AddMinutes(5));
 

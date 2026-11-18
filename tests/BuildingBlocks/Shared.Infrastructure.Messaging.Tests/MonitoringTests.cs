@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Logging.Testing;
 using Microsoft.Extensions.Options;
+using NetBoxPlus.Testing;
 using RabbitMQ.Client;
 using Shared.Application.Messaging;
 
@@ -168,7 +169,7 @@ public sealed class MonitoringTests(RabbitMqFixture rabbit)
 
     private static async Task Purge(MessagingHost host, string queue)
     {
-        await using var connection = await new ConnectionFactory { Uri = new Uri(host.ConnectionString) }.CreateConnectionAsync(Cancellation);
+        await using var connection = await BrokerConnections.OpenAsync(host.ConnectionString, Cancellation);
         await using var channel = await connection.CreateChannelAsync(cancellationToken: Cancellation);
         await channel.QueuePurgeAsync(queue, Cancellation);
     }

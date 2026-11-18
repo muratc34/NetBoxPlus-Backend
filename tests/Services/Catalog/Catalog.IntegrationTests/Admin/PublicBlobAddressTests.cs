@@ -5,6 +5,7 @@ using Catalog.Infrastructure.Images;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using NetBoxPlus.Testing;
 
 namespace Catalog.IntegrationTests.Admin;
 
@@ -21,7 +22,7 @@ public sealed class PublicBlobAddressTests(CatalogApiFixture api)
     public async Task UploadAndImageAddresses_UseThePublicEndpoint_AndStillWork()
     {
         Assert.SkipUnless(api.IsAvailable, "Docker is not available.");
-        var blobs = new BlobServiceClient(api.ImagesConnectionString);
+        var blobs = StorageConnections.CreateClient(api.ImagesConnectionString);
         var publicEndpoint = OtherHostFor(blobs.Uri);
         var storage = Storage(blobs, publicEndpoint);
         var fileId = Guid.CreateVersion7();
@@ -29,7 +30,7 @@ public sealed class PublicBlobAddressTests(CatalogApiFixture api)
         var upload = storage.CreateUploadAddress(fileId, DateTimeOffset.UtcNow.AddMinutes(5));
         Assert.StartsWith(publicEndpoint.AbsoluteUri.TrimEnd('/') + "/" + BlobImageStorage.IncomingContainer + "/", upload.AbsoluteUri, StringComparison.Ordinal);
 
-        using var http = new HttpClient();
+        using var http = StorageConnections.CreateHttpClient();
         using var put = new HttpRequestMessage(HttpMethod.Put, upload) { Content = new ByteArrayContent([1, 2, 3]) };
         put.Headers.Add("x-ms-blob-type", "BlockBlob");
         Assert.Equal(HttpStatusCode.Created, (await http.SendAsync(put, Cancellation)).StatusCode);
@@ -46,7 +47,7 @@ public sealed class PublicBlobAddressTests(CatalogApiFixture api)
     public void WithoutAPublicEndpoint_AddressesAreHandedOutAsMade()
     {
         Assert.SkipUnless(api.IsAvailable, "Docker is not available.");
-        var blobs = new BlobServiceClient(api.ImagesConnectionString);
+        var blobs = StorageConnections.CreateClient(api.ImagesConnectionString);
 
         var image = Storage(blobs, publicEndpoint: null).PublicAddress("poster.png");
 

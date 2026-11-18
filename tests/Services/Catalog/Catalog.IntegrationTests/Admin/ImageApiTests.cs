@@ -13,6 +13,7 @@ using Catalog.Infrastructure.Images;
 using Catalog.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using NetBoxPlus.Testing;
 
 namespace Catalog.IntegrationTests.Admin;
 
@@ -38,7 +39,7 @@ public sealed class ImageApiTests(CatalogApiFixture api)
 
         var details = await ReadAsync<PublishedMovie>(await visitor.GetAsync($"/movies/{movie}", Cancellation));
 
-        using var plain = new HttpClient();
+        using var plain = StorageConnections.CreateHttpClient();
         var image = await plain.GetAsync(details.PosterUrl, Cancellation);
         Assert.Equal(HttpStatusCode.OK, image.StatusCode);
         Assert.Equal("image/png", image.Content.Headers.ContentType?.MediaType);
@@ -53,7 +54,7 @@ public sealed class ImageApiTests(CatalogApiFixture api)
         var ticket = await TicketAsync(client);
         await TestImages.PutAsync(ticket.UploadAddress, TestImages.Poster(), Cancellation);
 
-        using var plain = new HttpClient();
+        using var plain = StorageConnections.CreateHttpClient();
 
         Assert.Equal(HttpStatusCode.Forbidden, (await plain.GetAsync(ticket.UploadAddress, Cancellation)).StatusCode);
     }
@@ -119,7 +120,7 @@ public sealed class ImageApiTests(CatalogApiFixture api)
 
         var address = (await GetAsync(client, movie)).PosterUrl!;
         Assert.EndsWith(".jpg", address.AbsolutePath, StringComparison.Ordinal);
-        using var plain = new HttpClient();
+        using var plain = StorageConnections.CreateHttpClient();
         Assert.Equal("image/jpeg", (await plain.GetAsync(address, Cancellation)).Content.Headers.ContentType?.MediaType);
     }
 
@@ -191,7 +192,7 @@ public sealed class ImageApiTests(CatalogApiFixture api)
         Assert.NotNull(old.RetiredAt);
 
         // Still there for pages that are already open.
-        using var plain = new HttpClient();
+        using var plain = StorageConnections.CreateHttpClient();
         Assert.Equal(HttpStatusCode.OK, (await plain.GetAsync(first, Cancellation)).StatusCode);
     }
 
@@ -237,7 +238,7 @@ public sealed class ImageApiTests(CatalogApiFixture api)
     public async Task CleanUp_RemovesWhatNothingNeeds_AndLeavesTheRest()
     {
         using var client = api.CreateClient(Everything);
-        using var plain = new HttpClient();
+        using var plain = StorageConnections.CreateHttpClient();
         var movie = await MovieAsync(client);
 
         var abandoned = await TestImages.UploadAsync(client, TestImages.Poster(), Json, Cancellation);

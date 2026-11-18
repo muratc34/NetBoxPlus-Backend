@@ -126,7 +126,7 @@ internal sealed class MessagingHost(
     /// <summary>Publishes a body that is not valid JSON, bypassing the transport.</summary>
     public async Task PublishRawAsync(string messageType, string body, string? messageId = null)
     {
-        await using var connection = await new ConnectionFactory { Uri = new Uri(connectionString) }.CreateConnectionAsync();
+        await using var connection = await BrokerConnections.OpenAsync(connectionString);
         await using var channel = await connection.CreateChannelAsync();
         await channel.BasicPublishAsync(
             RabbitMqTopology.ExchangeFor(messageType),
@@ -139,7 +139,7 @@ internal sealed class MessagingHost(
     public async Task<uint> WaitForMessagesAsync(string queue, uint count, TimeSpan timeout)
     {
         using var cancellation = new CancellationTokenSource(timeout);
-        await using var connection = await new ConnectionFactory { Uri = new Uri(connectionString) }.CreateConnectionAsync();
+        await using var connection = await BrokerConnections.OpenAsync(connectionString);
         await using var channel = await connection.CreateChannelAsync();
 
         uint current;
@@ -154,7 +154,7 @@ internal sealed class MessagingHost(
     public async Task WaitForConsumerAsync()
     {
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        await using var connection = await new ConnectionFactory { Uri = new Uri(connectionString) }.CreateConnectionAsync();
+        await using var connection = await BrokerConnections.OpenAsync(connectionString);
 
         while (true)
         {
