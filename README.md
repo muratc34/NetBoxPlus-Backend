@@ -4,7 +4,8 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 The backend of a subscription video streaming platform: a catalog in two languages, Stripe
-subscriptions, HLS video with screen limits and age ratings, and transactional e-mail. It is built
+subscriptions, HLS video with dubbing, subtitles, screen limits and age ratings, per-profile lists
+and continue watching, a popularity ranking, and transactional e-mail. It is built
 on .NET 10 as five independently deployable services behind a YARP gateway, in a single
 repository, and the whole system comes up with one command.
 
@@ -49,11 +50,11 @@ blob storage with short-lived SAS URLs.
 
 | Service | Responsibility | Publishes | Consumes |
 |---|---|---|---|
-| **Auth** | Accounts, profiles, roles and permissions, access and refresh tokens, e-mail verification, password reset | `UserRegistered`, `Profile*`, `EmailVerificationRequested`, `EmailVerified`, `PasswordResetRequested`, `PasswordChanged` | — |
-| **Catalog** | Movies, series, people and genres in Turkish and English; full-text search; publishing rules | `PlayableChanged` | `Video*` |
-| **Billing** | Plans, Stripe Checkout and customer portal, a mirror of Stripe subscriptions and invoices | `Subscription*`, `PaymentFailed` | `UserRegistered`, `EmailVerified` |
-| **Streaming** | Video upload and transcoding, playback sessions, screen limits, watch progress | `Video*` | `Profile*`, `Subscription*`, `PlayableChanged` |
-| **Notification** | Queued, retried transactional e-mail | — | `UserRegistered`, `EmailVerificationRequested`, `PasswordResetRequested`, `PasswordChanged`, `SubscriptionActivated`, `SubscriptionCanceled`, `PaymentFailed` |
+| **Auth** | Accounts, profiles, roles and permissions, access and refresh tokens, e-mail verification and change, password reset, account deletion | `UserRegistered`, `Profile*`, `EmailVerificationRequested`, `EmailVerified`, `EmailChangeRequested`, `EmailChanged`, `PasswordResetRequested`, `PasswordChanged`, `UserDeleted` | — |
+| **Catalog** | Movies, series, people and genres in Turkish and English; full-text search; publishing rules; audio and subtitle languages; sorting by popularity | `PlayableChanged` | `Video*`, `PopularityUpdated` |
+| **Billing** | Plans, Stripe Checkout and customer portal, a mirror of Stripe subscriptions and invoices | `Subscription*`, `PaymentFailed` | `UserRegistered`, `EmailVerified`, `EmailChanged`, `UserDeleted` |
+| **Streaming** | Video upload and transcoding, dubbing and subtitles, playback sessions, screen limits, watch progress, My List, popularity | `Video*`, `PopularityUpdated` | `Profile*`, `Subscription*`, `PlayableChanged`, `UserDeleted` |
+| **Notification** | Queued, retried transactional e-mail | — | `UserRegistered`, `EmailVerificationRequested`, `EmailChangeRequested`, `EmailChanged`, `PasswordResetRequested`, `PasswordChanged`, `UserDeleted`, `SubscriptionActivated`, `SubscriptionCanceled`, `PaymentFailed` |
 | **Gateway** | Routing, CORS and rate limits per route group, cookie sessions for browsers | — | — |
 
 ### Key flows
@@ -70,6 +71,21 @@ storage with a short-lived SAS URL and confirms it. The transcoder takes the job
 queue (`SKIP LOCKED` with a lease), produces 360p/720p/1080p HLS without upscaling, and Streaming
 publishes `VideoReady`. Catalog will not publish a movie or an episode until its video is
 playable, and announces every change to Streaming with `PlayableChanged`.
+
+**Dubbing and subtitles.** New videos keep their sound apart from the picture, so a dub in another
+language (`tr-TR`, `en-US`, …) is uploaded and transcoded on its own and must match the video's
+length. Subtitles are uploaded as WebVTT or SRT and stored as WebVTT. The master playlist lists
+every language, and the profile's saved choice decides which are on by default. Catalog learns the
+languages from `VideoTracksChanged` and shows them on the title.
+
+**Popularity.** Streaming counts each profile once a day per title over the last seven days,
+keeping only the daily totals, and publishes the top 100 with `PopularityUpdated` when it changes.
+Catalog sorts titles by it and lets it lift popular titles slightly in search.
+
+**Account deletion.** Auth anonymizes the account and publishes `UserDeleted`. Billing deletes the
+Stripe customer, which cancels the subscription at once, and keeps the invoices without card
+details. Streaming removes profiles, lists and watch progress and ends open sessions. Notification
+sends a farewell e-mail and empties the others. The address can be registered again.
 
 ## Engineering highlights
 
@@ -92,7 +108,7 @@ playable, and announces every change to Streaming with `PlayableChanged`.
 - **Observability:** OpenTelemetry traces, metrics and logs with redaction of personal data;
   service metrics (sign-ins, outbox and dead-letter depth, transcoding, playback, e-mail) and a
   provisioned Grafana dashboard. Lost or stuck events turn health checks `Degraded` and log an error.
-- **Tests against real infrastructure:** over 1,100 tests; integration tests run PostgreSQL,
+- **Tests against real infrastructure:** over 1,300 tests; integration tests run PostgreSQL,
   RabbitMQ and Azurite in containers (Testcontainers), and transcoding tests run real ffmpeg.
 - **Measured:** a mixed k6 scenario (browsing, playback with heartbeats, one sign-up per second)
   ran at about 36 requests/s with a p95 of 24 ms and 0.01% errors, on a Ryzen 5 3600 running the
