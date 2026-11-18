@@ -7,6 +7,7 @@ using Streaming.Application.Videos.AudioTracks;
 using Streaming.Application.Videos.ConfirmVideoUpload;
 using Streaming.Application.Videos.GetVideos;
 using Streaming.Application.Videos.StartVideoUpload;
+using Streaming.Application.Videos.Subtitles;
 using Streaming.Domain.Videos;
 
 namespace Streaming.API.Admin;
@@ -21,6 +22,8 @@ internal static class StreamingPermissions
 public sealed record StartVideoUploadRequest(ContentKind ContentKind, Guid ContentId, string? OriginalAudioLanguage = null);
 
 public sealed record StartAudioTrackUploadRequest(string Language);
+
+public sealed record StartSubtitleUploadRequest(string Language);
 
 /// <summary>Videos, for the admin panel: upload, then follow the conversion.</summary>
 internal static class VideoAdminEndpoints
@@ -99,8 +102,51 @@ internal static class VideoAdminEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
+        group.MapPost("/{id:guid}/subtitles", StartSubtitleAsync)
+            .WithName("StartSubtitleUpload")
+            .WithSummary("Promises the upload of subtitles (WebVTT or SRT) for a converted video and returns where to send the file.")
+            .RequirePermission(StreamingPermissions.VideosWrite)
+            .Produces<SubtitleUploadTicket>(StatusCodes.Status201Created)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        group.MapPost("/{id:guid}/subtitles/{subtitleId:guid}/uploaded", ConfirmSubtitleAsync)
+            .WithName("ConfirmSubtitleUpload")
+            .WithSummary("Says the subtitles are uploaded: they are checked, turned into WebVTT and offered to players at once.")
+            .RequirePermission(StreamingPermissions.VideosWrite)
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        group.MapDelete("/{id:guid}/subtitles/{language}", RemoveSubtitleAsync)
+            .WithName("RemoveSubtitle")
+            .WithSummary("Takes subtitles off the video.")
+            .RequirePermission(StreamingPermissions.VideosWrite)
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         return endpoints;
     }
+
+    private static async Task<IResult> StartSubtitleAsync(Guid id, [FromBody] StartSubtitleUploadRequest request, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Send(new StartSubtitleUploadCommand(id, request.Language), cancellationToken);
+        return result.ToHttpResult(ticket => TypedResults.Created($"/admin/videos/{id}", ticket));
+    }
+
+    private static async Task<IResult> ConfirmSubtitleAsync(Guid id, Guid subtitleId, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
+        => (await dispatcher.Send(new ConfirmSubtitleUploadCommand(id, subtitleId), cancellationToken)).ToHttpResult();
+
+    private static async Task<IResult> RemoveSubtitleAsync(Guid id, string language, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
+        => (await dispatcher.Send(new RemoveSubtitleCommand(id, language), cancellationToken)).ToHttpResult();
 
     private static async Task<IResult> StartAudioTrackAsync(Guid id, [FromBody] StartAudioTrackUploadRequest request, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
     {

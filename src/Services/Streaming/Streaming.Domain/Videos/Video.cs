@@ -44,6 +44,8 @@ public sealed class Video : AggregateRoot, IAuditableEntity
 
     private readonly List<AudioTrack> _audioTracks = [];
 
+    private readonly List<Subtitle> _subtitles = [];
+
     private Video(Guid id, ContentKind contentKind, Guid contentId, string originalAudioLanguage, DateTimeOffset uploadExpiresAt)
         : base(id)
     {
@@ -80,6 +82,8 @@ public sealed class Video : AggregateRoot, IAuditableEntity
     public string OriginalAudioLanguage { get; private set; } = MediaLanguages.Default;
 
     public IReadOnlyCollection<AudioTrack> AudioTracks => _audioTracks.AsReadOnly();
+
+    public IReadOnlyCollection<Subtitle> Subtitles => _subtitles.AsReadOnly();
 
     public string? FailureReason { get; private set; }
 
@@ -313,6 +317,71 @@ public sealed class Video : AggregateRoot, IAuditableEntity
         return Result.Success();
     }
 
+    /// <summary>
+    /// Promises the upload of subtitles in a language the video does not have yet; one whose upload
+    /// expired makes room for it.
+    /// </summary>
+    public Result<Subtitle> StartSubtitle(string language, DateTimeOffset now)
+    {
+        if (!MediaLanguages.IsSupported(language))
+        {
+            return VideoErrors.LanguageUnsupported;
+        }
+
+        if (Status != VideoStatus.Ready)
+        {
+            return VideoErrors.NotReady;
+        }
+
+        _subtitles.RemoveAll(subtitle => subtitle.Language == language && subtitle.IsReplaceable(now));
+        if (_subtitles.Exists(subtitle => subtitle.Language == language))
+        {
+            return VideoErrors.SubtitleExists;
+        }
+
+        var created = new Subtitle(Guid.CreateVersion7(), language, now + UploadLifetime);
+        _subtitles.Add(created);
+        return created;
+    }
+
+    /// <summary>The subtitles waiting for this upload, before their file is read.</summary>
+    public Result<Subtitle> SubtitleAwaitingUpload(Guid subtitleId, DateTimeOffset now)
+    {
+        var subtitle = _subtitles.Find(item => item.Id == subtitleId);
+        if (subtitle is null)
+        {
+            return VideoErrors.SubtitleNotFound;
+        }
+
+        if (subtitle.Status != TrackStatus.AwaitingUpload)
+        {
+            return VideoErrors.AlreadyConfirmed;
+        }
+
+        if (now >= subtitle.UploadExpiresAt)
+        {
+            return VideoErrors.UploadExpired;
+        }
+
+        return subtitle;
+    }
+
+    /// <summary>The uploaded file was read and written as WebVTT to <see cref="Subtitle.Target"/>.</summary>
+    public Result AcceptSubtitle(Guid subtitleId, DateTimeOffset now)
+    {
+        var subtitle = SubtitleAwaitingUpload(subtitleId, now);
+        if (subtitle.IsFailure)
+        {
+            return subtitle.Error;
+        }
+
+        subtitle.Value.Accept();
+        return Result.Success();
+    }
+
+    public Result RemoveSubtitle(string language)
+        => _subtitles.RemoveAll(item => item.Language == language) > 0 ? Result.Success() : VideoErrors.SubtitleNotFound;
+
     /// <summary>The upload was not finished in time; nothing outside the service heard of it.</summary>
     public void Expire(DateTimeOffset now)
     {
@@ -356,6 +425,14 @@ public static class VideoErrors
     public static readonly Error AudioTrackExists = Error.Conflict("Video.AudioTrackExists", "The video already has a track in this language. Remove it first.");
 
     public static readonly Error AudioTrackNotFound = Error.NotFound("Video.AudioTrackNotFound", "The video has no such audio track.");
+
+    public static readonly Error SubtitleExists = Error.Conflict("Video.SubtitleExists", "The video already has subtitles in this language. Remove them first.");
+
+    public static readonly Error SubtitleNotFound = Error.NotFound("Video.SubtitleNotFound", "The video has no such subtitles.");
+
+    public static readonly Error SubtitleInvalid = Error.Validation("Video.SubtitleInvalid", "The file is not WebVTT or SRT subtitles with at least one cue.");
+
+    public static readonly Error SubtitleTooLarge = Error.Validation("Video.SubtitleTooLarge", $"A subtitle file may be at most {Subtitle.MaxBytes / 1024} KiB.");
 
     public static readonly Error OriginalAudioKept = Error.Conflict("Video.OriginalAudioKept", "The video's original sound cannot be removed.");
 

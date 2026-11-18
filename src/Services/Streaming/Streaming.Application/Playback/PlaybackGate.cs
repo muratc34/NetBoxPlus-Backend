@@ -64,6 +64,9 @@ public static class PlaybackLinks
 
     public const string MasterPlaylist = "master.m3u8";
 
+    /// <summary>The path of a subtitles' playlist, which the session makes up: there is no such file in storage.</summary>
+    public static string SubtitlePlaylist(Guid subtitleId) => $"subtitles/{subtitleId:N}.m3u8";
+
     /// <summary>
     /// Rendition playlists and segments: players read a finished video's playlist once, so its
     /// addresses must last the whole video, with time for pauses; at most six hours.

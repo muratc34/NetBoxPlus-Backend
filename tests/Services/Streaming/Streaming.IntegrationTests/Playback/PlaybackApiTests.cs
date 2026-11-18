@@ -65,7 +65,7 @@ public sealed class PlaybackApiTests(StreamingApiFixture api)
         Assert.Contains($"/videos/{setup.VideoId:N}/720p/seg_0000.ts?", segmentLine, StringComparison.Ordinal);
         Assert.Contains("sp=r", segmentLine, StringComparison.Ordinal);
 
-        using var storage = new HttpClient();
+        using var storage = StorageConnections.CreateHttpClient();
         Assert.Equal(Segment, await storage.GetByteArrayAsync(segmentLine, Cancellation));
         var unsigned = await storage.GetAsync(segmentLine[..segmentLine.IndexOf('?', StringComparison.Ordinal)], Cancellation);
         Assert.False(unsigned.IsSuccessStatusCode);
@@ -81,11 +81,10 @@ public sealed class PlaybackApiTests(StreamingApiFixture api)
 
         var lines = (await player.GetStringAsync(masterAddress, Cancellation)).Split('\n');
 
-        var media = lines.Where(line => line.StartsWith("#EXT-X-MEDIA:", StringComparison.Ordinal)).ToList();
+        var media = lines.Where(line => line.StartsWith("#EXT-X-MEDIA:TYPE=AUDIO,", StringComparison.Ordinal)).ToList();
         Assert.Equal(2, media.Count);
         Assert.StartsWith("#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"audio\",LANGUAGE=\"tr-TR\",NAME=\"Türkçe\",DEFAULT=YES,AUTOSELECT=YES,URI=\"audio/original/index.m3u8?exp=", media[0], StringComparison.Ordinal);
         Assert.StartsWith("#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"audio\",LANGUAGE=\"en-US\",NAME=\"English (US)\",DEFAULT=NO,", media[1], StringComparison.Ordinal);
-        Assert.Contains("#EXT-X-STREAM-INF:BANDWIDTH=2928000,RESOLUTION=1280x720,AUDIO=\"audio\"", lines);
 
         var dubAddress = media[1][(media[1].IndexOf("URI=\"", StringComparison.Ordinal) + 5)..].TrimEnd('"');
         var dub = await player.GetStringAsync(new Uri(masterAddress, dubAddress), Cancellation);
@@ -93,11 +92,31 @@ public sealed class PlaybackApiTests(StreamingApiFixture api)
         var folder = dubAddress.Split('?')[0].Replace("index.m3u8", "seg_0000.ts", StringComparison.Ordinal);
         Assert.Contains($"/{setup.VideoId:N}/{folder}?", segment, StringComparison.Ordinal);
 
+        var subtitleLines = lines.Where(line => line.StartsWith("#EXT-X-MEDIA:TYPE=SUBTITLES,", StringComparison.Ordinal)).ToList();
+        Assert.Equal(2, subtitleLines.Count);
+        Assert.All(subtitleLines, line => Assert.Contains("DEFAULT=NO,AUTOSELECT=YES,FORCED=NO,URI=", line, StringComparison.Ordinal));
+        Assert.Contains("LANGUAGE=\"en-US\",NAME=\"English (US)\"", subtitleLines[0], StringComparison.Ordinal);
+        Assert.Contains("LANGUAGE=\"tr-TR\",NAME=\"Türkçe\"", subtitleLines[1], StringComparison.Ordinal);
+        Assert.Contains("#EXT-X-STREAM-INF:BANDWIDTH=2928000,RESOLUTION=1280x720,AUDIO=\"audio\",SUBTITLES=\"subtitles\"", lines);
+
+        var subtitleAddress = subtitleLines[1][(subtitleLines[1].IndexOf("URI=\"", StringComparison.Ordinal) + 5)..].TrimEnd('"');
+        var subtitlePlaylist = (await player.GetStringAsync(new Uri(masterAddress, subtitleAddress), Cancellation)).Split('\n');
+        Assert.Contains("#EXTINF:600.000,", subtitlePlaylist);
+        Assert.Contains("#EXT-X-TARGETDURATION:600", subtitlePlaylist);
+        using var storageClient = StorageConnections.CreateHttpClient();
+        var vtt = subtitlePlaylist.Single(line => line.StartsWith("http", StringComparison.Ordinal));
+        Assert.Equal("WEBVTT\n", await storageClient.GetStringAsync(vtt, Cancellation));
+
         // A track the video does not have is not served, even with a valid signature.
         await using var scope = api.CreateScope();
         var other = $"audio/{Guid.NewGuid():N}/index.m3u8";
         var signature = scope.ServiceProvider.GetRequiredService<IPlaybackSigner>().Sign(started.SessionId, other, DateTimeOffset.UtcNow.AddMinutes(5));
         Assert.Equal("Playback.NotAvailable", await CodeAsync(await player.GetAsync($"/playback/{started.SessionId}/{other}?{signature}", Cancellation)));
+        var waitingSubtitle = (await scope.ServiceProvider.GetRequiredService<StreamingDbContext>().Videos.AsNoTracking().SingleAsync(item => item.Id == setup.VideoId, Cancellation))
+            .Subtitles.Single(item => item.Language == "fr-FR");
+        var waitingPath = Application.Playback.PlaybackLinks.SubtitlePlaylist(waitingSubtitle.Id);
+        var waitingSignature = scope.ServiceProvider.GetRequiredService<IPlaybackSigner>().Sign(started.SessionId, waitingPath, DateTimeOffset.UtcNow.AddMinutes(5));
+        Assert.Equal("Playback.NotAvailable", await CodeAsync(await player.GetAsync($"/playback/{started.SessionId}/{waitingPath}?{waitingSignature}", Cancellation)));
     }
 
     [Fact]
@@ -449,6 +468,14 @@ public sealed class PlaybackApiTests(StreamingApiFixture api)
             // Still being converted: not offered.
             var waiting = video.StartAudioTrack("de-DE", now).Value;
             video.ConfirmAudioTrack(waiting.Id, 1000, now);
+
+            // Subtitles in two languages, and a third whose file has not arrived.
+            foreach (var language in new[] { "tr-TR", "en-US" })
+            {
+                video.AcceptSubtitle(video.StartSubtitle(language, now).Value.Id, now);
+            }
+
+            video.StartSubtitle("fr-FR", now);
         }
 
         await using (var scope = api.CreateScope())
@@ -459,6 +486,11 @@ public sealed class PlaybackApiTests(StreamingApiFixture api)
         }
 
         var videos = StorageConnections.CreateClient(api.VideosConnectionString).GetBlobContainerClient(VideoBlobStorage.VideosContainer);
+        foreach (var subtitle in video.Subtitles.Where(item => item.File is not null))
+        {
+            await videos.GetBlobClient($"{VideoBlobStorage.FolderOf(video.Id)}/{subtitle.File}").UploadAsync(BinaryData.FromString("WEBVTT\n"), Cancellation);
+        }
+
         foreach (var name in folders)
         {
             var folder = $"{VideoBlobStorage.FolderOf(video.Id)}/{name}";

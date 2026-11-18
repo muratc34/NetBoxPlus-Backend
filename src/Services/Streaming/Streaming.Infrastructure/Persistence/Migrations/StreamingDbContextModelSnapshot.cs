@@ -610,9 +610,47 @@ namespace Streaming.Infrastructure.Persistence.Migrations
                                 .HasForeignKey("VideoId");
                         });
 
+                    b.OwnsMany("Streaming.Domain.Videos.Subtitle", "Subtitles", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("File")
+                                .HasMaxLength(64)
+                                .HasColumnType("character varying(64)");
+
+                            b1.Property<string>("Language")
+                                .IsRequired()
+                                .HasMaxLength(16)
+                                .HasColumnType("character varying(16)");
+
+                            b1.Property<string>("Status")
+                                .IsRequired()
+                                .HasMaxLength(16)
+                                .HasColumnType("character varying(16)");
+
+                            b1.Property<DateTimeOffset>("UploadExpiresAt")
+                                .HasColumnType("timestamp with time zone");
+
+                            b1.Property<Guid>("VideoId")
+                                .HasColumnType("uuid");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("VideoId", "Language")
+                                .IsUnique();
+
+                            b1.ToTable("VideoSubtitles", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("VideoId");
+                        });
+
                     b.Navigation("AudioTracks");
 
                     b.Navigation("Renditions");
+
+                    b.Navigation("Subtitles");
                 });
 
             modelBuilder.Entity("Streaming.Infrastructure.Media.TranscodeJob", b =>

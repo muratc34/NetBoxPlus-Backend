@@ -44,6 +44,19 @@ internal sealed class VideoConfiguration : IEntityTypeConfiguration<Video>
             track.HasIndex("VideoId", nameof(AudioTrack.Language)).IsUnique();
         });
         builder.Navigation(video => video.AudioTracks).UsePropertyAccessMode(PropertyAccessMode.Field);
+        builder.OwnsMany(video => video.Subtitles, subtitle =>
+        {
+            subtitle.ToTable("VideoSubtitles");
+            subtitle.WithOwner().HasForeignKey("VideoId");
+            subtitle.HasKey(item => item.Id);
+            subtitle.Property(item => item.Id).ValueGeneratedNever();
+            subtitle.Property(item => item.Language).HasMaxLength(MediaLanguages.MaxLength);
+            subtitle.Property(item => item.Status).HasConversion<string>().HasMaxLength(16);
+            subtitle.Property(item => item.File).HasMaxLength(Subtitle.PathMaxLength);
+            subtitle.Ignore(item => item.Target);
+            subtitle.HasIndex("VideoId", nameof(Subtitle.Language)).IsUnique();
+        });
+        builder.Navigation(video => video.Subtitles).UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }
 

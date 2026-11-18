@@ -544,6 +544,245 @@
         }
       }
     },
+    "/admin/videos/{id}/subtitles": {
+      "post": {
+        "tags": [
+          "Videos"
+        ],
+        "summary": "Promises the upload of subtitles (WebVTT or SRT) for a converted video and returns where to send the file.",
+        "operationId": "StartSubtitleUpload",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartSubtitleUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubtitleUploadTicket"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/videos/{id}/subtitles/{subtitleId}/uploaded": {
+      "post": {
+        "tags": [
+          "Videos"
+        ],
+        "summary": "Says the subtitles are uploaded: they are checked, turned into WebVTT and offered to players at once.",
+        "operationId": "ConfirmSubtitleUpload",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "subtitleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/videos/{id}/subtitles/{language}": {
+      "delete": {
+        "tags": [
+          "Videos"
+        ],
+        "summary": "Takes subtitles off the video.",
+        "operationId": "RemoveSubtitle",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "language",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/playback-sessions": {
       "post": {
         "tags": [
@@ -1066,6 +1305,86 @@
             "required": true,
             "schema": {
               "pattern": "^(original|[0-9a-f]{32})$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "exp",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "sig",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/vnd.apple.mpegurl": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/playback/{sessionId}/subtitles/{subtitle}.m3u8": {
+      "get": {
+        "tags": [
+          "Playback"
+        ],
+        "summary": "One language of subtitles: a playlist of the WebVTT file as a short-lived storage address.",
+        "operationId": "GetSubtitlePlaylist",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "subtitle",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{32}$",
               "type": "string"
             }
           },
@@ -1733,6 +2052,17 @@
           }
         }
       },
+      "StartSubtitleUploadRequest": {
+        "required": [
+          "language"
+        ],
+        "type": "object",
+        "properties": {
+          "language": {
+            "type": "string"
+          }
+        }
+      },
       "StartVideoUploadRequest": {
         "required": [
           "contentKind",
@@ -1752,6 +2082,62 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "SubtitleDetails": {
+        "required": [
+          "id",
+          "language",
+          "status",
+          "uploadExpiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "language": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TrackStatus"
+          },
+          "uploadExpiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SubtitleUploadTicket": {
+        "required": [
+          "subtitleId",
+          "uploadAddress",
+          "expiresAt",
+          "maxBytes"
+        ],
+        "type": "object",
+        "properties": {
+          "subtitleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "uploadAddress": {
+            "type": "string",
+            "format": "uri"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "maxBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
           }
         }
       },
@@ -1783,7 +2169,8 @@
           "createdAt",
           "audioLayout",
           "originalAudioLanguage",
-          "audioTracks"
+          "audioTracks",
+          "subtitles"
         ],
         "type": "object",
         "properties": {
@@ -1849,6 +2236,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/AudioTrackDetails"
+            }
+          },
+          "subtitles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubtitleDetails"
             }
           }
         }

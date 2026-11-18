@@ -27,7 +27,10 @@ public sealed record VideoDetails(
     DateTimeOffset CreatedAt,
     AudioLayout AudioLayout,
     string OriginalAudioLanguage,
-    IReadOnlyList<AudioTrackDetails> AudioTracks);
+    IReadOnlyList<AudioTrackDetails> AudioTracks,
+    IReadOnlyList<SubtitleDetails> Subtitles);
+
+public sealed record SubtitleDetails(Guid Id, string Language, TrackStatus Status, DateTimeOffset UploadExpiresAt);
 
 public sealed record AudioTrackDetails(Guid Id, string Language, bool IsOriginal, TrackStatus Status, string? FailureReason, DateTimeOffset UploadExpiresAt);
 
@@ -96,6 +99,8 @@ internal sealed class GetVideoHandler(IStreamingReadModel readModel) : IQueryHan
             video.AudioLayout,
             video.OriginalAudioLanguage,
             [.. video.AudioTracks.OrderByDescending(track => track.IsOriginal).ThenBy(track => track.Language, StringComparer.Ordinal)
-                .Select(track => new AudioTrackDetails(track.Id, track.Language, track.IsOriginal, track.Status, track.FailureReason, track.UploadExpiresAt))]);
+                .Select(track => new AudioTrackDetails(track.Id, track.Language, track.IsOriginal, track.Status, track.FailureReason, track.UploadExpiresAt))],
+            [.. video.Subtitles.OrderBy(subtitle => subtitle.Language, StringComparer.Ordinal)
+                .Select(subtitle => new SubtitleDetails(subtitle.Id, subtitle.Language, subtitle.Status, subtitle.UploadExpiresAt))]);
     }
 }

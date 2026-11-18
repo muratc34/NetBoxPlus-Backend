@@ -51,11 +51,23 @@ internal sealed class VideoBlobStorage(BlobServiceClient blobs, PublicBlobAddres
     public Uri CreateReadAddress(Guid videoId, string path, DateTimeOffset expiresAt)
         => addresses.ToPublic(Videos.GetBlobClient($"{FolderOf(videoId)}/{path}").GenerateSasUri(BlobSasPermissions.Read, expiresAt));
 
+    public async Task<string> ReadUploadTextAsync(Guid uploadId, CancellationToken cancellationToken)
+    {
+        var content = await Uploads.GetBlobClient(UploadName(uploadId)).DownloadContentAsync(cancellationToken).ConfigureAwait(false);
+        return content.Value.Content.ToString();
+    }
+
+    public async Task WriteTextAsync(Guid videoId, string path, string text, string contentType, CancellationToken cancellationToken)
+    {
+        var options = new BlobUploadOptions { HttpHeaders = new BlobHttpHeaders { ContentType = contentType, CacheControl = "private, max-age=31536000, immutable" } };
+        await Videos.GetBlobClient($"{FolderOf(videoId)}/{path}").UploadAsync(BinaryData.FromString(text), options, cancellationToken).ConfigureAwait(false);
+    }
+
     public Task DownloadUploadAsync(Guid videoId, string path, CancellationToken cancellationToken)
         => Uploads.GetBlobClient(UploadName(videoId)).DownloadToAsync(path, cancellationToken);
 
-    public Task DeleteUploadAsync(Guid videoId, CancellationToken cancellationToken)
-        => Uploads.GetBlobClient(UploadName(videoId)).DeleteIfExistsAsync(cancellationToken: cancellationToken);
+    public Task DeleteUploadAsync(Guid uploadId, CancellationToken cancellationToken)
+        => Uploads.GetBlobClient(UploadName(uploadId)).DeleteIfExistsAsync(cancellationToken: cancellationToken);
 
     /// <summary>Copies the converted files under the video's folder, keeping their relative paths.</summary>
     public async Task UploadOutputAsync(Guid videoId, string directory, CancellationToken cancellationToken)

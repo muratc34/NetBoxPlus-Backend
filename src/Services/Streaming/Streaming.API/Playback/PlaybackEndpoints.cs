@@ -92,8 +92,18 @@ internal static class PlaybackEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        playlists.MapGet("/subtitles/{subtitle:regex(^[0-9a-f]{{32}}$)}.m3u8", SubtitleAsync)
+            .WithName("GetSubtitlePlaylist")
+            .WithSummary("One language of subtitles: a playlist of the WebVTT file as a short-lived storage address.")
+            .Produces<string>(StatusCodes.Status200OK, PlaylistContentType)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         return endpoints;
     }
+
+    private static async Task<IResult> SubtitleAsync(Guid sessionId, string subtitle, HttpContext context, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken, [FromQuery] long? exp = null, [FromQuery] string? sig = null)
+        => Playlist(context, await dispatcher.Query(new GetSubtitlePlaylistQuery(sessionId, subtitle, exp, sig), cancellationToken));
 
     private static async Task<IResult> AudioAsync(Guid sessionId, string track, HttpContext context, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken, [FromQuery] long? exp = null, [FromQuery] string? sig = null)
         => Playlist(context, await dispatcher.Query(new GetRenditionPlaylistQuery(sessionId, $"audio/{track}", exp, sig), cancellationToken));

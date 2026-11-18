@@ -20,6 +20,14 @@ public interface IVideoStorage
 
     /// <summary>The size of the uploaded file, or <see langword="null"/> when nothing has arrived.</summary>
     Task<long?> GetUploadSizeAsync(Guid videoId, CancellationToken cancellationToken);
+
+    /// <summary>The uploaded file as UTF-8 text; for small files such as subtitles.</summary>
+    Task<string> ReadUploadTextAsync(Guid uploadId, CancellationToken cancellationToken);
+
+    Task DeleteUploadAsync(Guid uploadId, CancellationToken cancellationToken);
+
+    /// <summary>Writes a text file into the video's folder, replacing one already there.</summary>
+    Task WriteTextAsync(Guid videoId, string path, string text, string contentType, CancellationToken cancellationToken);
 }
 
 /// <summary>Videos waiting for conversion; a line is added with the change that queued the video.</summary>
