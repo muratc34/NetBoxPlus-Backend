@@ -148,6 +148,7 @@ public sealed class StreamingApiFixture : IAsyncLifetime
                 // The cleanup runs when a test asks; the transcoder is a process of its own, driven by tests here.
                 services.Remove(services.Single(service => service.ImplementationType == typeof(ExpiredUploadCleanupService)));
                 services.Remove(services.Single(service => service.ImplementationType == typeof(PlaybackSessionCleanupService)));
+                services.Remove(services.Single(service => service.ImplementationType == typeof(Infrastructure.Popularity.PopularityService)));
                 services.AddTranscoding(new Microsoft.Extensions.Configuration.ConfigurationBuilder()
                     .AddInMemoryCollection(new Dictionary<string, string?>
                     {

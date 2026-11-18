@@ -332,6 +332,61 @@ namespace Streaming.Infrastructure.Persistence.Migrations
                     b.ToTable("WatchProgress", (string)null);
                 });
 
+            modelBuilder.Entity("Streaming.Domain.Popularity.DailyPlays", b =>
+                {
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("TitleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Plays")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Day", "TitleId");
+
+                    b.ToTable("DailyPlays", (string)null);
+                });
+
+            modelBuilder.Entity("Streaming.Domain.Popularity.PopularTitle", b =>
+                {
+                    b.Property<Guid>("RankingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TitleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("integer");
+
+                    b.HasKey("RankingId", "TitleId");
+
+                    b.ToTable("PopularTitles", (string)null);
+                });
+
+            modelBuilder.Entity("Streaming.Domain.Popularity.PopularityRanking", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ComputedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly?>("CountedThrough")
+                        .HasColumnType("date");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PopularityRankings", (string)null);
+                });
+
             modelBuilder.Entity("Streaming.Domain.Videos.Video", b =>
                 {
                     b.Property<Guid>("Id")
@@ -453,6 +508,15 @@ namespace Streaming.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Streaming.Domain.Popularity.PopularTitle", b =>
+                {
+                    b.HasOne("Streaming.Domain.Popularity.PopularityRanking", null)
+                        .WithMany("Titles")
+                        .HasForeignKey("RankingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Streaming.Domain.Videos.Video", b =>
                 {
                     b.OwnsMany("Streaming.Domain.Videos.Rendition", "Renditions", b1 =>
@@ -502,6 +566,11 @@ namespace Streaming.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Streaming.Domain.Playback.Viewer", b =>
                 {
                     b.Navigation("Sessions");
+                });
+
+            modelBuilder.Entity("Streaming.Domain.Popularity.PopularityRanking", b =>
+                {
+                    b.Navigation("Titles");
                 });
 #pragma warning restore 612, 618
         }

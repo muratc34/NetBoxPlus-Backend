@@ -302,7 +302,7 @@ public sealed class PlaybackApiTests(StreamingApiFixture api)
     }
 
     [Fact]
-    public async Task OldSessions_AreCleanedUp_AfterADay()
+    public async Task OldSessions_AreCleanedUp_AfterTwoDays()
     {
         var setup = await SetUpAsync(VideoQuality.Hd, screens: 2);
         using var client = api.CreateClientFor(setup.User);
@@ -311,7 +311,7 @@ public sealed class PlaybackApiTests(StreamingApiFixture api)
         await using var scope = api.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<StreamingDbContext>();
         await context.PlaybackSessions.Where(session => session.Id == old.SessionId)
-            .ExecuteUpdateAsync(setters => setters.SetProperty(session => session.LastHeartbeatAt, DateTimeOffset.UtcNow.AddDays(-2)), Cancellation);
+            .ExecuteUpdateAsync(setters => setters.SetProperty(session => session.LastHeartbeatAt, DateTimeOffset.UtcNow.AddDays(-3)), Cancellation);
 
         await scope.ServiceProvider.GetRequiredService<Infrastructure.Playback.PlaybackSessionCleaner>().CleanAsync(Cancellation);
 

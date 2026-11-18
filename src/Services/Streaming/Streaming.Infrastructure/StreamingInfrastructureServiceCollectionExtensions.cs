@@ -9,10 +9,12 @@ using Streaming.Application.Abstractions;
 using Streaming.Domain.Access;
 using Streaming.Domain.Lists;
 using Streaming.Domain.Playback;
+using Streaming.Domain.Popularity;
 using Streaming.Domain.Videos;
 using Streaming.Infrastructure.Media;
 using Streaming.Infrastructure.Persistence;
 using Streaming.Infrastructure.Playback;
+using Streaming.Infrastructure.Popularity;
 
 namespace Streaming.Infrastructure;
 
@@ -31,6 +33,11 @@ public static class StreamingInfrastructureServiceCollectionExtensions
         services.AddHostedService<ExpiredUploadCleanupService>();
         services.AddHostedService<StreamingMetricsSampler>();
         services.AddPlayback();
+        services.AddOptions<PopularityOptions>()
+            .BindConfiguration(PopularityOptions.SectionName)
+            .Validate(options => options.Interval >= TimeSpan.FromMinutes(1), $"{PopularityOptions.SectionName}:Interval must be at least a minute.")
+            .ValidateOnStart();
+        services.AddHostedService<PopularityService>();
         services.AddRabbitMqMessaging();
         return services;
     }
@@ -90,6 +97,7 @@ public static class StreamingInfrastructureServiceCollectionExtensions
         services.AddScoped<IPlaybackSessionRepository, PlaybackSessionRepository>();
         services.AddScoped<IWatchProgressRepository, WatchProgressRepository>();
         services.AddScoped<IMyListRepository, MyListRepository>();
+        services.AddScoped<IPopularityRepository, PopularityRepository>();
         return services;
     }
 

@@ -6,10 +6,13 @@ using Streaming.Infrastructure.Persistence;
 
 namespace Streaming.Infrastructure.Playback;
 
-/// <summary>Deletes sessions that ended, or stopped sending heartbeats, more than a day ago.</summary>
+/// <summary>
+/// Deletes sessions that ended, or stopped sending heartbeats, more than two days ago: long enough for
+/// the popularity ranking to count a finished day from them.
+/// </summary>
 internal sealed class PlaybackSessionCleaner(StreamingDbContext context, TimeProvider timeProvider)
 {
-    public static readonly TimeSpan KeptFor = TimeSpan.FromDays(1);
+    public static readonly TimeSpan KeptFor = TimeSpan.FromDays(2);
 
     public Task<int> CleanAsync(CancellationToken cancellationToken)
     {
