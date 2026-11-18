@@ -190,6 +190,42 @@ namespace Catalog.Infrastructure.Persistence.Migrations
                     b.ToTable("People", (string)null);
                 });
 
+            modelBuilder.Entity("Catalog.Domain.Popularity.PopularityCopy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ComputedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PopularityCopies", (string)null);
+                });
+
+            modelBuilder.Entity("Catalog.Domain.Popularity.TitlePopularity", b =>
+                {
+                    b.Property<Guid>("CopyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TitleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("integer");
+
+                    b.HasKey("CopyId", "TitleId");
+
+                    b.HasIndex("TitleId")
+                        .IsUnique();
+
+                    b.ToTable("TitlePopularity", (string)null);
+                });
+
             modelBuilder.Entity("Catalog.Domain.Shows.Episode", b =>
                 {
                     b.Property<Guid>("Id")
@@ -603,6 +639,15 @@ namespace Catalog.Infrastructure.Persistence.Migrations
                     b.Navigation("Translations");
                 });
 
+            modelBuilder.Entity("Catalog.Domain.Popularity.TitlePopularity", b =>
+                {
+                    b.HasOne("Catalog.Domain.Popularity.PopularityCopy", null)
+                        .WithMany("Titles")
+                        .HasForeignKey("CopyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Catalog.Domain.Shows.Episode", b =>
                 {
                     b.HasOne("Catalog.Domain.Shows.Season", null)
@@ -767,6 +812,11 @@ namespace Catalog.Infrastructure.Persistence.Migrations
                     b.Navigation("Genres");
 
                     b.Navigation("Translations");
+                });
+
+            modelBuilder.Entity("Catalog.Domain.Popularity.PopularityCopy", b =>
+                {
+                    b.Navigation("Titles");
                 });
 
             modelBuilder.Entity("Catalog.Domain.Shows.Season", b =>

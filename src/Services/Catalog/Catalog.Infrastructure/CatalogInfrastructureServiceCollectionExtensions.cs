@@ -4,6 +4,7 @@ using Catalog.Domain.Genres;
 using Catalog.Domain.Images;
 using Catalog.Domain.Movies;
 using Catalog.Domain.People;
+using Catalog.Domain.Popularity;
 using Catalog.Domain.Shows;
 using Catalog.Infrastructure.Images;
 using Catalog.Infrastructure.Persistence;
@@ -66,6 +67,7 @@ public static class CatalogInfrastructureServiceCollectionExtensions
         services.AddScoped<IGenreRepository, GenreRepository>();
         services.AddScoped<IImageFileRepository, ImageFileRepository>();
         services.AddScoped<ISearchQueue, EfSearchQueue>();
+        services.AddScoped<IPopularityRepository, PopularityRepository>();
 
         return services;
     }

@@ -15,9 +15,18 @@ public enum TitleKind
     Series,
 }
 
-/// <summary>Published movies and series in one list, most recently published first.</summary>
+public enum TitleSort
+{
+    /// <summary>Most recently published first.</summary>
+    Newest,
+
+    /// <summary>Watched most in the last week first; titles nobody watched follow, newest first.</summary>
+    Popular,
+}
+
+/// <summary>Published movies and series in one list, most recently published first unless sorted otherwise.</summary>
 /// <param name="Language">Texts come in this language, or in the default one where not translated.</param>
-public sealed record GetTitlesQuery(string Language, TitleKind? Kind, Guid? GenreId, Guid? PersonId, int PageNumber, int PageSize) : IQuery<Page<TitleSummary>>;
+public sealed record GetTitlesQuery(string Language, TitleKind? Kind, Guid? GenreId, Guid? PersonId, int PageNumber, int PageSize, TitleSort Sort = TitleSort.Newest) : IQuery<Page<TitleSummary>>;
 
 public sealed record TitleSummary(
     Guid Id,
@@ -69,8 +78,18 @@ internal sealed class GetTitlesHandler(ICatalogReadModel readModel, ContentReade
         };
 
         var totalCount = await titles.CountAsync(cancellationToken).ConfigureAwait(false);
-        var page = await titles
-            .OrderByDescending(title => title.PublishedAt)
+        var scored = titles.Select(title => new
+        {
+            title.Id,
+            title.Kind,
+            title.PublishedAt,
+            Score = query.Sort == TitleSort.Popular
+                ? readModel.TitlePopularity.Where(popularity => popularity.TitleId == title.Id).Select(popularity => popularity.Score).FirstOrDefault()
+                : 0,
+        });
+        var page = await scored
+            .OrderByDescending(title => title.Score)
+            .ThenByDescending(title => title.PublishedAt)
             .ThenByDescending(title => title.Id)
             .Skip(PageLimits.Offset(query.PageNumber, query.PageSize))
             .Take(query.PageSize)

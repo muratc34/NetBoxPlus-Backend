@@ -64,20 +64,40 @@ internal sealed class ElasticSearchIndex(ElasticsearchClient client) : ISearchIn
               "originalTitle": { "type": "text", "analyzer": "tr_typing" },
               "people": { "type": "text", "analyzer": "tr_typing" },
               "genreIds": { "type": "keyword" },
-              "publishedAt": { "type": "date" }
+              "publishedAt": { "type": "date" },
+              "popularity": { "type": "integer" }
             }
           }
         }
         """;
 
+    // Fields added to the mapping after the first release; an index created before them gets them here.
+    // Adding a field is allowed on a live index; the documents get its value when they are indexed again.
+    private const string AddedFields = """
+        { "properties": { "popularity": { "type": "integer" } } }
+        """;
+
+    private volatile bool _ready;
+
     public async Task EnsureReadyAsync(CancellationToken cancellationToken)
     {
+        if (_ready)
+        {
+            return;
+        }
+
         var (status, _) = await SendAsync(TransportMethod.GET, $"/_alias/{Alias}", null, cancellationToken, allowNotFound: true).ConfigureAwait(false);
         if (status == 404)
         {
             var name = await CreateVersionAsync(cancellationToken).ConfigureAwait(false);
             await SwapAliasAsync(name, cancellationToken).ConfigureAwait(false);
         }
+        else
+        {
+            await SendAsync(TransportMethod.PUT, $"/{Alias}/_mapping", AddedFields, cancellationToken).ConfigureAwait(false);
+        }
+
+        _ready = true;
     }
 
     /// <summary>A new empty index, not yet in use; returns its name.</summary>
@@ -172,10 +192,20 @@ internal sealed class ElasticSearchIndex(ElasticsearchClient client) : ISearchIn
             track_total_hits = true,
             query = new
             {
-                @bool = new
+                // Popular titles come a little earlier: log10(1 + score) is added to the text's relevance, so a
+                // title watched by 9 profiles gains 1 and one watched by 99 gains 2.
+                function_score = new
                 {
-                    must = new object[] { new { multi_match = new { query = query.Text, fields, type = "best_fields" } } },
-                    filter = filters,
+                    query = new
+                    {
+                        @bool = new
+                        {
+                            must = new object[] { new { multi_match = new { query = query.Text, fields, type = "best_fields" } } },
+                            filter = filters,
+                        },
+                    },
+                    field_value_factor = new { field = "popularity", modifier = "log1p", factor = 1, missing = 0 },
+                    boost_mode = "sum",
                 },
             },
         };

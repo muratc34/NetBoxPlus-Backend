@@ -3,6 +3,7 @@ using Catalog.Domain.Content;
 namespace Catalog.Application.Abstractions;
 
 /// <summary>A movie or series as the search index holds it.</summary>
+/// <param name="Popularity">The title's score in the streaming service's weekly ranking; 0 when it is not in it.</param>
 public sealed record SearchDocument(
     Guid Id,
     ContentKind Kind,
@@ -17,7 +18,8 @@ public sealed record SearchDocument(
     IReadOnlyList<Guid> GenreIds,
     IReadOnlyDictionary<string, IReadOnlyList<string>> Genres,
     IReadOnlyList<SearchDocumentGenre> GenreList,
-    IReadOnlyList<string> People);
+    IReadOnlyList<string> People,
+    int Popularity = 0);
 
 public sealed record SearchDocumentGenre(Guid Id, IReadOnlyDictionary<string, string> Names);
 

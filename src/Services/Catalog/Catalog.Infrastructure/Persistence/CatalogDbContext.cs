@@ -2,6 +2,7 @@ using Catalog.Application.Abstractions;
 using Catalog.Domain.Genres;
 using Catalog.Domain.Movies;
 using Catalog.Domain.People;
+using Catalog.Domain.Popularity;
 using Catalog.Domain.Shows;
 using Microsoft.EntityFrameworkCore;
 using Shared.Infrastructure.Persistence;
@@ -22,6 +23,8 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
 
     public DbSet<Genre> Genres => Set<Genre>();
 
+    public DbSet<PopularityCopy> PopularityCopies => Set<PopularityCopy>();
+
     IQueryable<Movie> ICatalogReadModel.Movies => Movies.AsNoTracking();
 
     IQueryable<Series> ICatalogReadModel.Series => Series.AsNoTracking();
@@ -29,6 +32,8 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
     IQueryable<Person> ICatalogReadModel.People => People.AsNoTracking();
 
     IQueryable<Genre> ICatalogReadModel.Genres => Genres.AsNoTracking();
+
+    IQueryable<TitlePopularity> ICatalogReadModel.TitlePopularity => Set<TitlePopularity>().AsNoTracking();
 
     IQueryable<Movie> ICatalogReadModel.MoviesIncludingDeleted => Movies.IgnoreQueryFilters().AsNoTracking();
 

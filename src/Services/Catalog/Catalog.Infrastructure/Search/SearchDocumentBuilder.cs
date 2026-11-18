@@ -1,5 +1,6 @@
 using Catalog.Application.Abstractions;
 using Catalog.Domain.Content;
+using Catalog.Domain.Popularity;
 using Catalog.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -34,6 +35,12 @@ internal sealed class SearchDocumentBuilder(CatalogDbContext context)
             .ToDictionaryAsync(person => person.Id, person => person.Name, cancellationToken)
             .ConfigureAwait(false);
 
+        var itemIds = items.Select(item => item.Id).ToList();
+        var popularity = await context.Set<TitlePopularity>().AsNoTracking()
+            .Where(title => itemIds.Contains(title.TitleId))
+            .ToDictionaryAsync(title => title.TitleId, title => title.Score, cancellationToken)
+            .ConfigureAwait(false);
+
         return [.. items.Select(item =>
         {
             var titles = item.Translations.ToDictionary(text => text.Language, text => text.Title);
@@ -57,7 +64,8 @@ internal sealed class SearchDocumentBuilder(CatalogDbContext context)
                     .GroupBy(name => name.Key, name => name.Value)
                     .ToDictionary(group => group.Key, group => (IReadOnlyList<string>)[.. group]),
                 list,
-                [.. item.Credits.Select(credit => people[credit.PersonId]).Distinct()]);
+                [.. item.Credits.Select(credit => people[credit.PersonId]).Distinct()],
+                popularity.GetValueOrDefault(item.Id));
         })];
     }
 }

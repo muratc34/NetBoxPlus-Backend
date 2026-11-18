@@ -1,6 +1,7 @@
 using Catalog.Domain.Genres;
 using Catalog.Domain.Movies;
 using Catalog.Domain.People;
+using Catalog.Domain.Popularity;
 using Catalog.Domain.Shows;
 
 namespace Catalog.Application.Abstractions;
@@ -15,6 +16,9 @@ public interface ICatalogReadModel
     IQueryable<Person> People { get; }
 
     IQueryable<Genre> Genres { get; }
+
+    /// <summary>The scores of the titles watched most in the last week; a title not in it scores 0.</summary>
+    IQueryable<TitlePopularity> TitlePopularity { get; }
 
     /// <summary>Deleted movies too: their rows still refer to genres and people.</summary>
     IQueryable<Movie> MoviesIncludingDeleted { get; }
