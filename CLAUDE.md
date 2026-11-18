@@ -5,7 +5,7 @@ mikroservisler, servis başına Clean Architecture, ortak kod `src/BuildingBlock
 Her geliştirmeden sonra bu dosya ve ilgili doküman güncellenir.
 
 - Kararlar ve gerekçeleri: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- Aktif faz ve iş dökümü: [docs/PHASE-7.md](docs/PHASE-7.md) (bitenler: [docs/PHASE-0.md](docs/PHASE-0.md), [docs/PHASE-1.md](docs/PHASE-1.md), [docs/PHASE-2.md](docs/PHASE-2.md), [docs/PHASE-3.md](docs/PHASE-3.md), [docs/PHASE-4.md](docs/PHASE-4.md), [docs/PHASE-5.md](docs/PHASE-5.md), [docs/PHASE-6.md](docs/PHASE-6.md))
+- Aktif faz ve iş dökümü: [docs/PHASE-8.md](docs/PHASE-8.md) (bitenler: [docs/PHASE-0.md](docs/PHASE-0.md), [docs/PHASE-1.md](docs/PHASE-1.md), [docs/PHASE-2.md](docs/PHASE-2.md), [docs/PHASE-3.md](docs/PHASE-3.md), [docs/PHASE-4.md](docs/PHASE-4.md), [docs/PHASE-5.md](docs/PHASE-5.md), [docs/PHASE-6.md](docs/PHASE-6.md), [docs/PHASE-7.md](docs/PHASE-7.md))
 
 Bu dokümanlar **sadece lokalde** durur, repoya commit edilmez (`.gitignore`'da `/docs/*.md`).
 GitHub'da yokturlar; commit'lenen hiçbir dosya (README dahil) onlara link vermez.
@@ -23,7 +23,7 @@ dokümanı güncelle.
 | `v1-graduation` (tag) | Eski bitirme projesinin (.NET 8) son hali. Sadece referans. |
 | `dev`, `movie` | v1 döneminin yarım kalmış branch'leri. Dokunulmaz. |
 
-Frontend ayrı repoda: `NetBoxPlus-Frontend` (web + admin).
+Frontend ayrı repoda: `NetBoxPlus-Frontend` (pnpm monorepo: `apps/web` Next.js, `apps/admin` Vite + React; kendi `CLAUDE.md`si var). Faz 8 boyunca backend değişiklikleri (`docs/PHASE-8.md` grup B) burada, `v2`de.
 
 ## Yapı
 
