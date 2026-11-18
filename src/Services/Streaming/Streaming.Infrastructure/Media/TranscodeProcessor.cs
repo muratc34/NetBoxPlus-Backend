@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Shared.Application.Cqrs;
 using Streaming.Application;
+using Streaming.Application.Videos.AudioTracks;
 using Streaming.Application.Videos.FinishTranscode;
 using Streaming.Domain.Videos;
 using Streaming.Infrastructure.Persistence;
@@ -12,7 +13,7 @@ using Streaming.Infrastructure.Persistence;
 namespace Streaming.Infrastructure.Media;
 
 /// <summary>
-/// Converts one queued video at a time. The job is taken with <c>FOR UPDATE SKIP LOCKED</c> and a
+/// Converts one queued video, or dub, at a time. The job is taken with <c>FOR UPDATE SKIP LOCKED</c> and a
 /// lease, so several workers never take the same video and a dead worker's video is taken again.
 /// A file that cannot be converted fails at once; trouble around it (storage, a stopped worker) is
 /// tried again a few times, later each time.
@@ -32,7 +33,7 @@ internal sealed partial class TranscodeProcessor(
     /// <summary>Longer than any conversion; a worker that is still alive finishes well within it.</summary>
     public static readonly TimeSpan Lease = TimeSpan.FromHours(2);
 
-    private sealed record LeasedJob(Guid VideoId, int Attempts);
+    private sealed record LeasedJob(Guid Id, Guid VideoId, Guid? AudioTrackId, int Attempts);
 
     /// <summary>Converts the next video in line; returns whether there was one.</summary>
     public async Task<bool> ProcessNextAsync(CancellationToken cancellationToken)
@@ -42,13 +43,13 @@ internal sealed partial class TranscodeProcessor(
         var jobs = await context.Database.SqlQuery<LeasedJob>(
             $"""
             UPDATE "TranscodeJobs" SET "LeasedUntil" = {leaseEnd}, "Attempts" = "Attempts" + 1
-            WHERE "VideoId" = (
-                SELECT "VideoId" FROM "TranscodeJobs"
+            WHERE "Id" = (
+                SELECT "Id" FROM "TranscodeJobs"
                 WHERE "AvailableAt" <= {now} AND ("LeasedUntil" IS NULL OR "LeasedUntil" < {now})
                 ORDER BY "AvailableAt"
                 LIMIT 1
                 FOR UPDATE SKIP LOCKED)
-            RETURNING "VideoId", "Attempts"
+            RETURNING "Id", "VideoId", "AudioTrackId", "Attempts"
             """).ToListAsync(cancellationToken).ConfigureAwait(false);
 
         if (jobs.Count == 0)
@@ -58,31 +59,39 @@ internal sealed partial class TranscodeProcessor(
 
         var job = jobs[0];
         var started = timeProvider.GetTimestamp();
-        var work = Path.Combine(options.Value.WorkDirectory ?? Path.GetTempPath(), "netboxplus-transcode", job.VideoId.ToString("N"));
+        var work = Path.Combine(options.Value.WorkDirectory ?? Path.GetTempPath(), "netboxplus-transcode", job.Id.ToString("N"));
         try
         {
             Directory.CreateDirectory(work);
             var source = Path.Combine(work, "source");
             var output = Directory.CreateDirectory(Path.Combine(work, "output")).FullName;
 
-            await storage.DownloadUploadAsync(job.VideoId, source, cancellationToken).ConfigureAwait(false);
+            await storage.DownloadUploadAsync(job.Id, source, cancellationToken).ConfigureAwait(false);
+            if (job.AudioTrackId is { } trackId)
+            {
+                var result = await ConvertAudioTrackAsync(job, trackId, source, output, cancellationToken).ConfigureAwait(false);
+                await storage.DeleteUploadAsync(job.Id, cancellationToken).ConfigureAwait(false);
+                metrics.Transcoded(result, timeProvider.GetElapsedTime(started));
+                return true;
+            }
+
             var outcome = await transcoder.TranscodeAsync(source, output, cancellationToken).ConfigureAwait(false);
 
             if (outcome is TranscodeOutcome.Converted converted)
             {
                 await storage.UploadOutputAsync(job.VideoId, output, cancellationToken).ConfigureAwait(false);
-                await FinishAsync(job.VideoId, new MarkVideoReadyCommand(job.VideoId, converted.DurationSeconds, converted.Renditions), cancellationToken).ConfigureAwait(false);
+                await FinishAsync(job.Id, new MarkVideoReadyCommand(job.VideoId, converted.DurationSeconds, converted.Renditions, converted.OriginalAudioBandwidth), cancellationToken).ConfigureAwait(false);
                 LogConverted(logger, job.VideoId, converted.Renditions.Count);
                 metrics.Transcoded(TranscodeOutcomes.Converted, timeProvider.GetElapsedTime(started));
             }
             else if (outcome is TranscodeOutcome.Rejected rejected)
             {
-                await FinishAsync(job.VideoId, new MarkVideoFailedCommand(job.VideoId, rejected.Reason), cancellationToken).ConfigureAwait(false);
+                await FinishAsync(job.Id, new MarkVideoFailedCommand(job.VideoId, rejected.Reason), cancellationToken).ConfigureAwait(false);
                 LogRejected(logger, job.VideoId, rejected.Reason);
                 metrics.Transcoded(TranscodeOutcomes.Rejected, timeProvider.GetElapsedTime(started));
             }
 
-            await storage.DeleteUploadAsync(job.VideoId, cancellationToken).ConfigureAwait(false);
+            await storage.DeleteUploadAsync(job.Id, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -104,20 +113,47 @@ internal sealed partial class TranscodeProcessor(
         return true;
     }
 
-    private async Task FinishAsync(Guid videoId, ICommand command, CancellationToken cancellationToken)
+    /// <summary>A dub: converted into its own folder of the video, or refused when the file has no sound.</summary>
+    private async Task<string> ConvertAudioTrackAsync(LeasedJob job, Guid trackId, string source, string output, CancellationToken cancellationToken)
+    {
+        var video = await context.Videos.AsNoTracking().FirstOrDefaultAsync(item => item.Id == job.VideoId, cancellationToken).ConfigureAwait(false);
+        var track = video?.AudioTracks.FirstOrDefault(item => item.Id == trackId);
+        if (track is null)
+        {
+            // Removed while waiting: nothing to convert.
+            await context.Set<TranscodeJob>().Where(item => item.Id == job.Id).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+            return TranscodeOutcomes.Rejected;
+        }
+
+        var outcome = await transcoder.TranscodeAudioAsync(source, output, track.Folder, cancellationToken).ConfigureAwait(false);
+        if (outcome is TranscodeOutcome.AudioConverted converted)
+        {
+            await storage.UploadOutputAsync(job.VideoId, output, cancellationToken).ConfigureAwait(false);
+            await FinishAsync(job.Id, new MarkAudioTrackReadyCommand(job.VideoId, trackId, converted.DurationSeconds, converted.Bandwidth), cancellationToken).ConfigureAwait(false);
+            LogAudioConverted(logger, job.VideoId, trackId);
+            return TranscodeOutcomes.Converted;
+        }
+
+        var reason = outcome is TranscodeOutcome.Rejected rejected ? rejected.Reason : "The file could not be converted.";
+        await FinishAsync(job.Id, new MarkAudioTrackFailedCommand(job.VideoId, trackId, reason), cancellationToken).ConfigureAwait(false);
+        LogRejected(logger, job.VideoId, reason);
+        return TranscodeOutcomes.Rejected;
+    }
+
+    private async Task FinishAsync(Guid jobId, ICommand command, CancellationToken cancellationToken)
     {
         var result = await dispatcher.Send(command, cancellationToken).ConfigureAwait(false);
 
         // Not queued any more (finished elsewhere, or removed): the job has nothing left to do.
-        if (result.IsFailure && result.Error == VideoErrors.NotQueued)
+        if (result.IsFailure && (result.Error == VideoErrors.NotQueued || result.Error == VideoErrors.AudioTrackNotFound))
         {
-            await context.Set<TranscodeJob>().Where(item => item.VideoId == videoId).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+            await context.Set<TranscodeJob>().Where(item => item.Id == jobId).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
             return;
         }
 
         if (result.IsFailure)
         {
-            throw new InvalidOperationException($"The result of video {videoId} could not be saved: {result.Error.Code}.");
+            throw new InvalidOperationException($"The result of job {jobId} could not be saved: {result.Error.Code}.");
         }
     }
 
@@ -128,7 +164,11 @@ internal sealed partial class TranscodeProcessor(
         if (job.Attempts >= MaxAttempts)
         {
             LogGaveUp(logger, exception, job.VideoId, job.Attempts);
-            await dispatcher.Send(new MarkVideoFailedCommand(job.VideoId, $"Converting failed {job.Attempts} times."), cancellationToken).ConfigureAwait(false);
+            var reason = $"Converting failed {job.Attempts} times.";
+            ICommand giveUp = job.AudioTrackId is { } trackId
+                ? new MarkAudioTrackFailedCommand(job.VideoId, trackId, reason)
+                : new MarkVideoFailedCommand(job.VideoId, reason);
+            await dispatcher.Send(giveUp, cancellationToken).ConfigureAwait(false);
             return true;
         }
 
@@ -136,7 +176,7 @@ internal sealed partial class TranscodeProcessor(
         var availableAt = timeProvider.GetUtcNow() + delay;
         var message = exception.Message.Length > TranscodeJob.LastErrorMaxLength ? exception.Message[..TranscodeJob.LastErrorMaxLength] : exception.Message;
         await context.Set<TranscodeJob>()
-            .Where(item => item.VideoId == job.VideoId)
+            .Where(item => item.Id == job.Id)
             .ExecuteUpdateAsync(
                 setters => setters.SetProperty(item => item.AvailableAt, availableAt).SetProperty(item => item.LeasedUntil, (DateTimeOffset?)null).SetProperty(item => item.LastError, message),
                 cancellationToken)
@@ -147,6 +187,9 @@ internal sealed partial class TranscodeProcessor(
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Converted video {VideoId} into {Renditions} renditions")]
     private static partial void LogConverted(ILogger logger, Guid videoId, int renditions);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Converted audio track {TrackId} of video {VideoId}")]
+    private static partial void LogAudioConverted(ILogger logger, Guid videoId, Guid trackId);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Video {VideoId} cannot be converted: {Reason}")]
     private static partial void LogRejected(ILogger logger, Guid videoId, string reason);

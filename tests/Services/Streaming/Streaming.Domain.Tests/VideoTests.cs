@@ -7,7 +7,7 @@ public sealed class VideoTests
     private static readonly DateTimeOffset Now = new(2026, 11, 13, 12, 0, 0, TimeSpan.Zero);
     private static readonly Rendition[] Renditions = [new(720, 1280, 2928000, "720p/index.m3u8"), new(360, 640, 928000, "360p/index.m3u8")];
 
-    private static Video NewVideo() => Video.StartUpload(ContentKind.Movie, Guid.NewGuid(), Now).Value;
+    private static Video NewVideo() => Video.StartUpload(ContentKind.Movie, Guid.NewGuid(), MediaLanguages.Default, Now).Value;
 
     private static Video Queued()
     {
@@ -29,8 +29,8 @@ public sealed class VideoTests
     [Fact]
     public void StartUpload_NeedsAContent()
     {
-        Assert.Equal(VideoErrors.ContentRequired, Video.StartUpload(ContentKind.Episode, Guid.Empty, Now).Error);
-        Assert.Equal(VideoErrors.ContentKindInvalid, Video.StartUpload((ContentKind)9, Guid.NewGuid(), Now).Error);
+        Assert.Equal(VideoErrors.ContentRequired, Video.StartUpload(ContentKind.Episode, Guid.Empty, MediaLanguages.Default, Now).Error);
+        Assert.Equal(VideoErrors.ContentKindInvalid, Video.StartUpload((ContentKind)9, Guid.NewGuid(), MediaLanguages.Default, Now).Error);
     }
 
     [Fact]

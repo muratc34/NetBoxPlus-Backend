@@ -85,8 +85,18 @@ internal static class PlaybackEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        playlists.MapGet("/audio/{track:regex(^(original|[0-9a-f]{{32}})$)}/index.m3u8", AudioAsync)
+            .WithName("GetAudioPlaylist")
+            .WithSummary("One language of the sound: its playlist, the segments as short-lived storage addresses.")
+            .Produces<string>(StatusCodes.Status200OK, PlaylistContentType)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         return endpoints;
     }
+
+    private static async Task<IResult> AudioAsync(Guid sessionId, string track, HttpContext context, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken, [FromQuery] long? exp = null, [FromQuery] string? sig = null)
+        => Playlist(context, await dispatcher.Query(new GetRenditionPlaylistQuery(sessionId, $"audio/{track}", exp, sig), cancellationToken));
 
     private static async Task<IResult> StartAsync([FromBody] StartPlaybackRequest request, [FromServices] IDispatcher dispatcher, [FromServices] ICurrentUser currentUser, CancellationToken cancellationToken)
     {

@@ -295,6 +295,255 @@
         }
       }
     },
+    "/admin/videos/{id}/audio-tracks": {
+      "post": {
+        "tags": [
+          "Videos"
+        ],
+        "summary": "Promises the upload of a dub for a converted video and returns where to send the file.",
+        "operationId": "StartAudioTrackUpload",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartAudioTrackUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioTrackUploadTicket"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/videos/{id}/audio-tracks/{trackId}/uploaded": {
+      "post": {
+        "tags": [
+          "Videos"
+        ],
+        "summary": "Says the dub is uploaded; it is then converted in the background.",
+        "operationId": "ConfirmAudioTrackUpload",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "trackId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/videos/{id}/audio-tracks/{language}": {
+      "delete": {
+        "tags": [
+          "Videos"
+        ],
+        "summary": "Takes a dub off the video; the original sound cannot be removed.",
+        "operationId": "RemoveAudioTrack",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "language",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/playback-sessions": {
       "post": {
         "tags": [
@@ -794,6 +1043,86 @@
         }
       }
     },
+    "/playback/{sessionId}/audio/{track}/index.m3u8": {
+      "get": {
+        "tags": [
+          "Playback"
+        ],
+        "summary": "One language of the sound: its playlist, the segments as short-lived storage addresses.",
+        "operationId": "GetAudioPlaylist",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "track",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^(original|[0-9a-f]{32})$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "exp",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "sig",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/vnd.apple.mpegurl": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/profiles/{profileId}/my-list": {
       "get": {
         "tags": [
@@ -978,6 +1307,79 @@
   },
   "components": {
     "schemas": {
+      "AudioLayout": {
+        "enum": [
+          "Muxed",
+          "Separate"
+        ]
+      },
+      "AudioTrackDetails": {
+        "required": [
+          "id",
+          "language",
+          "isOriginal",
+          "status",
+          "failureReason",
+          "uploadExpiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "language": {
+            "type": "string"
+          },
+          "isOriginal": {
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TrackStatus"
+          },
+          "failureReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "uploadExpiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AudioTrackUploadTicket": {
+        "required": [
+          "trackId",
+          "uploadAddress",
+          "expiresAt",
+          "maxBytes"
+        ],
+        "type": "object",
+        "properties": {
+          "trackId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "uploadAddress": {
+            "type": "string",
+            "format": "uri"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "maxBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          }
+        }
+      },
       "ContentKind": {
         "enum": [
           "Movie",
@@ -1303,6 +1705,17 @@
           }
         }
       },
+      "StartAudioTrackUploadRequest": {
+        "required": [
+          "language"
+        ],
+        "type": "object",
+        "properties": {
+          "language": {
+            "type": "string"
+          }
+        }
+      },
       "StartPlaybackRequest": {
         "required": [
           "profileId",
@@ -1333,6 +1746,12 @@
           "contentId": {
             "type": "string",
             "format": "uuid"
+          },
+          "originalAudioLanguage": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -1340,6 +1759,14 @@
         "enum": [
           "Movie",
           "Series"
+        ]
+      },
+      "TrackStatus": {
+        "enum": [
+          "AwaitingUpload",
+          "Queued",
+          "Ready",
+          "Failed"
         ]
       },
       "VideoDetails": {
@@ -1353,7 +1780,10 @@
           "renditions",
           "failureReason",
           "uploadExpiresAt",
-          "createdAt"
+          "createdAt",
+          "audioLayout",
+          "originalAudioLanguage",
+          "audioTracks"
         ],
         "type": "object",
         "properties": {
@@ -1408,6 +1838,18 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "audioLayout": {
+            "$ref": "#/components/schemas/AudioLayout"
+          },
+          "originalAudioLanguage": {
+            "type": "string"
+          },
+          "audioTracks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AudioTrackDetails"
+            }
           }
         }
       },

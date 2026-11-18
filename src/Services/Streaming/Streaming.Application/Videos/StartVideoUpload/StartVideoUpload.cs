@@ -7,7 +7,8 @@ using Streaming.Domain.Videos;
 namespace Streaming.Application.Videos.StartVideoUpload;
 
 /// <summary>Promises a video upload for a movie or an episode and hands out where to send the file.</summary>
-public sealed record StartVideoUploadCommand(ContentKind ContentKind, Guid ContentId) : ICommand<VideoUploadTicket>, IAuditedCommand
+/// <param name="OriginalAudioLanguage">The language spoken in the file; <see cref="MediaLanguages.Default"/> when not given.</param>
+public sealed record StartVideoUploadCommand(ContentKind ContentKind, Guid ContentId, string? OriginalAudioLanguage = null) : ICommand<VideoUploadTicket>, IAuditedCommand
 {
     Guid? IAuditedCommand.AuditTargetId => ContentId;
 }
@@ -20,7 +21,7 @@ internal sealed class StartVideoUploadHandler(IVideoRepository videos, IVideoSto
 {
     public Task<Result<VideoUploadTicket>> Handle(StartVideoUploadCommand command, CancellationToken cancellationToken)
     {
-        var video = Video.StartUpload(command.ContentKind, command.ContentId, timeProvider.GetUtcNow());
+        var video = Video.StartUpload(command.ContentKind, command.ContentId, command.OriginalAudioLanguage ?? MediaLanguages.Default, timeProvider.GetUtcNow());
         if (video.IsFailure)
         {
             return Task.FromResult<Result<VideoUploadTicket>>(video.Error);

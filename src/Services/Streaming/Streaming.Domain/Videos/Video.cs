@@ -1,3 +1,4 @@
+using System.Globalization;
 using Shared.Domain;
 
 namespace Streaming.Domain.Videos;
@@ -36,13 +37,20 @@ public sealed class Video : AggregateRoot, IAuditableEntity
 
     public const int FailureReasonMaxLength = 500;
 
+    /// <summary>A dub as long as the video, give or take this much.</summary>
+    public static readonly TimeSpan AudioDurationTolerance = TimeSpan.FromSeconds(2);
+
     private readonly List<Rendition> _renditions = [];
 
-    private Video(Guid id, ContentKind contentKind, Guid contentId, DateTimeOffset uploadExpiresAt)
+    private readonly List<AudioTrack> _audioTracks = [];
+
+    private Video(Guid id, ContentKind contentKind, Guid contentId, string originalAudioLanguage, DateTimeOffset uploadExpiresAt)
         : base(id)
     {
         ContentKind = contentKind;
         ContentId = contentId;
+        OriginalAudioLanguage = originalAudioLanguage;
+        AudioLayout = AudioLayout.Separate;
         UploadExpiresAt = uploadExpiresAt;
     }
 
@@ -65,6 +73,14 @@ public sealed class Video : AggregateRoot, IAuditableEntity
 
     public IReadOnlyCollection<Rendition> Renditions => _renditions.AsReadOnly();
 
+    /// <summary>Videos converted before audio tracks keep their sound inside the renditions.</summary>
+    public AudioLayout AudioLayout { get; private set; }
+
+    /// <summary>The language of the sound in the uploaded file.</summary>
+    public string OriginalAudioLanguage { get; private set; } = MediaLanguages.Default;
+
+    public IReadOnlyCollection<AudioTrack> AudioTracks => _audioTracks.AsReadOnly();
+
     public string? FailureReason { get; private set; }
 
     /// <summary>Goes up with every change of status; events carry it.</summary>
@@ -74,8 +90,13 @@ public sealed class Video : AggregateRoot, IAuditableEntity
 
     public DateTimeOffset? ModifiedAt { get; private set; }
 
-    public static Result<Video> StartUpload(ContentKind contentKind, Guid contentId, DateTimeOffset now)
+    public static Result<Video> StartUpload(ContentKind contentKind, Guid contentId, string originalAudioLanguage, DateTimeOffset now)
     {
+        if (!MediaLanguages.IsSupported(originalAudioLanguage))
+        {
+            return VideoErrors.LanguageUnsupported;
+        }
+
         if (!Enum.IsDefined(contentKind))
         {
             return VideoErrors.ContentKindInvalid;
@@ -86,7 +107,7 @@ public sealed class Video : AggregateRoot, IAuditableEntity
             return VideoErrors.ContentRequired;
         }
 
-        return new Video(Guid.CreateVersion7(), contentKind, contentId, now + UploadLifetime);
+        return new Video(Guid.CreateVersion7(), contentKind, contentId, originalAudioLanguage, now + UploadLifetime);
     }
 
     /// <summary>Accepts the uploaded file and puts the video in line for conversion.</summary>
@@ -119,7 +140,10 @@ public sealed class Video : AggregateRoot, IAuditableEntity
         return Result.Success();
     }
 
-    public Result MarkReady(double durationSeconds, IReadOnlyCollection<Rendition> renditions)
+    /// <param name="originalAudioBandwidth">
+    /// The bits per second of the file's own sound, converted into <c>audio/original</c>; <see langword="null"/> when the file is silent.
+    /// </param>
+    public Result MarkReady(double durationSeconds, IReadOnlyCollection<Rendition> renditions, int? originalAudioBandwidth = null)
     {
         ArgumentNullException.ThrowIfNull(renditions);
 
@@ -136,6 +160,13 @@ public sealed class Video : AggregateRoot, IAuditableEntity
         DurationSeconds = durationSeconds;
         _renditions.Clear();
         _renditions.AddRange(renditions.OrderBy(rendition => rendition.Height));
+        if (AudioLayout == AudioLayout.Separate && originalAudioBandwidth is { } bandwidth)
+        {
+            var original = new AudioTrack(Guid.CreateVersion7(), OriginalAudioLanguage, isOriginal: true, UploadExpiresAt);
+            original.MarkReady(bandwidth);
+            _audioTracks.Add(original);
+        }
+
         ChangeStatus(VideoStatus.Ready);
         RaiseDomainEvent(new VideoReadyDomainEvent(Id, ContentKind, ContentId, durationSeconds, Revision));
         return Result.Success();
@@ -153,6 +184,132 @@ public sealed class Video : AggregateRoot, IAuditableEntity
         FailureReason = reason.Length > FailureReasonMaxLength ? reason[..FailureReasonMaxLength] : reason;
         ChangeStatus(VideoStatus.Failed);
         RaiseDomainEvent(new VideoFailedDomainEvent(Id, ContentKind, ContentId, FailureReason, Revision));
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// Promises the upload of a dub: one track per language of <see cref="MediaLanguages"/>. A failed track, or one whose upload expired, of the same language
+    /// makes room for it.
+    /// </summary>
+    public Result<AudioTrack> StartAudioTrack(string language, DateTimeOffset now)
+    {
+        if (!MediaLanguages.IsSupported(language))
+        {
+            return VideoErrors.LanguageUnsupported;
+        }
+
+        if (Status != VideoStatus.Ready)
+        {
+            return VideoErrors.NotReady;
+        }
+
+        if (AudioLayout != AudioLayout.Separate)
+        {
+            return VideoErrors.LayoutOutdated;
+        }
+
+        _audioTracks.RemoveAll(track => track.Language == language && track.IsReplaceable(now));
+        if (_audioTracks.Exists(track => track.Language == language))
+        {
+            return VideoErrors.AudioTrackExists;
+        }
+
+        var track = new AudioTrack(Guid.CreateVersion7(), language, isOriginal: false, now + UploadLifetime);
+        _audioTracks.Add(track);
+        return track;
+    }
+
+    /// <summary>Accepts the uploaded dub and puts it in line for conversion.</summary>
+    public Result ConfirmAudioTrack(Guid trackId, long? sizeBytes, DateTimeOffset now)
+    {
+        var track = _audioTracks.Find(item => item.Id == trackId);
+        if (track is null)
+        {
+            return VideoErrors.AudioTrackNotFound;
+        }
+
+        if (track.Status != TrackStatus.AwaitingUpload)
+        {
+            return VideoErrors.AlreadyConfirmed;
+        }
+
+        if (now >= track.UploadExpiresAt)
+        {
+            return VideoErrors.UploadExpired;
+        }
+
+        if (sizeBytes is not > 0)
+        {
+            return VideoErrors.NotUploaded;
+        }
+
+        if (sizeBytes > MaxBytes)
+        {
+            return VideoErrors.TooLarge;
+        }
+
+        track.Queue();
+        return Result.Success();
+    }
+
+    /// <summary>The converted dub. One whose length is not the video's is refused: it would not stay in sync.</summary>
+    public Result MarkAudioTrackReady(Guid trackId, double durationSeconds, int bandwidth)
+    {
+        var track = _audioTracks.Find(item => item.Id == trackId);
+        if (track is null)
+        {
+            return VideoErrors.AudioTrackNotFound;
+        }
+
+        if (track.Status != TrackStatus.Queued)
+        {
+            return VideoErrors.NotQueued;
+        }
+
+        if (Math.Abs(durationSeconds - (DurationSeconds ?? 0)) > AudioDurationTolerance.TotalSeconds)
+        {
+            track.MarkFailed(string.Create(CultureInfo.InvariantCulture, $"The audio lasts {durationSeconds:0.#} s, the video {DurationSeconds:0.#} s."));
+            return Result.Success();
+        }
+
+        track.MarkReady(bandwidth);
+        return Result.Success();
+    }
+
+    public Result MarkAudioTrackFailed(Guid trackId, string reason)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+
+        var track = _audioTracks.Find(item => item.Id == trackId);
+        if (track is null)
+        {
+            return VideoErrors.AudioTrackNotFound;
+        }
+
+        if (track.Status != TrackStatus.Queued)
+        {
+            return VideoErrors.NotQueued;
+        }
+
+        track.MarkFailed(reason);
+        return Result.Success();
+    }
+
+    /// <summary>Takes a dub off; the original stays, since the video would be silent without it.</summary>
+    public Result RemoveAudioTrack(string language)
+    {
+        var track = _audioTracks.Find(item => item.Language == language);
+        if (track is null)
+        {
+            return VideoErrors.AudioTrackNotFound;
+        }
+
+        if (track.IsOriginal)
+        {
+            return VideoErrors.OriginalAudioKept;
+        }
+
+        _audioTracks.Remove(track);
         return Result.Success();
     }
 
@@ -189,6 +346,18 @@ public static class VideoErrors
     public static readonly Error TooLarge = Error.Validation("Video.TooLarge", $"A video file may be at most {Video.MaxBytes / (1024 * 1024 * 1024)} GiB.");
 
     public static readonly Error NotQueued = Error.Conflict("Video.NotQueued", "The video is not waiting to be converted.");
+
+    public static readonly Error LanguageUnsupported = Error.Validation("Video.LanguageUnsupported", $"The language must be one of {string.Join(", ", MediaLanguages.Names.Keys)}.");
+
+    public static readonly Error NotReady = Error.Conflict("Video.NotReady", "The video is not converted yet.");
+
+    public static readonly Error LayoutOutdated = Error.Conflict("Video.LayoutOutdated", "This video was converted with its sound inside every quality; upload it again to add languages.");
+
+    public static readonly Error AudioTrackExists = Error.Conflict("Video.AudioTrackExists", "The video already has a track in this language. Remove it first.");
+
+    public static readonly Error AudioTrackNotFound = Error.NotFound("Video.AudioTrackNotFound", "The video has no such audio track.");
+
+    public static readonly Error OriginalAudioKept = Error.Conflict("Video.OriginalAudioKept", "The video's original sound cannot be removed.");
 
     public static readonly Error NothingConverted = Error.Validation("Video.NothingConverted", "A converted video needs a duration and at least one rendition.");
 }

@@ -29,6 +29,12 @@ public interface ITranscodeQueue
 
     /// <summary>Takes the video out of line, with the change that finished it.</summary>
     void Remove(Guid videoId);
+
+    /// <summary>Puts a dub of the video in line.</summary>
+    void EnqueueAudioTrack(Guid videoId, Guid trackId, DateTimeOffset now);
+
+    /// <summary>Takes the dub out of line, with the change that finished or removed it.</summary>
+    void RemoveAudioTrack(Guid trackId);
 }
 
 /// <summary>Untracked queryable views for query handlers.</summary>

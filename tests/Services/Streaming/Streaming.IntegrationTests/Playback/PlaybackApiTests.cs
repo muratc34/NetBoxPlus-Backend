@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.Metrics.Testing;
 using Microsoft.Extensions.Hosting;
+using NetBoxPlus.Testing;
 using Shared.Application.Cqrs;
 using Streaming.Application;
 using Streaming.Application.Abstractions;
@@ -55,6 +56,7 @@ public sealed class PlaybackApiTests(StreamingApiFixture api)
         Assert.Contains("RESOLUTION=1280x720", masterText, StringComparison.Ordinal);
         Assert.Contains("RESOLUTION=1920x1080", masterText, StringComparison.Ordinal);
         Assert.DoesNotContain("2160", masterText, StringComparison.Ordinal);
+        Assert.DoesNotContain("EXT-X-MEDIA", masterText, StringComparison.Ordinal);
 
         var renditionLine = masterText.Split('\n').First(line => line.StartsWith("720p/index.m3u8?exp=", StringComparison.Ordinal));
         var rendition = await player.GetStringAsync(new Uri(masterAddress, renditionLine), Cancellation);
@@ -67,6 +69,35 @@ public sealed class PlaybackApiTests(StreamingApiFixture api)
         Assert.Equal(Segment, await storage.GetByteArrayAsync(segmentLine, Cancellation));
         var unsigned = await storage.GetAsync(segmentLine[..segmentLine.IndexOf('?', StringComparison.Ordinal)], Cancellation);
         Assert.False(unsigned.IsSuccessStatusCode);
+    }
+
+    [Fact]
+    public async Task TheSound_ComesAsTracksOfTheirOwn_TheOriginalFirst()
+    {
+        var setup = await SetUpAsync(VideoQuality.Hd, screens: 1, dubbed: true);
+        using var player = api.CreateClientFor(setup.User);
+        var started = await StartAsync(player, setup);
+        var masterAddress = new Uri(new Uri(player.BaseAddress!, "/playback-sessions"), started.Playlist);
+
+        var lines = (await player.GetStringAsync(masterAddress, Cancellation)).Split('\n');
+
+        var media = lines.Where(line => line.StartsWith("#EXT-X-MEDIA:", StringComparison.Ordinal)).ToList();
+        Assert.Equal(2, media.Count);
+        Assert.StartsWith("#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"audio\",LANGUAGE=\"tr-TR\",NAME=\"Türkçe\",DEFAULT=YES,AUTOSELECT=YES,URI=\"audio/original/index.m3u8?exp=", media[0], StringComparison.Ordinal);
+        Assert.StartsWith("#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"audio\",LANGUAGE=\"en-US\",NAME=\"English (US)\",DEFAULT=NO,", media[1], StringComparison.Ordinal);
+        Assert.Contains("#EXT-X-STREAM-INF:BANDWIDTH=2928000,RESOLUTION=1280x720,AUDIO=\"audio\"", lines);
+
+        var dubAddress = media[1][(media[1].IndexOf("URI=\"", StringComparison.Ordinal) + 5)..].TrimEnd('"');
+        var dub = await player.GetStringAsync(new Uri(masterAddress, dubAddress), Cancellation);
+        var segment = dub.Split('\n').Single(line => line.StartsWith("http", StringComparison.Ordinal));
+        var folder = dubAddress.Split('?')[0].Replace("index.m3u8", "seg_0000.ts", StringComparison.Ordinal);
+        Assert.Contains($"/{setup.VideoId:N}/{folder}?", segment, StringComparison.Ordinal);
+
+        // A track the video does not have is not served, even with a valid signature.
+        await using var scope = api.CreateScope();
+        var other = $"audio/{Guid.NewGuid():N}/index.m3u8";
+        var signature = scope.ServiceProvider.GetRequiredService<IPlaybackSigner>().Sign(started.SessionId, other, DateTimeOffset.UtcNow.AddMinutes(5));
+        Assert.Equal("Playback.NotAvailable", await CodeAsync(await player.GetAsync($"/playback/{started.SessionId}/{other}?{signature}", Cancellation)));
     }
 
     [Fact]
@@ -397,15 +428,29 @@ public sealed class PlaybackApiTests(StreamingApiFixture api)
     private sealed record Setup(Guid User, Guid ProfileId, Guid SubscriptionId, Guid TitleId, Guid ContentId, Guid VideoId);
 
     /// <summary>A user with a subscription and a profile, and a movie that can be watched, its files in storage.</summary>
-    private async Task<Setup> SetUpAsync(VideoQuality quality, int screens, AgeRating titleRating = AgeRating.Age13, AgeRating profileRating = AgeRating.Age18)
+    /// <param name="dubbed">The video has its sound apart, in Turkish, and an English dub; otherwise it is silent.</param>
+    private async Task<Setup> SetUpAsync(VideoQuality quality, int screens, AgeRating titleRating = AgeRating.Age13, AgeRating profileRating = AgeRating.Age18, bool dubbed = false)
     {
         Assert.SkipUnless(api.IsAvailable, api.SkipReason);
         var (user, profile, subscription, movie) = (Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7());
 
         var now = DateTimeOffset.UtcNow;
-        var video = Video.StartUpload(ContentKind.Movie, movie, now).Value;
+        var video = Video.StartUpload(ContentKind.Movie, movie, MediaLanguages.Default, now).Value;
         video.ConfirmUpload(1000, now);
-        video.MarkReady(600, [new Rendition(360, 640, 800_000, "360p/index.m3u8"), new Rendition(720, 1280, 2_800_000, "720p/index.m3u8"), new Rendition(1080, 1920, 5_000_000, "1080p/index.m3u8")]);
+        video.MarkReady(600, [new Rendition(360, 640, 800_000, "360p/index.m3u8"), new Rendition(720, 1280, 2_800_000, "720p/index.m3u8"), new Rendition(1080, 1920, 5_000_000, "1080p/index.m3u8")], dubbed ? 128_000 : null);
+        var folders = new List<string> { "360p", "720p", "1080p" };
+        if (dubbed)
+        {
+            var dub = video.StartAudioTrack("en-US", now).Value;
+            video.ConfirmAudioTrack(dub.Id, 1000, now);
+            video.MarkAudioTrackReady(dub.Id, 600, 128_000);
+            folders.AddRange(video.AudioTracks.Select(track => track.Folder));
+
+            // Still being converted: not offered.
+            var waiting = video.StartAudioTrack("de-DE", now).Value;
+            video.ConfirmAudioTrack(waiting.Id, 1000, now);
+        }
+
         await using (var scope = api.CreateScope())
         {
             var context = scope.ServiceProvider.GetRequiredService<StreamingDbContext>();
@@ -413,10 +458,10 @@ public sealed class PlaybackApiTests(StreamingApiFixture api)
             await context.SaveChangesAsync(Cancellation);
         }
 
-        var videos = new BlobServiceClient(api.VideosConnectionString).GetBlobContainerClient(VideoBlobStorage.VideosContainer);
-        foreach (var height in new[] { 360, 720, 1080 })
+        var videos = StorageConnections.CreateClient(api.VideosConnectionString).GetBlobContainerClient(VideoBlobStorage.VideosContainer);
+        foreach (var name in folders)
         {
-            var folder = $"{VideoBlobStorage.FolderOf(video.Id)}/{height}p";
+            var folder = $"{VideoBlobStorage.FolderOf(video.Id)}/{name}";
             await videos.GetBlobClient($"{folder}/index.m3u8").UploadAsync(BinaryData.FromString("#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:6\n#EXTINF:6.000000,\nseg_0000.ts\n#EXT-X-ENDLIST\n"), Cancellation);
             await videos.GetBlobClient($"{folder}/seg_0000.ts").UploadAsync(BinaryData.FromBytes(Segment), Cancellation);
         }

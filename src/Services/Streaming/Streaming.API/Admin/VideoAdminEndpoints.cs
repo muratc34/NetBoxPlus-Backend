@@ -3,6 +3,7 @@ using Shared.Application.Cqrs;
 using Shared.Application.Paging;
 using Shared.Infrastructure.API.Errors;
 using Shared.Infrastructure.API.Security;
+using Streaming.Application.Videos.AudioTracks;
 using Streaming.Application.Videos.ConfirmVideoUpload;
 using Streaming.Application.Videos.GetVideos;
 using Streaming.Application.Videos.StartVideoUpload;
@@ -16,7 +17,10 @@ internal static class StreamingPermissions
     public const string VideosWrite = "streaming:videos:write";
 }
 
-public sealed record StartVideoUploadRequest(ContentKind ContentKind, Guid ContentId);
+/// <param name="OriginalAudioLanguage">The language spoken in the file, such as <c>tr-TR</c>; Turkish when not given.</param>
+public sealed record StartVideoUploadRequest(ContentKind ContentKind, Guid ContentId, string? OriginalAudioLanguage = null);
+
+public sealed record StartAudioTrackUploadRequest(string Language);
 
 /// <summary>Videos, for the admin panel: upload, then follow the conversion.</summary>
 internal static class VideoAdminEndpoints
@@ -63,12 +67,56 @@ internal static class VideoAdminEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        group.MapPost("/{id:guid}/audio-tracks", StartAudioTrackAsync)
+            .WithName("StartAudioTrackUpload")
+            .WithSummary("Promises the upload of a dub for a converted video and returns where to send the file.")
+            .RequirePermission(StreamingPermissions.VideosWrite)
+            .Produces<AudioTrackUploadTicket>(StatusCodes.Status201Created)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        group.MapPost("/{id:guid}/audio-tracks/{trackId:guid}/uploaded", ConfirmAudioTrackAsync)
+            .WithName("ConfirmAudioTrackUpload")
+            .WithSummary("Says the dub is uploaded; it is then converted in the background.")
+            .RequirePermission(StreamingPermissions.VideosWrite)
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        group.MapDelete("/{id:guid}/audio-tracks/{language}", RemoveAudioTrackAsync)
+            .WithName("RemoveAudioTrack")
+            .WithSummary("Takes a dub off the video; the original sound cannot be removed.")
+            .RequirePermission(StreamingPermissions.VideosWrite)
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
         return endpoints;
     }
 
+    private static async Task<IResult> StartAudioTrackAsync(Guid id, [FromBody] StartAudioTrackUploadRequest request, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Send(new StartAudioTrackUploadCommand(id, request.Language), cancellationToken);
+        return result.ToHttpResult(ticket => TypedResults.Created($"/admin/videos/{id}", ticket));
+    }
+
+    private static async Task<IResult> ConfirmAudioTrackAsync(Guid id, Guid trackId, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
+        => (await dispatcher.Send(new ConfirmAudioTrackUploadCommand(id, trackId), cancellationToken)).ToHttpResult();
+
+    private static async Task<IResult> RemoveAudioTrackAsync(Guid id, string language, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
+        => (await dispatcher.Send(new RemoveAudioTrackCommand(id, language), cancellationToken)).ToHttpResult();
+
     private static async Task<IResult> StartAsync([FromBody] StartVideoUploadRequest request, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
     {
-        var result = await dispatcher.Send(new StartVideoUploadCommand(request.ContentKind, request.ContentId), cancellationToken);
+        var result = await dispatcher.Send(new StartVideoUploadCommand(request.ContentKind, request.ContentId, request.OriginalAudioLanguage), cancellationToken);
         return result.ToHttpResult(ticket => TypedResults.Created($"/admin/videos/{ticket.VideoId}", ticket));
     }
 

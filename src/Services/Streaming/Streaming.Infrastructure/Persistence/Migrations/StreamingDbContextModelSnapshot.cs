@@ -392,6 +392,11 @@ namespace Streaming.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AudioLayout")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
                     b.Property<Guid>("ContentId")
                         .HasColumnType("uuid");
 
@@ -412,6 +417,11 @@ namespace Streaming.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("OriginalAudioLanguage")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
 
                     b.Property<int>("Revision")
                         .HasColumnType("integer");
@@ -438,11 +448,14 @@ namespace Streaming.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Streaming.Infrastructure.Media.TranscodeJob", b =>
                 {
-                    b.Property<Guid>("VideoId")
+                    b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
                     b.Property<int>("Attempts")
                         .HasColumnType("integer");
+
+                    b.Property<Guid?>("AudioTrackId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("AvailableAt")
                         .HasColumnType("timestamp with time zone");
@@ -454,9 +467,14 @@ namespace Streaming.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("LeasedUntil")
                         .HasColumnType("timestamp with time zone");
 
-                    b.HasKey("VideoId");
+                    b.Property<Guid>("VideoId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
 
                     b.HasIndex("AvailableAt");
+
+                    b.HasIndex("VideoId");
 
                     b.ToTable("TranscodeJobs", (string)null);
                 });
@@ -519,6 +537,52 @@ namespace Streaming.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Streaming.Domain.Videos.Video", b =>
                 {
+                    b.OwnsMany("Streaming.Domain.Videos.AudioTrack", "AudioTracks", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .HasColumnType("uuid");
+
+                            b1.Property<int?>("Bandwidth")
+                                .HasColumnType("integer");
+
+                            b1.Property<string>("FailureReason")
+                                .HasMaxLength(500)
+                                .HasColumnType("character varying(500)");
+
+                            b1.Property<bool>("IsOriginal")
+                                .HasColumnType("boolean");
+
+                            b1.Property<string>("Language")
+                                .IsRequired()
+                                .HasMaxLength(16)
+                                .HasColumnType("character varying(16)");
+
+                            b1.Property<string>("Playlist")
+                                .HasMaxLength(64)
+                                .HasColumnType("character varying(64)");
+
+                            b1.Property<string>("Status")
+                                .IsRequired()
+                                .HasMaxLength(16)
+                                .HasColumnType("character varying(16)");
+
+                            b1.Property<DateTimeOffset>("UploadExpiresAt")
+                                .HasColumnType("timestamp with time zone");
+
+                            b1.Property<Guid>("VideoId")
+                                .HasColumnType("uuid");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("VideoId", "Language")
+                                .IsUnique();
+
+                            b1.ToTable("VideoAudioTracks", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("VideoId");
+                        });
+
                     b.OwnsMany("Streaming.Domain.Videos.Rendition", "Renditions", b1 =>
                         {
                             b1.Property<Guid>("VideoId")
@@ -545,6 +609,8 @@ namespace Streaming.Infrastructure.Persistence.Migrations
                             b1.WithOwner()
                                 .HasForeignKey("VideoId");
                         });
+
+                    b.Navigation("AudioTracks");
 
                     b.Navigation("Renditions");
                 });

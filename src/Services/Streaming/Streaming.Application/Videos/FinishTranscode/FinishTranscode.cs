@@ -6,7 +6,8 @@ using Streaming.Domain.Videos;
 namespace Streaming.Application.Videos.FinishTranscode;
 
 /// <summary>The converter's result: the video is ready to play. Sent by the transcoder, not by people.</summary>
-public sealed record MarkVideoReadyCommand(Guid VideoId, double DurationSeconds, IReadOnlyList<Rendition> Renditions) : ICommand;
+/// <param name="OriginalAudioBandwidth">The bits per second of the file's own sound; <see langword="null"/> when it is silent.</param>
+public sealed record MarkVideoReadyCommand(Guid VideoId, double DurationSeconds, IReadOnlyList<Rendition> Renditions, int? OriginalAudioBandwidth = null) : ICommand;
 
 /// <summary>The converter gave up on the video. Sent by the transcoder, not by people.</summary>
 public sealed record MarkVideoFailedCommand(Guid VideoId, string Reason) : ICommand;
@@ -21,7 +22,7 @@ internal sealed class MarkVideoReadyHandler(IVideoRepository videos, ITranscodeQ
             return VideoErrors.NotFound;
         }
 
-        var ready = video.MarkReady(command.DurationSeconds, command.Renditions);
+        var ready = video.MarkReady(command.DurationSeconds, command.Renditions, command.OriginalAudioBandwidth);
         if (ready.IsSuccess)
         {
             queue.Remove(video.Id);

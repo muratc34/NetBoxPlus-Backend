@@ -24,7 +24,12 @@ public sealed record VideoDetails(
     IReadOnlyList<Rendition> Renditions,
     string? FailureReason,
     DateTimeOffset UploadExpiresAt,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    AudioLayout AudioLayout,
+    string OriginalAudioLanguage,
+    IReadOnlyList<AudioTrackDetails> AudioTracks);
+
+public sealed record AudioTrackDetails(Guid Id, string Language, bool IsOriginal, TrackStatus Status, string? FailureReason, DateTimeOffset UploadExpiresAt);
 
 public sealed record GetVideoQuery(Guid VideoId) : IQuery<VideoDetails>;
 
@@ -87,6 +92,10 @@ internal sealed class GetVideoHandler(IStreamingReadModel readModel) : IQueryHan
             [.. video.Renditions],
             video.FailureReason,
             video.UploadExpiresAt,
-            video.CreatedAt);
+            video.CreatedAt,
+            video.AudioLayout,
+            video.OriginalAudioLanguage,
+            [.. video.AudioTracks.OrderByDescending(track => track.IsOriginal).ThenBy(track => track.Language, StringComparer.Ordinal)
+                .Select(track => new AudioTrackDetails(track.Id, track.Language, track.IsOriginal, track.Status, track.FailureReason, track.UploadExpiresAt))]);
     }
 }

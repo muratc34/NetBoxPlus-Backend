@@ -22,6 +22,20 @@ internal static class TestVideos
         }
 
         arguments.AddRange(["-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", file]);
+        return await RunAsync(arguments, file);
+    }
+
+    /// <summary>A sound file only, such as a dub: a tone of another pitch than the videos'.</summary>
+    public static async Task<byte[]> CreateAudioAsync(double seconds)
+    {
+        FfmpegAvailability.SkipUnlessAvailable();
+        var file = Path.Combine(Path.GetTempPath(), $"netboxplus-test-{Guid.NewGuid():N}.m4a");
+        var length = seconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return await RunAsync(["-hide_banner", "-nostdin", "-y", "-f", "lavfi", "-i", $"sine=frequency=660:duration={length}", "-c:a", "aac", file], file);
+    }
+
+    private static async Task<byte[]> RunAsync(List<string> arguments, string file)
+    {
         var start = new ProcessStartInfo(FfmpegAvailability.FfmpegPath!) { RedirectStandardError = true, RedirectStandardOutput = true, UseShellExecute = false };
         arguments.ForEach(start.ArgumentList.Add);
         using (var process = Process.Start(start)!)

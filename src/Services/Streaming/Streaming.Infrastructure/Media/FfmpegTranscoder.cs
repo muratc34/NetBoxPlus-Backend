@@ -25,15 +25,21 @@ public sealed class TranscoderOptions
 /// <summary>What converting a file gave.</summary>
 public abstract record TranscodeOutcome
 {
-    public sealed record Converted(double DurationSeconds, IReadOnlyList<Rendition> Renditions) : TranscodeOutcome;
+    /// <param name="OriginalAudioBandwidth">The bits per second of the file's sound in <c>audio/original</c>; <see langword="null"/> when silent.</param>
+    public sealed record Converted(double DurationSeconds, IReadOnlyList<Rendition> Renditions, int? OriginalAudioBandwidth) : TranscodeOutcome;
+
+    /// <summary>A dub converted on its own.</summary>
+    public sealed record AudioConverted(double DurationSeconds, int Bandwidth) : TranscodeOutcome;
 
     /// <summary>The file itself is the problem: trying again cannot help.</summary>
     public sealed record Rejected(string Reason) : TranscodeOutcome;
 }
 
 /// <summary>
-/// Turns a video file into HLS with ffmpeg: one rendition per rung of the ladder up to the source's
-/// height, each a playlist of six-second MPEG-TS segments, and a master playlist over them.
+/// Turns a video file into HLS with ffmpeg: one silent rendition per rung of the ladder up to the
+/// source's height, each a playlist of six-second MPEG-TS segments, the file's sound as an audio
+/// rendition of its own (<c>audio/original</c>), and a master playlist over them. A dub is converted
+/// into an audio rendition the same way.
 /// </summary>
 public sealed class FfmpegTranscoder(IOptions<TranscoderOptions> options)
 {
@@ -75,8 +81,7 @@ public sealed class FfmpegTranscoder(IOptions<TranscoderOptions> options)
                 "-b:v", $"{kbps}k", "-maxrate", $"{kbps * 107 / 100}k", "-bufsize", $"{kbps * 3 / 2}k",
                 "-g", "48", "-keyint_min", "48", "-sc_threshold", "0",
             };
-            arguments.AddRange(probe.HasAudio ? ["-c:a", "aac", "-b:a", $"{AudioKbps}k", "-ac", "2"] : ["-an"]);
-            arguments.AddRange(["-f", "hls", "-hls_time", "6", "-hls_playlist_type", "vod",
+            arguments.AddRange(["-an", "-f", "hls", "-hls_time", "6", "-hls_playlist_type", "vod",
                 "-hls_segment_filename", Path.Combine(directory, "seg_%04d.ts"), Path.Combine(directory, "index.m3u8")]);
 
             var run = await RunAsync(options.Value.FfmpegPath, arguments, cancellationToken).ConfigureAwait(false);
@@ -86,22 +91,69 @@ public sealed class FfmpegTranscoder(IOptions<TranscoderOptions> options)
             }
 
             var width = (int)Math.Round(probe.Width * (double)height / probe.Height / 2) * 2;
-            renditions.Add(new Rendition(height, width, (kbps + (probe.HasAudio ? AudioKbps : 0)) * 1000, $"{folder}/index.m3u8"));
+            renditions.Add(new Rendition(height, width, kbps * 1000, $"{folder}/index.m3u8"));
         }
 
-        await File.WriteAllTextAsync(Path.Combine(outputDirectory, "master.m3u8"), MasterPlaylist(renditions), Encoding.ASCII, cancellationToken).ConfigureAwait(false);
-        return new TranscodeOutcome.Converted(probe.DurationSeconds, renditions);
+        int? audioBandwidth = null;
+        if (probe.HasAudio)
+        {
+            if (!await ConvertAudioAsync(source, Path.Combine(outputDirectory, "audio", AudioTrack.OriginalFolder), cancellationToken).ConfigureAwait(false))
+            {
+                return new TranscodeOutcome.Rejected("The sound of the video could not be converted.");
+            }
+
+            audioBandwidth = AudioKbps * 1000;
+        }
+
+        await File.WriteAllTextAsync(Path.Combine(outputDirectory, "master.m3u8"), MasterPlaylist(renditions, audioBandwidth), Encoding.ASCII, cancellationToken).ConfigureAwait(false);
+        return new TranscodeOutcome.Converted(probe.DurationSeconds, renditions, audioBandwidth);
     }
 
-    public static string MasterPlaylist(IEnumerable<Rendition> renditions)
+    /// <summary>Turns a dub into an audio rendition in <paramref name="folder"/> of <paramref name="outputDirectory"/>.</summary>
+    public async Task<TranscodeOutcome> TranscodeAudioAsync(string source, string outputDirectory, string folder, CancellationToken cancellationToken)
+    {
+        var probe = await ProbeAsync(source, cancellationToken).ConfigureAwait(false);
+        if (probe is null || !probe.HasAudio || probe.DurationSeconds <= 0)
+        {
+            return new TranscodeOutcome.Rejected("The file has no sound to convert.");
+        }
+
+        return await ConvertAudioAsync(source, Path.Combine(outputDirectory, folder), cancellationToken).ConfigureAwait(false)
+            ? new TranscodeOutcome.AudioConverted(probe.DurationSeconds, AudioKbps * 1000)
+            : new TranscodeOutcome.Rejected("The sound could not be converted.");
+    }
+
+    /// <summary>The master playlist kept next to the files; players get one made for their session.</summary>
+    public static string MasterPlaylist(IEnumerable<Rendition> renditions, int? audioBandwidth)
     {
         var playlist = new StringBuilder("#EXTM3U\n#EXT-X-VERSION:3\n");
+        if (audioBandwidth is not null)
+        {
+            playlist.Append(CultureInfo.InvariantCulture, $"#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"audio\",NAME=\"original\",DEFAULT=YES,AUTOSELECT=YES,URI=\"audio/{AudioTrack.OriginalFolder}/index.m3u8\"\n");
+        }
+
         foreach (var rendition in renditions.OrderBy(item => item.Height))
         {
-            playlist.Append(CultureInfo.InvariantCulture, $"#EXT-X-STREAM-INF:BANDWIDTH={rendition.Bandwidth},RESOLUTION={rendition.Width}x{rendition.Height}\n{rendition.Playlist}\n");
+            var audio = audioBandwidth is null ? string.Empty : ",AUDIO=\"audio\"";
+            playlist.Append(CultureInfo.InvariantCulture, $"#EXT-X-STREAM-INF:BANDWIDTH={rendition.Bandwidth + (audioBandwidth ?? 0)},RESOLUTION={rendition.Width}x{rendition.Height}{audio}\n{rendition.Playlist}\n");
         }
 
         return playlist.ToString();
+    }
+
+    private async Task<bool> ConvertAudioAsync(string source, string directory, CancellationToken cancellationToken)
+    {
+        Directory.CreateDirectory(directory);
+        var run = await RunAsync(
+            options.Value.FfmpegPath,
+            [
+                "-hide_banner", "-nostdin", "-y", "-i", source, "-vn",
+                "-c:a", "aac", "-b:a", $"{AudioKbps}k", "-ac", "2",
+                "-f", "hls", "-hls_time", "6", "-hls_playlist_type", "vod",
+                "-hls_segment_filename", Path.Combine(directory, "seg_%04d.ts"), Path.Combine(directory, "index.m3u8"),
+            ],
+            cancellationToken).ConfigureAwait(false);
+        return run.ExitCode == 0;
     }
 
     private sealed record Probe(int Width, int Height, double DurationSeconds, bool HasAudio);
@@ -125,13 +177,14 @@ public sealed class FfmpegTranscoder(IOptions<TranscoderOptions> options)
             var duration = document.RootElement.TryGetProperty("format", out var format) && format.TryGetProperty("duration", out var value)
                 && double.TryParse(value.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds) ? seconds : 0;
 
+            var hasAudio = streams.Exists(stream => stream.GetProperty("codec_type").GetString() == "audio");
             return picture.ValueKind == JsonValueKind.Undefined
-                ? new Probe(0, 0, duration, false)
+                ? new Probe(0, 0, duration, hasAudio)
                 : new Probe(
                     picture.TryGetProperty("width", out var width) ? width.GetInt32() : 0,
                     picture.TryGetProperty("height", out var height) ? height.GetInt32() : 0,
                     duration,
-                    streams.Exists(stream => stream.GetProperty("codec_type").GetString() == "audio"));
+                    hasAudio);
         }
         catch (JsonException)
         {
