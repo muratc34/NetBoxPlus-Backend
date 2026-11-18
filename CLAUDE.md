@@ -1,4 +1,4 @@
-# CLAUDE.md — NetBoxPlus-Backend (v2)
+# CLAUDE.md — NetBoxPlus-Backend
 
 NetBoxPlus — Netflix benzeri video/abonelik platformu. Bu repo tüm backend'in monorepo'su: .NET 10
 mikroservisler, servis başına Clean Architecture, ortak kod `src/BuildingBlocks/` altında.
@@ -18,12 +18,12 @@ dokümanı güncelle.
 
 | Ref | Ne |
 |---|---|
-| `v2` | **Aktif geliştirme.** Yeni kod burada. |
-| `master` | Varsayılan branch; v2 olgunlaşıp merge edilene kadar v1'i gösterir. Doğrudan commit yok. |
+| `master` | **Varsayılan ve aktif branch.** Doğrudan commit yok: her iş kendi branch'inde (`phase8/<grup>-<konu>`) ve PR ile merge edilir; CI PR'da çalışır. |
+| `v2` | Yeniden yazımın (Faz 0–7, Faz 8 başı) geliştirildiği branch; 19.11.2026'da `master`'a merge edildi. Dokunulmaz. |
 | `v1-graduation` (tag) | Eski bitirme projesinin (.NET 8) son hali. Sadece referans. |
 | `dev`, `movie` | v1 döneminin yarım kalmış branch'leri. Dokunulmaz. |
 
-Frontend ayrı repoda: `NetBoxPlus-Frontend` (pnpm monorepo: `apps/web` Next.js, `apps/admin` Vite + React; kendi `CLAUDE.md`si var). Faz 8 boyunca backend değişiklikleri (`docs/PHASE-8.md` grup B) burada, `v2`de.
+Frontend ayrı repoda: `NetBoxPlus-Frontend` (pnpm monorepo: `apps/web` Next.js, `apps/admin` Vite + React; kendi `CLAUDE.md`si var). Faz 8 boyunca backend değişiklikleri (`docs/PHASE-8.md` grup B) burada.
 
 ## Yapı
 
@@ -68,13 +68,13 @@ dinlemiyor), Azurite'e giden her client `StorageConnections.CreateClient`/`Creat
 servisin `BlobServiceClient`'ını bununla değiştirir. Dayanıklılık `BlackHoleProxy` (ilk bağlantıyı kabul edip yutan TCP proxy) ile test edilir. Test image'ları
 `deploy/compose.yaml` ile aynı sürümde tutulur.
 
-**CI** (`.github/workflows/ci.yml`, `v2` ve `master`'a push ve PR'larda): Release build (uyarı =
+**CI** (`.github/workflows/ci.yml`, `master`'a push ve PR'larda): Release build (uyarı =
 hata) → `docs/openapi` build çıktısıyla aynı değilse kırılır → tüm testler (Docker zorunlu) →
 paralel olarak her Dockerfile'ın image build'i (push yok). API değiştiyse build'i lokalde çalıştırıp
 `docs/openapi/*.json`'ı da commit'le. Transcode ve demo seeder testleri gerçek **ffmpeg** ister (seeder Linux'ta `fonts-dejavu-core` da): `FFMPEG_DIRECTORY`
 ya da PATH (`tests/TestSupport/FfmpegAvailability.cs`); yoksa lokalde atlanır, CI'da (ffmpeg `apt` ile
 kurulur) kırar. Lokalde `winget install Gyan.FFmpeg`. Action'lar commit SHA'sıyla sabit; Dependabot (actions + NuGet)
-haftalık PR'ları `v2`'ye açar.
+haftalık PR'ları `master`'a açar.
 
 Lokal bağımlılıklar (Postgres, RabbitMQ, Valkey, Azurite, Mailpit, Aspire dashboard; `-Search` ile Elasticsearch):
 

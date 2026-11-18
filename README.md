@@ -1,6 +1,6 @@
-# NetBoxPlus Backend — v2
+# NetBoxPlus Backend
 
-[![CI](https://github.com/muratc34/NetBoxPlus-Backend/actions/workflows/ci.yml/badge.svg?branch=v2)](https://github.com/muratc34/NetBoxPlus-Backend/actions/workflows/ci.yml)
+[![CI](https://github.com/muratc34/NetBoxPlus-Backend/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/muratc34/NetBoxPlus-Backend/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 The backend of a subscription video streaming platform: a catalog in two languages, Stripe
@@ -9,8 +9,9 @@ and continue watching, a popularity ranking, and transactional e-mail. It is bui
 on .NET 10 as five independently deployable services behind a YARP gateway, in a single
 repository, and the whole system comes up with one command.
 
-> This is the `v2` branch, under active development. The original graduation project (.NET 8)
-> is preserved under the [`v1-graduation`](../../tree/v1-graduation) tag.
+> This is the rewrite of an earlier graduation project (.NET 8), which is preserved under the
+> [`v1-graduation`](../../tree/v1-graduation) tag. The web and admin apps live in
+> [NetBoxPlus-Frontend](https://github.com/muratc34/NetBoxPlus-Frontend).
 
 ## Architecture
 
@@ -252,7 +253,7 @@ event records.
 
 ## Continuous integration
 
-[CI](.github/workflows/ci.yml) runs on every push and pull request to `v2` and `master`: a
+[CI](.github/workflows/ci.yml) runs on every push and pull request to `master`: a
 Release build with warnings as errors, a check that `docs/openapi/` matches the build output, all
 tests with Docker and ffmpeg required, and a build of every container image. Actions are pinned
 to commit SHAs; Dependabot updates actions and NuGet packages weekly.
