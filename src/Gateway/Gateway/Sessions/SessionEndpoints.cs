@@ -32,44 +32,91 @@ internal static class SessionEndpoints
 {
     public static IEndpointRouteBuilder MapSessionEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        var customer = endpoints.MapGroup("/session").RequireCors(RouteGroups.Public);
-        MapCommon(customer, SessionKind.Customer, RouteGroups.Public);
+        var customer = endpoints.MapGroup("/session").RequireCors(RouteGroups.Public).WithTags("Session");
+        MapCommon(customer, SessionKind.Customer, RouteGroups.Public, namePrefix: string.Empty);
 
         customer.MapPost("/register", RegisterAsync)
             .RequireRateLimiting(RateLimitingServiceCollectionExtensions.CredentialsPolicy)
-            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(RouteGroups.Public, next));
+            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(RouteGroups.Public, next))
+            .WithName("Register")
+            .WithSummary("Creates a customer account and opens its session.")
+            .Produces<SessionResponse>(StatusCodes.Status201Created)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
         customer.MapPost("/password", ChangePasswordAsync)
             .RequireRateLimiting(RateLimitingServiceCollectionExtensions.CredentialsPolicy)
-            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(RouteGroups.Public, next));
+            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(RouteGroups.Public, next))
+            .WithName("ChangePassword")
+            .WithSummary("Changes the password; this session continues, the account's other sessions end.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
         // Takes the password and sends an e-mail: rate-limited like the password change.
         customer.MapPost("/email", RequestEmailChangeAsync)
             .RequireRateLimiting(RateLimitingServiceCollectionExtensions.CredentialsPolicy)
-            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(RouteGroups.Public, next));
+            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(RouteGroups.Public, next))
+            .WithName("RequestEmailChange")
+            .WithSummary("Sends a link to the new address; the address changes when the link is opened.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
         // Takes the password: rate-limited like the password change.
         customer.MapPost("/deletion", DeleteAccountAsync)
             .RequireRateLimiting(RateLimitingServiceCollectionExtensions.CredentialsPolicy)
-            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(RouteGroups.Public, next));
+            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(RouteGroups.Public, next))
+            .WithName("DeleteAccount")
+            .WithSummary("Deletes the account for good; the session ends and the cookie is cleared.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
         // No session and no cookie: the browser of someone who forgot the password. Rate-limited like
         // sign-in, since one sends e-mails and the other sets a password.
         customer.MapPost("/password-reset", RequestPasswordResetAsync)
             .RequireRateLimiting(RateLimitingServiceCollectionExtensions.CredentialsPolicy)
-            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(RouteGroups.Public, next));
+            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(RouteGroups.Public, next))
+            .WithName("RequestPasswordReset")
+            .WithSummary("Sends a reset link if the address has an account; the answer is the same either way.")
+            .Produces(StatusCodes.Status202Accepted)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
         customer.MapPost("/password-reset/confirm", ResetPasswordAsync)
             .RequireRateLimiting(RateLimitingServiceCollectionExtensions.CredentialsPolicy)
-            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(RouteGroups.Public, next));
+            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(RouteGroups.Public, next))
+            .WithName("ResetPassword")
+            .WithSummary("Sets a new password with the link's token; every session of the account ends.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
-        var admin = endpoints.MapGroup("/admin/session").RequireCors(RouteGroups.Admin);
-        MapCommon(admin, SessionKind.Admin, RouteGroups.Admin);
+        var admin = endpoints.MapGroup("/admin/session").RequireCors(RouteGroups.Admin).WithTags("Admin session");
+        MapCommon(admin, SessionKind.Admin, RouteGroups.Admin, namePrefix: "Admin");
 
         return endpoints;
     }
 
-    private static void MapCommon(RouteGroupBuilder group, SessionKind kind, string routeGroup)
+    private static void MapCommon(RouteGroupBuilder group, SessionKind kind, string routeGroup, string namePrefix)
     {
         group.MapPost("/sign-in", (
                 [FromBody] CredentialsRequest request,
@@ -78,14 +125,33 @@ internal static class SessionEndpoints
                 [FromServices] SessionManager sessions,
                 CancellationToken cancellationToken) => SignInAsync(request, kind, context, auth, sessions, cancellationToken))
             .RequireRateLimiting(RateLimitingServiceCollectionExtensions.CredentialsPolicy)
-            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(routeGroup, next));
+            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(routeGroup, next))
+            .WithName(namePrefix + "SignIn")
+            .WithSummary("Signs in and opens a session; the browser gets the session cookie.")
+            .Produces<SessionResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
         group.MapGet("/", (HttpContext context, [FromServices] SessionManager sessions) => GetAsync(kind, context, sessions))
-            .RequireRateLimiting(routeGroup);
+            .RequireRateLimiting(routeGroup)
+            .WithName(namePrefix + "GetSession")
+            .WithSummary("The signed-in user and the CSRF token for changing requests.")
+            .Produces<SessionResponse>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
         group.MapPost("/sign-out", (HttpContext context, [FromServices] SessionManager sessions) => SignOutAsync(kind, context, sessions))
             .RequireRateLimiting(routeGroup)
-            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(routeGroup, next));
+            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(routeGroup, next))
+            .WithName(namePrefix + "SignOut")
+            .WithSummary("Ends the session and clears the cookie.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests);
     }
 
     private static async Task<IResult> SignInAsync(

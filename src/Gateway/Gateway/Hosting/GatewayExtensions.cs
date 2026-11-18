@@ -6,6 +6,7 @@ using Gateway.Sessions;
 using Gateway.Tracing;
 using OpenTelemetry;
 using OpenTelemetry.Context.Propagation;
+using Shared.Infrastructure.API.Hosting;
 using Yarp.ReverseProxy.Transforms;
 
 namespace Gateway.Hosting;
@@ -24,7 +25,13 @@ internal static class GatewayExtensions
 
         builder.Services.AddGatewayCors();
         builder.Services.AddGatewayRateLimiting();
-        builder.Services.AddGatewaySessions(builder.Configuration);
+        builder.Services.AddOpenApi();
+
+        // The build-time OpenAPI generation only reads the endpoints; sessions need Valkey and the auth address.
+        if (!BuildTimeOpenApi.IsGeneratingDocument)
+        {
+            builder.Services.AddGatewaySessions(builder.Configuration);
+        }
 
         // ASP.NET Core reads the incoming trace context through this propagator.
         builder.Services.AddSingleton<DistributedContextPropagator, UntrustedTraceContextPropagator>();

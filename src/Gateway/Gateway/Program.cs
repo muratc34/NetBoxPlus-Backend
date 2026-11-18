@@ -12,6 +12,11 @@ app.UseServiceDefaults();
 app.UseCors();
 app.UseRateLimiter();
 
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+}
+
 app.MapGateway();
 app.MapDefaultEndpoints();
 

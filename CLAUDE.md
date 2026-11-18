@@ -245,6 +245,7 @@ Migrator'daki seed):
 ## Gateway — `src/Gateway/Gateway`
 
 - İş mantığı yok; sadece `Shared.Infrastructure.API`'yi referans alır.
+- Kendi uçlarının (`/session/...`, `/admin/session/...`) OpenAPI dokümanı servislerinki gibi build'de `docs/openapi/gateway.json`'a yazılır (`WithName`/`Produces`/`ProducesProblem`); build sırasında oturum altyapısı (Valkey, Auth adresi) `BuildTimeOpenApi.IsGeneratingDocument` ile atlanır. Proxy'lenen route'lar dokümanda yok. Frontend client'ı bu dosyadan da üretilir; Auth'a tarayıcı için yeni bir route açılırsa frontend'in `packages/api/src/services.ts`'i de güncellenir.
 - Auth'tan tarayıcıya sadece `/auth/profiles/...` (`auth-profiles`), `/auth/email-verification/...` (`auth-email-verification`) ve `/auth/email-change/...` (`auth-email-change`) açık; token dönen uçlar kapalı. Bir route kaldırdığından fazlasını eşleştirirse (`/auth/profiles` → `/auth` kaldırılır) fazlası kapsamıdır; `Location` sadece kapsam içindeyse çevrilir.
 - Üç route grubu: `public`, `admin`, `webhooks` (`/<s>/webhooks/{**remainder}`, `PathRemovePrefix: /<s>`; CORS yok, kendi rate limit'i, `Cookie`/`Authorization` servise gitmez; ör. `billing-webhooks`).
 - Route'un CORS ve rate limiter policy'si **grubundan** gelir (`RouteGroupConfigFilter`); route'a

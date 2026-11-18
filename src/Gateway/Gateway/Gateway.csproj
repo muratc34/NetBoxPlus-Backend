@@ -3,6 +3,11 @@
   <PropertyGroup>
     <Description>Edge gateway: routing to the services, browser sessions, CORS and rate limiting.</Description>
     <UserSecretsId>netboxplus-gateway</UserSecretsId>
+    <!-- The gateway's own endpoints (browser sessions) are documented like the services' APIs: generated
+         at build time and committed, so the frontend's client is generated from them too. -->
+    <OpenApiGenerateDocuments>true</OpenApiGenerateDocuments>
+    <OpenApiDocumentsDirectory>$(MSBuildThisFileDirectory)../../../docs/openapi</OpenApiDocumentsDirectory>
+    <OpenApiGenerateDocumentsOptions>--file-name gateway</OpenApiGenerateDocumentsOptions>
   </PropertyGroup>
 
   <!-- Only the HTTP building block: the gateway has no database and no message broker. -->
@@ -11,6 +16,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.Extensions.ApiDescription.Server" PrivateAssets="all" />
     <PackageReference Include="Yarp.ReverseProxy" />
     <PackageReference Include="StackExchange.Redis" />
     <PackageReference Include="Microsoft.AspNetCore.DataProtection.StackExchangeRedis" />
