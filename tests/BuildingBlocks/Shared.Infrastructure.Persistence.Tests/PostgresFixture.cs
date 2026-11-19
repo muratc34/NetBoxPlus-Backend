@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using NetBoxPlus.Testing;
+using Npgsql;
 using Shared.Application;
 using Shared.Application.Messaging;
 using Testcontainers.PostgreSql;
@@ -56,12 +57,22 @@ public sealed class PostgresFixture : IAsyncLifetime
         }
     }
 
-    /// <summary>A container wired like a service, on a fresh database that already has the schema.</summary>
-    internal async Task<TestServices> CreateServicesAsync(Action<IServiceCollection>? configure = null)
+    /// <summary>
+    /// A container wired like a service, on a fresh database that already has the schema.
+    /// <paramref name="connection"/> changes the connection string; with <paramref name="createSchema"/>
+    /// off nothing connects before the test does.
+    /// </summary>
+    internal async Task<TestServices> CreateServicesAsync(
+        Action<IServiceCollection>? configure = null,
+        Action<NpgsqlConnectionStringBuilder>? connection = null,
+        bool createSchema = true)
     {
         SkipIfUnavailable();
 
-        var connectionString = ContainerConnections.ConnectionString(_container!.GetConnectionString(), $"test_{Guid.NewGuid():N}");
+        var builder = new NpgsqlConnectionStringBuilder(
+            ContainerConnections.ConnectionString(_container!.GetConnectionString(), $"test_{Guid.NewGuid():N}"));
+        connection?.Invoke(builder);
+        var connectionString = builder.ConnectionString;
 
         var time = new FakeTimeProvider(new DateTimeOffset(2026, 10, 28, 12, 0, 0, TimeSpan.Zero));
         var transport = new RecordingTransport();
@@ -80,8 +91,9 @@ public sealed class PostgresFixture : IAsyncLifetime
 
         var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
 
-        await using (var scope = provider.CreateAsyncScope())
+        if (createSchema)
         {
+            await using var scope = provider.CreateAsyncScope();
             await scope.ServiceProvider.GetRequiredService<TestDbContext>().Database.EnsureCreatedAsync();
         }
 

@@ -325,6 +325,13 @@ Migrator'daki seed):
   olmak zorunda — RabbitMQ exchange adı buradan türetiliyor.
 - **Persistence:** servisin DbContext'i `ServiceDbContext`'ten türer, modelini `ConfigureModel`'da
   kurar (`OnModelCreating` sealed). Kayıt: `services.AddPersistence<TContext>(connectionString)`.
+  **Bağlantı bütçesi:** bütün servisler tek Postgres'i paylaşır; `AddPersistence` havuzu süreç başına 20 ile sınırlar
+  (`DefaultMaxPoolSize`; connection string'de `Maximum Pool Size` varsa o geçer). Compose'da `max_connections=200`: 5 API +
+  Transcoder en fazla 120, kalanı migrator, araç, IDE'den çalışan servis ve superuser'a. Yeni bir süreç ya da daha büyük havuz
+  bu hesabı (compose'daki yorum) günceller. Havuz doluyken istek `Timeout` (15 sn) kadar bekler; bağlantı yine alınamazsa
+  (havuz tükendi, sunucuya ulaşılamadı, Postgres 53xxx/08xxx/57P03) `ConnectionFailureInterceptor` `DataUnavailableException`
+  fırlatır ve API 503 `Data.Unavailable` + `Retry-After: 5` döner (Warning log). Sorgu hataları, command timeout, yanlış
+  şifre ve olmayan database 500 kalır.
   Event yayınlamak için `IIntegrationEventPublisher` — outbox'a yazar, doğrudan kuyruğa değil.
   `MessageRetentionService` gönderilmiş outbox satırlarını 7 gün, inbox satırlarını 30 gün sonra siler
   (saatte bir, 1000'lik parçalar; gönderilmemiş/bırakılmış outbox satırı silinmez; ayarlar `MessageRetention`;

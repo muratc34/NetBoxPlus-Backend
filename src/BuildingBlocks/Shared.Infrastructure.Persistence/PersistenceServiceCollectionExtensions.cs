@@ -22,9 +22,22 @@ public static class PersistenceServiceCollectionExtensions
     private const string ReadyTag = "ready";
 
     /// <summary>
+    /// The most connections one process keeps to its database unless the connection string says
+    /// otherwise. All services share one PostgreSQL server, so the pools together must stay below
+    /// its <c>max_connections</c>; Npgsql's own default of 100 lets a single busy service take every
+    /// slot. A request that finds the pool full waits up to the connection string's <c>Timeout</c>.
+    /// </summary>
+    public const int DefaultMaxPoolSize = 20;
+
+    private const string MaxPoolSizeKeyword = "Maximum Pool Size";
+
+    /// <summary>
     /// Registers <typeparamref name="TContext"/> on PostgreSQL with the shared interceptors
     /// (domain events, soft delete, auditing — in that order), the unit of work, the outbox
     /// publisher, processor and monitor (metrics, and a degraded health check while messages are given up on), the inbox, the clean-up of old outbox and inbox rows, the audit log, a readiness health check and Npgsql tracing.
+    /// The connection pool is limited to <see cref="DefaultMaxPoolSize"/> unless the connection
+    /// string sets <c>Maximum Pool Size</c>, and a connection that cannot be had (pool exhausted,
+    /// server unreachable or out of connection slots) fails with <see cref="DataUnavailableException"/>.
     /// </summary>
     /// <remarks>Requires <c>AddCqrs</c> for the domain event dispatcher.</remarks>
     public static IServiceCollection AddPersistence<TContext>(
@@ -41,13 +54,16 @@ public static class PersistenceServiceCollectionExtensions
         services.TryAddScoped<DomainEventsInterceptor>();
         services.TryAddScoped<SoftDeleteInterceptor>();
         services.TryAddScoped<AuditingInterceptor>();
+        services.TryAddSingleton<ConnectionFailureInterceptor>();
 
+        var pooledConnectionString = WithPoolLimit(connectionString);
         services.AddDbContext<TContext>((provider, options) => options
-            .UseNpgsql(connectionString, configureNpgsql)
+            .UseNpgsql(pooledConnectionString, configureNpgsql)
             .AddInterceptors(
                 provider.GetRequiredService<DomainEventsInterceptor>(),
                 provider.GetRequiredService<SoftDeleteInterceptor>(),
-                provider.GetRequiredService<AuditingInterceptor>()));
+                provider.GetRequiredService<AuditingInterceptor>(),
+                provider.GetRequiredService<ConnectionFailureInterceptor>()));
 
         services.TryAddScoped<IUnitOfWork, EfUnitOfWork<TContext>>();
         services.TryAddScoped<IIntegrationEventPublisher, OutboxIntegrationEventPublisher<TContext>>();
@@ -75,5 +91,23 @@ public static class PersistenceServiceCollectionExtensions
         services.ConfigureOpenTelemetryTracerProvider(tracing => tracing.AddNpgsql());
 
         return services;
+    }
+
+    /// <summary>The connection string with <see cref="DefaultMaxPoolSize"/>, unless it sets a pool size of its own.</summary>
+    internal static string WithPoolLimit(string connectionString)
+    {
+        var builder = new NpgsqlConnectionStringBuilder(connectionString);
+
+        // ContainsKey is true for every keyword Npgsql knows; Keys lists only those that were set,
+        // under their canonical name whichever synonym was used.
+        var setsPoolSize = builder.Keys.Cast<string>()
+            .Any(key => string.Equals(key, MaxPoolSizeKeyword, StringComparison.OrdinalIgnoreCase));
+        if (setsPoolSize)
+        {
+            return connectionString;
+        }
+
+        builder.MaxPoolSize = DefaultMaxPoolSize;
+        return builder.ConnectionString;
     }
 }
