@@ -74,7 +74,7 @@ hata) → `docs/openapi` build çıktısıyla aynı değilse kırılır → tüm
 paralel olarak her Dockerfile'ın image build'i (push yok). API değiştiyse build'i lokalde çalıştırıp
 `docs/openapi/*.json`'ı da commit'le. Transcode ve demo seeder testleri gerçek **ffmpeg** ister (seeder Linux'ta `fonts-dejavu-core` da): `FFMPEG_DIRECTORY`
 ya da PATH (`tests/TestSupport/FfmpegAvailability.cs`); yoksa lokalde atlanır, CI'da (ffmpeg `apt` ile
-kurulur) kırar. Lokalde `winget install Gyan.FFmpeg`. Action'lar commit SHA'sıyla sabit; Dependabot (actions + NuGet)
+kurulur; Ubuntu aynası bazen çok yavaş olduğu için `.deb`'ler haftalık runner image'ı başına cache'te) kırar. Lokalde `winget install Gyan.FFmpeg`. Action'lar commit SHA'sıyla sabit; Dependabot (actions + NuGet)
 haftalık PR'ları `master`'a açar.
 
 Lokal bağımlılıklar (Postgres, RabbitMQ, Valkey, Azurite, Mailpit, Aspire dashboard; `-Search` ile Elasticsearch):
