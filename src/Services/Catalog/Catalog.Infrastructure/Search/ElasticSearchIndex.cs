@@ -64,6 +64,7 @@ internal sealed class ElasticSearchIndex(ElasticsearchClient client) : ISearchIn
               "originalTitle": { "type": "text", "analyzer": "tr_typing" },
               "people": { "type": "text", "analyzer": "tr_typing" },
               "genreIds": { "type": "keyword" },
+              "ageRating": { "type": "keyword" },
               "publishedAt": { "type": "date" },
               "popularity": { "type": "integer" }
             }
@@ -74,7 +75,7 @@ internal sealed class ElasticSearchIndex(ElasticsearchClient client) : ISearchIn
     // Fields added to the mapping after the first release; an index created before them gets them here.
     // Adding a field is allowed on a live index; the documents get its value when they are indexed again.
     private const string AddedFields = """
-        { "properties": { "popularity": { "type": "integer" } } }
+        { "properties": { "popularity": { "type": "integer" }, "ageRating": { "type": "keyword" } } }
         """;
 
     private volatile bool _ready;
@@ -185,6 +186,11 @@ internal sealed class ElasticSearchIndex(ElasticsearchClient client) : ISearchIn
             filters.Add(new { term = new { genreIds = genreId.ToString() } });
         }
 
+        if (AgeFilter(query.MaxAgeRating) is { } ages)
+        {
+            filters.Add(ages);
+        }
+
         var request = new
         {
             from = query.Offset,
@@ -214,7 +220,7 @@ internal sealed class ElasticSearchIndex(ElasticsearchClient client) : ISearchIn
         return new SearchResults(total, documents);
     }
 
-    public async Task<IReadOnlyList<SearchDocument>> SuggestAsync(string text, string language, int size, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<SearchDocument>> SuggestAsync(string text, string language, int size, AgeRating? maxAgeRating, CancellationToken cancellationToken)
     {
         var fields = new List<string>();
         foreach (var candidate in new[] { language, Languages.Default }.Distinct(StringComparer.Ordinal))
@@ -222,11 +228,22 @@ internal sealed class ElasticSearchIndex(ElasticsearchClient client) : ISearchIn
             fields.AddRange([$"suggest.{candidate}", $"suggest.{candidate}._2gram", $"suggest.{candidate}._3gram"]);
         }
 
-        var request = new { size, query = new { multi_match = new { query = text, type = "bool_prefix", fields } } };
+        var match = new { multi_match = new { query = text, type = "bool_prefix", fields } };
+        object search = AgeFilter(maxAgeRating) is { } ages
+            ? new { @bool = new { must = new object[] { match }, filter = new[] { ages } } }
+            : match;
+        var request = new { size, query = search };
 
         var (documents, _) = await RunSearchAsync(request, cancellationToken).ConfigureAwait(false);
         return documents;
     }
+
+    // A document indexed before the field was mapped has no indexed age and matches no age filter, until
+    // the index is rebuilt (Catalog.Migrator reindex); searches without the filter still find it.
+    private static object? AgeFilter(AgeRating? maximum)
+        => maximum is { } value
+            ? new { terms = new { ageRating = AgeRatings.UpTo(value).Select(rating => rating.ToString()).ToArray() } }
+            : null;
 
     private static JsonSerializerOptions CreateJson()
     {

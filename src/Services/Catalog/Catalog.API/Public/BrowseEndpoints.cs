@@ -83,8 +83,9 @@ internal static class BrowseEndpoints
         [FromQuery] Guid? personId = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = PageLimits.DefaultPageSize,
-        [FromQuery] TitleSort sort = TitleSort.Newest)
-        => (await dispatcher.Query(new GetTitlesQuery(lang ?? Languages.Default, kind, genreId, personId, page, pageSize, sort), cancellationToken)).ToHttpResult();
+        [FromQuery] TitleSort sort = TitleSort.Newest,
+        [FromQuery] AgeRating? maxAgeRating = null)
+        => (await dispatcher.Query(new GetTitlesQuery(lang ?? Languages.Default, kind, genreId, personId, page, pageSize, sort, maxAgeRating), cancellationToken)).ToHttpResult();
 
     private static async Task<IResult> SearchAsync(
         [FromServices] IDispatcher dispatcher,
@@ -94,15 +95,17 @@ internal static class BrowseEndpoints
         [FromQuery] TitleKind? kind = null,
         [FromQuery] Guid? genreId = null,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = PageLimits.DefaultPageSize)
-        => (await dispatcher.Query(new SearchTitlesQuery(q, lang ?? Languages.Default, kind, genreId, page, pageSize), cancellationToken)).ToHttpResult();
+        [FromQuery] int pageSize = PageLimits.DefaultPageSize,
+        [FromQuery] AgeRating? maxAgeRating = null)
+        => (await dispatcher.Query(new SearchTitlesQuery(q, lang ?? Languages.Default, kind, genreId, page, pageSize, maxAgeRating), cancellationToken)).ToHttpResult();
 
     private static async Task<IResult> SuggestAsync(
         [FromServices] IDispatcher dispatcher,
         CancellationToken cancellationToken,
         [FromQuery] string? q = null,
-        [FromQuery] string? lang = null)
-        => (await dispatcher.Query(new SuggestTitlesQuery(q, lang ?? Languages.Default), cancellationToken)).ToHttpResult();
+        [FromQuery] string? lang = null,
+        [FromQuery] AgeRating? maxAgeRating = null)
+        => (await dispatcher.Query(new SuggestTitlesQuery(q, lang ?? Languages.Default, maxAgeRating), cancellationToken)).ToHttpResult();
 
     private static async Task<IResult> GetMovieAsync(Guid id, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken, [FromQuery] string? lang = null)
         => (await dispatcher.Query(new GetPublishedMovieQuery(id, lang ?? Languages.Default), cancellationToken)).ToHttpResult();

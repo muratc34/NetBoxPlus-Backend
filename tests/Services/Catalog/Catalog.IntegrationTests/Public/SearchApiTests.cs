@@ -213,6 +213,54 @@ public sealed class SearchApiTests(CatalogApiFixture api)
     }
 
     [Fact]
+    public async Task SearchAndSuggestions_ForAnAge_LeaveOutOlderTitles()
+    {
+        using var admin = api.CreateClient(Everything);
+        using var visitor = api.CreateAnonymousClient();
+        var genre = await GenreAsync(admin);
+        var marker = $"qa{Guid.NewGuid():N}"[..14];
+        var forAll = await MovieAsync(admin, genre, $"{marker} Masal", ageRating: "All");
+        var seven = await MovieAsync(admin, genre, $"{marker} Okul", ageRating: "Age7");
+        var adults = await MovieAsync(admin, genre, $"{marker} Gece", ageRating: "Age18");
+        await IndexAsync();
+
+        var young = await SearchAsync(visitor, marker, genre, "&maxAgeRating=Age7");
+        Assert.Equal(2, young.TotalCount);
+        Assert.Equal(new HashSet<Guid> { forAll, seven }, young.Items.Select(hit => hit.Id).ToHashSet());
+        Assert.Equal(3, (await SearchAsync(visitor, marker, genre)).TotalCount);
+        Assert.Equal(3, (await SearchAsync(visitor, marker, genre, "&maxAgeRating=Age18")).TotalCount);
+
+        async Task<HashSet<Guid>> SuggestAsync(string filter)
+            => (await ReadAsync<List<SearchHit>>(await visitor.GetAsync($"/search/suggest?q={marker}{filter}", Cancellation))).Select(hit => hit.Id).ToHashSet();
+
+        Assert.Equal([forAll], await SuggestAsync("&maxAgeRating=All"));
+        Assert.Equal(new HashSet<Guid> { forAll, seven, adults }, await SuggestAsync(string.Empty));
+    }
+
+    [Fact]
+    public async Task DocumentIndexedBeforeAgesWereMapped_IsLeftOutOnlyWhenFilteringByAge()
+    {
+        using var admin = api.CreateClient(Everything);
+        using var visitor = api.CreateAnonymousClient();
+        var genre = await GenreAsync(admin);
+        var marker = $"qe{Guid.NewGuid():N}"[..14];
+        var movie = await MovieAsync(admin, genre, $"{marker} Eski", ageRating: "All");
+        await IndexAsync();
+
+        // As an index without the field held it: the age is not searchable until the index is rebuilt.
+        using var elastic = new HttpClient { BaseAddress = new Uri(api.SearchAddress) };
+        using var stored = JsonDocument.Parse(await elastic.GetStringAsync($"/{ElasticSearchIndex.Alias}/_doc/{movie}", Cancellation));
+        var source = System.Text.Json.Nodes.JsonNode.Parse(stored.RootElement.GetProperty("_source").GetRawText())!.AsObject();
+        Assert.True(source.Remove("ageRating"));
+        var index = stored.RootElement.GetProperty("_index").GetString();
+        using var rewrite = new StringContent(source.ToJsonString(), System.Text.Encoding.UTF8, "application/json");
+        Assert.True((await elastic.PutAsync($"/{index}/_doc/{movie}?refresh=true", rewrite, Cancellation)).IsSuccessStatusCode);
+
+        Assert.Equal(movie, Assert.Single((await SearchAsync(visitor, marker, genre)).Items).Id);
+        Assert.Equal(0, (await SearchAsync(visitor, marker, genre, "&maxAgeRating=Age18")).TotalCount);
+    }
+
+    [Fact]
     public async Task Search_FiltersByKind_AndPages()
     {
         using var admin = api.CreateClient(Everything);
@@ -241,6 +289,8 @@ public sealed class SearchApiTests(CatalogApiFixture api)
     [InlineData("/search?q=a&page=1000&pageSize=100")]
     [InlineData("/search/suggest")]
     [InlineData("/search/suggest?q=a&lang=fr")]
+    [InlineData("/search?q=a&maxAgeRating=Age99")]
+    [InlineData("/search/suggest?q=a&maxAgeRating=adult")]
     public async Task InvalidRequests_Are400(string path)
     {
         using var visitor = api.CreateAnonymousClient();
@@ -314,6 +364,34 @@ public sealed class SearchApiTests(CatalogApiFixture api)
         Assert.Equal(movie, Assert.Single((await SearchAsync(visitor, "kurulan", genre)).Items).Id);
     }
 
+    [Fact]
+    public async Task AnIndexMadeBeforeTheLaterFields_GetsThemWhenTheServiceStarts()
+    {
+        using var elastic = new HttpClient { BaseAddress = new Uri(api.SearchAddress) };
+        var old = $"{ElasticSearchIndex.Alias}-old{Guid.NewGuid():N}";
+        using var mapping = new StringContent("""{ "mappings": { "dynamic": false, "properties": { "id": { "type": "keyword" } } } }""", System.Text.Encoding.UTF8, "application/json");
+        Assert.True((await elastic.PutAsync($"/{old}", mapping, Cancellation)).IsSuccessStatusCode);
+
+        await using var scope = api.CreateScope();
+        try
+        {
+            await scope.ServiceProvider.GetRequiredService<ElasticSearchIndex>().SwapAliasAsync(old, Cancellation);
+
+            // A service starting against that index.
+            await new ElasticSearchIndex(scope.ServiceProvider.GetRequiredService<Elastic.Clients.Elasticsearch.ElasticsearchClient>()).EnsureReadyAsync(Cancellation);
+
+            using var fields = JsonDocument.Parse(await elastic.GetStringAsync($"/{old}/_mapping", Cancellation));
+            var properties = fields.RootElement.GetProperty(old).GetProperty("mappings").GetProperty("properties");
+            Assert.Equal("keyword", properties.GetProperty("ageRating").GetProperty("type").GetString());
+            Assert.Equal("integer", properties.GetProperty("popularity").GetProperty("type").GetString());
+        }
+        finally
+        {
+            // Back to a full index for the other tests.
+            await scope.ServiceProvider.GetRequiredService<SearchReindexer>().ReindexAsync(Cancellation);
+        }
+    }
+
     private static JsonSerializerOptions CreateJson()
     {
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
@@ -339,7 +417,7 @@ public sealed class SearchApiTests(CatalogApiFixture api)
     private static async Task<Guid> GenreAsync(HttpClient admin)
         => await PostAsync(admin, "/admin/genres", TestRequests.Genre($"tür{Guid.NewGuid():N}"));
 
-    private static object MovieBody(string title, string? english, Guid genre, int version = 0, Guid? credit = null)
+    private static object MovieBody(string title, string? english, Guid genre, int version = 0, Guid? credit = null, string ageRating = "Age13")
     {
         var translations = TestRequests.Text(title, "Bir konu.");
         if (english is not null)
@@ -348,12 +426,12 @@ public sealed class SearchApiTests(CatalogApiFixture api)
         }
 
         object[] credits = credit is { } person ? [new { personId = person, role = "Actor", order = 1 }] : [];
-        return new { translations, releaseYear = 2024, ageRating = "Age13", runtimeMinutes = 120, genreIds = new[] { genre }, credits, version };
+        return new { translations, releaseYear = 2024, ageRating, runtimeMinutes = 120, genreIds = new[] { genre }, credits, version };
     }
 
-    private async Task<Guid> MovieAsync(HttpClient admin, Guid genre, string title, string? english = null, Guid? credit = null)
+    private async Task<Guid> MovieAsync(HttpClient admin, Guid genre, string title, string? english = null, Guid? credit = null, string ageRating = "Age13")
     {
-        var movie = await PostAsync(admin, "/admin/movies", MovieBody(title, english, genre, credit: credit));
+        var movie = await PostAsync(admin, "/admin/movies", MovieBody(title, english, genre, credit: credit, ageRating: ageRating));
         var upload = await TestImages.UploadAsync(admin, TestImages.Poster(), Json, Cancellation);
         var version = (await ReadAsync<MovieDetails>(await admin.GetAsync($"/admin/movies/{movie}", Cancellation))).Version;
         Assert.True((await admin.PutAsJsonAsync($"/admin/movies/{movie}/images/poster", new AttachImageRequest(upload, version), Json, Cancellation)).IsSuccessStatusCode);

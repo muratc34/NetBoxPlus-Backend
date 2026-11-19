@@ -2341,6 +2341,13 @@
               "default": "Newest",
               "$ref": "#/components/schemas/TitleSort"
             }
+          },
+          {
+            "name": "maxAgeRating",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/AgeRating"
+            }
           }
         ],
         "responses": {
@@ -2429,6 +2436,13 @@
               "format": "int32",
               "default": 20
             }
+          },
+          {
+            "name": "maxAgeRating",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/AgeRating"
+            }
           }
         ],
         "responses": {
@@ -2485,6 +2499,13 @@
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "maxAgeRating",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/AgeRating"
             }
           }
         ],

@@ -1,6 +1,7 @@
 using Catalog.Application.Abstractions;
 using Catalog.Application.Browse.Search;
 using Catalog.Application.Content;
+using Catalog.Domain.Content;
 using Shared.Application.Cqrs;
 using Shared.Application.Validation;
 using Shared.Domain;
@@ -8,7 +9,8 @@ using Shared.Domain;
 namespace Catalog.Application.Browse.Suggest;
 
 /// <summary>Titles matching what has been typed so far.</summary>
-public sealed record SuggestTitlesQuery(string? Text, string Language) : IQuery<IReadOnlyList<SearchHit>>;
+/// <param name="MaxAgeRating">Only titles a viewer of this age may see, such as a child's profile; all when null.</param>
+public sealed record SuggestTitlesQuery(string? Text, string Language, AgeRating? MaxAgeRating = null) : IQuery<IReadOnlyList<SearchHit>>;
 
 internal sealed class SuggestTitlesValidator : IValidator<SuggestTitlesQuery>
 {
@@ -34,7 +36,7 @@ internal sealed class SuggestTitlesHandler(ISearchIndex index, IImageStorage sto
     {
         try
         {
-            var found = await index.SuggestAsync(query.Text!.Trim(), query.Language, MaxSuggestions, cancellationToken).ConfigureAwait(false);
+            var found = await index.SuggestAsync(query.Text!.Trim(), query.Language, MaxSuggestions, query.MaxAgeRating, cancellationToken).ConfigureAwait(false);
             return found.Select(document => SearchHits.ToHit(document, query.Language, storage)).ToList();
         }
         catch (SearchUnavailableException)
