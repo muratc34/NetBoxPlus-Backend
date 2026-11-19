@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Testing;
 using Microsoft.Extensions.Options;
+using Shared.Application;
 using Shared.Application.Validation;
 using Shared.Domain;
 using Shared.Infrastructure.API.Errors;
@@ -99,6 +100,42 @@ public sealed class ErrorResponseTests
         Assert.IsType<InvalidOperationException>(record.Exception);
     }
 
+    [Theory]
+    [InlineData("/unavailable")]
+    [InlineData("/unavailable-wrapped")]
+    public async Task NoDatabaseConnection_Returns503WithRetryAfter(string path)
+    {
+        await using var app = await TestApp.StartAsync(Map);
+
+        var response = await app.Client.GetAsync(path, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(TimeSpan.FromSeconds(UnhandledExceptionHandler.UnavailableRetryAfterSeconds), response.Headers.RetryAfter?.Delta);
+
+        var body = await Json(response);
+        Assert.Equal(503, body.GetProperty("status").GetInt32());
+        Assert.Equal(DataErrors.Unavailable.Code, body.GetProperty("code").GetString());
+        Assert.Equal("https://netboxplus.dev/errors/data-unavailable", body.GetProperty("type").GetString());
+        Assert.Equal(path, body.GetProperty("instance").GetString());
+        Assert.DoesNotContain("hunter2", body.GetRawText(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task NoDatabaseConnection_IsLoggedOnceAsWarning()
+    {
+        await using var app = await TestApp.StartAsync(Map);
+
+        await app.Client.GetAsync("/unavailable-wrapped", TestContext.Current.CancellationToken);
+
+        var records = app.Services.GetFakeLogCollector().GetSnapshot()
+            .Where(r => r.Category == typeof(UnhandledExceptionHandler).FullName)
+            .ToList();
+        var record = Assert.Single(records);
+        Assert.Equal(LogLevel.Warning, record.Level);
+        Assert.IsType<DataUnavailableException>(record.Exception);
+    }
+
     [Fact]
     public async Task UnknownRoute_ReturnsProblemDetails()
     {
@@ -136,6 +173,12 @@ public sealed class ErrorResponseTests
         app.MapGet("/value", () => Result.Success(42).ToHttpResult());
         app.MapGet("/done", () => Result.Success().ToHttpResult());
         app.MapGet("/throw", IResult () => throw new InvalidOperationException(ExceptionMessage));
+        app.MapGet("/unavailable", IResult () => throw new DataUnavailableException(new TimeoutException(ExceptionMessage)));
+
+        // As EF Core reports a failure it takes for transient.
+        app.MapGet("/unavailable-wrapped", IResult () => throw new InvalidOperationException(
+            "An exception has been raised that is likely due to a transient failure.",
+            new DataUnavailableException(new TimeoutException(ExceptionMessage))));
     }
 
     private static async Task<JsonElement> Json(HttpResponseMessage response)

@@ -46,6 +46,10 @@ x-api-environment: &api-environment
 services:
   postgres:
     image: postgres:18.6-alpine
+    # Connection budget: each service process pools at most 20 connections (AddPersistence), so five
+    # APIs and the transcoder take up to 120; the rest is for migrators, tools, services run from the
+    # IDE and the 3 slots PostgreSQL keeps for superusers.
+    command: ["postgres", "-c", "max_connections=200"]
     environment:
       POSTGRES_USER: ${POSTGRES_ADMIN_USER:?set POSTGRES_ADMIN_USER in deploy/.env}
       POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?set POSTGRES_ADMIN_PASSWORD in deploy/.env}
