@@ -10,7 +10,7 @@
         "tags": [
           "Videos"
         ],
-        "summary": "Promises a video upload for a movie or an episode and returns where to send the file.",
+        "summary": "Promises a video upload for a movie or an episode, or a trailer for a movie or a series, and returns where to send the file.",
         "operationId": "StartVideoUpload",
         "requestBody": {
           "content": {
@@ -111,6 +111,13 @@
               ],
               "format": "int32",
               "default": 20
+            }
+          },
+          {
+            "name": "purpose",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/VideoPurpose"
             }
           }
         ],
@@ -1442,6 +1449,270 @@
         }
       }
     },
+    "/titles/{titleId}/trailer": {
+      "get": {
+        "tags": [
+          "Trailers"
+        ],
+        "summary": "The newest trailer of a movie or a series that can be watched: a signed master playlist address.",
+        "operationId": "GetTrailer",
+        "parameters": [
+          {
+            "name": "titleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrailerLink"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trailers/{videoId}/master.m3u8": {
+      "get": {
+        "tags": [
+          "Trailers"
+        ],
+        "summary": "A trailer's master playlist: its renditions and its sound.",
+        "operationId": "GetTrailerMasterPlaylist",
+        "parameters": [
+          {
+            "name": "videoId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "exp",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "sig",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/vnd.apple.mpegurl": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trailers/{videoId}/{rendition}/index.m3u8": {
+      "get": {
+        "tags": [
+          "Trailers"
+        ],
+        "summary": "One rendition of a trailer, its segments as short-lived storage addresses.",
+        "operationId": "GetTrailerRenditionPlaylist",
+        "parameters": [
+          {
+            "name": "videoId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "rendition",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9]{3,4}p$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "exp",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "sig",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/vnd.apple.mpegurl": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trailers/{videoId}/audio/original/index.m3u8": {
+      "get": {
+        "tags": [
+          "Trailers"
+        ],
+        "summary": "A trailer's sound, its segments as short-lived storage addresses.",
+        "operationId": "GetTrailerAudioPlaylist",
+        "parameters": [
+          {
+            "name": "videoId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "exp",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "sig",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/vnd.apple.mpegurl": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/profiles/{profileId}/my-list": {
       "get": {
         "tags": [
@@ -1827,7 +2098,8 @@
       "ContentKind": {
         "enum": [
           "Movie",
-          "Episode"
+          "Episode",
+          "Series"
         ]
       },
       "ContinueWatchingItem": {
@@ -2263,6 +2535,9 @@
               "null",
               "string"
             ]
+          },
+          "purpose": {
+            "$ref": "#/components/schemas/VideoPurpose"
           }
         }
       },
@@ -2336,9 +2611,40 @@
           "Failed"
         ]
       },
+      "TrailerLink": {
+        "required": [
+          "videoId",
+          "playlist",
+          "durationSeconds",
+          "expiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "videoId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "playlist": {
+            "type": "string"
+          },
+          "durationSeconds": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "VideoDetails": {
         "required": [
           "id",
+          "purpose",
           "contentKind",
           "contentId",
           "status",
@@ -2358,6 +2664,9 @@
           "id": {
             "type": "string",
             "format": "uuid"
+          },
+          "purpose": {
+            "$ref": "#/components/schemas/VideoPurpose"
           },
           "contentKind": {
             "$ref": "#/components/schemas/ContentKind"
@@ -2427,6 +2736,13 @@
           }
         }
       },
+      "VideoPurpose": {
+        "enum": [
+          "Feature",
+          "Trailer"
+        ],
+        "default": "Feature"
+      },
       "VideoStatus": {
         "enum": [
           "AwaitingUpload",
@@ -2439,6 +2755,7 @@
       "VideoSummary": {
         "required": [
           "id",
+          "purpose",
           "contentKind",
           "contentId",
           "status",
@@ -2450,6 +2767,9 @@
           "id": {
             "type": "string",
             "format": "uuid"
+          },
+          "purpose": {
+            "$ref": "#/components/schemas/VideoPurpose"
           },
           "contentKind": {
             "$ref": "#/components/schemas/ContentKind"
@@ -2515,6 +2835,9 @@
     },
     {
       "name": "Playback"
+    },
+    {
+      "name": "Trailers"
     },
     {
       "name": "MyList"

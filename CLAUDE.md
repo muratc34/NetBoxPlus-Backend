@@ -138,7 +138,7 @@ Demo verisi (`up -App` çalışırken; compose `tools` profili, `demo-seed` imag
 
 - `src/Tools/NetBoxPlus.DemoSeeder` admin panelinin yaptığını yapar: gateway'den admin girişi, uydurma 6 tür,
   10 kişi, 6 film, 2 dizi (2 sezon × 3 bölüm), ffmpeg ile sentetik görsel ve 30 sn'lik video, transcode bekleme,
-  bir filme dublaj ve iki dilde altyazı, yayınlama. Veritabanına ve servis koduna dokunmaz. Yaklaşık 4 dakika.
+  bir filme dublaj ve iki dilde altyazı, bir filme ve bir diziye 20 sn'lik fragman, yayınlama. Veritabanına ve servis koduna dokunmaz. Yaklaşık 4 dakika.
 - İdempotent: her adım önce mevcut durumu kontrol eder (eşleştirme Türkçe başlık + `originalTitle`, kişi adı,
   türün Türkçe adı); ikinci çalıştırma değişiklik yapmaz, yarıda kalan devam eder. Gateway'in 429'una
   `Retry-After` ile uyar.
@@ -344,8 +344,8 @@ Migrator'daki seed):
   `NetBoxPlus.*`'ı dışa aktarır, ayrıca kayıt yok), instrument adı `netboxplus.*`, `IMeterFactory` ile singleton
   bir metrik sınıfında. Etiketlerde id, e-posta, ad yok; sadece sınırlı değerler (sonuç, tür, hata kodu).
   Veritabanından okunan gauge'lar arka planda (30 sn) ölçülür, callback sadece son değeri okur.
-  Mevcutlar: outbox, messaging (işlenen/tekrar/DLQ, süre, DLQ derinliği), Auth giriş, Streaming transcode ve
-  oynatma, Notification e-posta. Health check servisinin logu Error seviyesinde: `Degraded` her probe'da tekrar
+  Mevcutlar: outbox, messaging (işlenen/tekrar/DLQ, süre, DLQ derinliği), Auth giriş, Streaming transcode,
+  oynatma ve fragman, Notification e-posta. Health check servisinin logu Error seviyesinde: `Degraded` her probe'da tekrar
   loglanmaz (olayı izleyicisi bir kez loglar), `Unhealthy` loglanır. Container'lar metriği 15 sn'de bir gönderir.
 - **Auth endpoint'leri:** `/register`, `/sign-in`, `/sign-in/admin`, `/refresh`, `/sign-out`, `/me`,
   `/me/password`, `/me/email`, `/me/deletion`, `/email-verification` (GET durum, POST yeniden gönder), `/email-verification/confirm`,
@@ -375,6 +375,13 @@ Migrator'daki seed):
 - **Ses izleri / dublaj (Streaming):** dil kodları bölgeli BCP 47, sabit liste `MediaLanguages` (`tr-TR`, `en-US`, `en-GB`, `de-DE`, `fr-FR`, `es-ES`). Yeni videoda ses kalitelerden ayrı (`AudioLayout.Separate`): kaliteler sessiz, kaynağın sesi `audio/original/` (dili `originalAudioLanguage`, varsayılan `tr-TR`). Dublaj `POST /admin/videos/{id}/audio-tracks` (`language`) → SAS → `.../audio-tracks/{trackId}/uploaded` → transcode kuyruğu (`TranscodeJobs.Id` = video ya da iz id'si) → `audio/{trackId:N}/`; süresi videodan 2 sn'den fazla farklıysa `Failed`. Dil başına tek iz; `DELETE .../audio-tracks/{language}` (orijinal 409 `Video.OriginalAudioKept`). Master playlist `#EXT-X-MEDIA:TYPE=AUDIO` (orijinal varsayılan), kaliteler `AUDIO="audio"`; ses playlist'i `/playback/{id}/audio/{original|N}/index.m3u8`. Eski videolar (`Muxed`) aynen oynar, dublaj alamaz (409 `Video.LayoutOutdated`).
 - **Altyazı (Streaming):** `POST /admin/videos/{id}/subtitles` (`language`, video hazır olmalı, eski düzen de olur) → SAS (en fazla 1 MB, WebVTT veya SRT) → `.../subtitles/{subtitleId}/uploaded`: API hemen okur, SRT'yi VTT'ye çevirir (`SubtitleFormat`), `subtitles/{id:N}.vtt` (`text/vtt`) yazar; geçersiz 400 `Video.SubtitleInvalid` (aynı adrese tekrar yüklenebilir). Dil başına tek; `DELETE .../subtitles/{language}`. Master'da `#EXT-X-MEDIA:TYPE=SUBTITLES` (`DEFAULT=NO`), kaliteler `SUBTITLES="subtitles"`; altyazı playlist'i oturum başına üretilir (`/playback/{id}/subtitles/{N}.m3u8`, tek segment = VTT'nin SAS'ı).
 - **Diller (Streaming → Catalog, tercih):** hazır videonun sunduğu diller değişince `Video.Revision` artar, `VideoTracksChanged` (ses dilleri orijinal başta, altyazı dilleri) yayınlanır; Catalog `ContentVideo`'da video başına tutar (daha yeni video ya da büyük revision; sıra fark etmez), müşteriye oynatılabilir videonunkini gösterir: `GET /movies/{id}`, bölümler ve dizi (birleşim) `audioLanguages`/`subtitleLanguages`. Profil başına tercih `GET`/`PUT /profiles/{id}/playback-preferences` (`audioLanguage`, `subtitleLanguage`; `null` = orijinal / kapalı; profil ve hesap silinince silinir): master playlist'te video o dili sunuyorsa `DEFAULT=YES`. `POST /playback-sessions` yanıtı sunulan dilleri taşır. Demo seeder "Kuzey Işığı"na `en-US` dublaj ve `tr-TR`/`en-US` altyazı ekler (video eski düzendeyse önce yeniden yükler).
+- **Fragman (Streaming):** sadece Streaming'de, Catalog bilmez. `Video.Purpose` (`Feature`/`Trailer`); fragman film ya da dizinin
+  (`ContentKind.Series` sadece fragman için), `POST /admin/videos` `purpose` alır, `GET /admin/videos?purpose=`. Aynı transcode kuyruğu;
+  en fazla 5 dk (uzunsa `Failed`), merdiven en fazla 720p, sadece orijinal ses (dublaj/altyazı 409 `Video.TrailerHasNoTracks`). Fragman
+  video event'i yayınlamaz (Catalog onu başlığın videosu sanmasın). Anonim `GET /titles/{titleId}/trailer`: başlık `PlayableTitles`'ta
+  öğeyle olmalı, türü eşleşen en yeni hazır fragman; yoksa 404 `Trailer.NotFound`. Yanıt 1 saatlik `/trailers/{videoId}/master.m3u8`
+  (HMAC, oturumunkinden ayrı kapsam `trailer\n{videoId:N}`; eski fragmanın adresi yenisi gelince geçersiz), segmentler okuma SAS'ı,
+  hepsi `no-store`. İzleme konumu ve popülerliğe girmez; metrik `netboxplus.streaming.trailer.requests` (`found`/`not_found`).
 - **Video durumu (Catalog):** `ContentVideo` event'lerle güncellenir, `Version`'ı artırmaz; film/bölüm oynatılabilir video olmadan yayınlanmaz (409 `Content.VideoRequired`).
 - **Yerel kopyalar (Streaming):** oynatma kararı için abonelik (`Subscriptions`, abonelik başına), profil (`Profiles`, silinen işaretli kalır) ve izlenebilir içerik (`PlayableTitles`/`PlayableItems`) kopyaları; sadece event'le değişir, revision büyükse uygulanır (`Revision` concurrency token). Catalog'un `PlayableChanged`'i (`Catalog.Contracts`) başlığın tam listesini taşır; `ContentItem.PlayabilityRevision` `Version`'dan ayrı.
 - **Playback (Streaming):** `POST /playback-sessions` kuralları kopyalardan kontrol eder (profil → abonelik → içerik → yaş), ekran sınırı `Viewer` aggregate'inde (`Version` token); heartbeat (30 sn, 2 dk sessizlik oturumu bitirir) kuralları yeniden kontrol eder, heartbeat ve bitirme `ExecuteUpdate`. Playlist'ler `/playback/{id}/...m3u8` token'sız, HMAC imzalı (`Playback:SigningKey`, `dev.ps1 secrets` bir kez üretir); segmentler `videos`'tan okuma SAS'ı. Plan kalitesi yüksekliği sınırlar (Sd ≤480, Hd ≤1080).

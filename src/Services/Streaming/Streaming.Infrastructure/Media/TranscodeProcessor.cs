@@ -75,7 +75,13 @@ internal sealed partial class TranscodeProcessor(
                 return true;
             }
 
-            var outcome = await transcoder.TranscodeAsync(source, output, cancellationToken).ConfigureAwait(false);
+            var purpose = await context.Videos.AsNoTracking()
+                .Where(video => video.Id == job.VideoId)
+                .Select(video => video.Purpose)
+                .FirstOrDefaultAsync(cancellationToken)
+                .ConfigureAwait(false);
+            var limits = new TranscodeLimits(Video.MaxRenditionHeightOf(purpose), Video.MaxDurationOf(purpose));
+            var outcome = await transcoder.TranscodeAsync(source, output, limits, cancellationToken).ConfigureAwait(false);
 
             if (outcome is TranscodeOutcome.Converted converted)
             {

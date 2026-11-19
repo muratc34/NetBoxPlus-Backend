@@ -9,13 +9,14 @@ using Streaming.Domain.Videos;
 namespace Streaming.Application.Videos.GetVideos;
 
 /// <summary>Videos for the admin panel, newest first.</summary>
-public sealed record GetVideosQuery(Guid? ContentId, VideoStatus? Status, int PageNumber, int PageSize) : IQuery<Page<VideoSummary>>;
+public sealed record GetVideosQuery(Guid? ContentId, VideoStatus? Status, int PageNumber, int PageSize, VideoPurpose? Purpose = null) : IQuery<Page<VideoSummary>>;
 
-public sealed record VideoSummary(Guid Id, ContentKind ContentKind, Guid ContentId, VideoStatus Status, double? DurationSeconds, DateTimeOffset CreatedAt);
+public sealed record VideoSummary(Guid Id, VideoPurpose Purpose, ContentKind ContentKind, Guid ContentId, VideoStatus Status, double? DurationSeconds, DateTimeOffset CreatedAt);
 
 /// <summary>A video with what it was converted to, or why it was not.</summary>
 public sealed record VideoDetails(
     Guid Id,
+    VideoPurpose Purpose,
     ContentKind ContentKind,
     Guid ContentId,
     VideoStatus Status,
@@ -62,12 +63,17 @@ internal sealed class GetVideosHandler(IStreamingReadModel readModel) : IQueryHa
             videos = videos.Where(video => video.Status == status);
         }
 
+        if (query.Purpose is { } purpose)
+        {
+            videos = videos.Where(video => video.Purpose == purpose);
+        }
+
         var totalCount = await videos.CountAsync(cancellationToken).ConfigureAwait(false);
         var items = await videos
             .OrderByDescending(video => video.Id)
             .Skip(PageLimits.Offset(query.PageNumber, query.PageSize))
             .Take(query.PageSize)
-            .Select(video => new VideoSummary(video.Id, video.ContentKind, video.ContentId, video.Status, video.DurationSeconds, video.CreatedAt))
+            .Select(video => new VideoSummary(video.Id, video.Purpose, video.ContentKind, video.ContentId, video.Status, video.DurationSeconds, video.CreatedAt))
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
@@ -87,6 +93,7 @@ internal sealed class GetVideoHandler(IStreamingReadModel readModel) : IQueryHan
 
         return new VideoDetails(
             video.Id,
+            video.Purpose,
             video.ContentKind,
             video.ContentId,
             video.Status,

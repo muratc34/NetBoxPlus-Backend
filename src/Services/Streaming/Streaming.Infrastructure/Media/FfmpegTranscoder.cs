@@ -35,6 +35,14 @@ public abstract record TranscodeOutcome
     public sealed record Rejected(string Reason) : TranscodeOutcome;
 }
 
+/// <summary>What a conversion may produce and accept; <see cref="None"/> for a movie's or an episode's own video.</summary>
+/// <param name="MaxHeight">The highest rendition, or <see langword="null"/> for up to the source's height.</param>
+/// <param name="MaxDuration">The longest file accepted, or <see langword="null"/> for any length.</param>
+public sealed record TranscodeLimits(int? MaxHeight, TimeSpan? MaxDuration)
+{
+    public static readonly TranscodeLimits None = new(null, null);
+}
+
 /// <summary>
 /// Turns a video file into HLS with ffmpeg: one silent rendition per rung of the ladder up to the
 /// source's height, each a playlist of six-second MPEG-TS segments, the file's sound as an audio
@@ -48,8 +56,14 @@ public sealed class FfmpegTranscoder(IOptions<TranscoderOptions> options)
     /// <summary>Heights and video bitrates; a source is never scaled up.</summary>
     private static readonly (int Height, int Kbps)[] Ladder = [(360, 800), (720, 2800), (1080, 5000)];
 
-    public async Task<TranscodeOutcome> TranscodeAsync(string source, string outputDirectory, CancellationToken cancellationToken)
+    public Task<TranscodeOutcome> TranscodeAsync(string source, string outputDirectory, CancellationToken cancellationToken)
+        => TranscodeAsync(source, outputDirectory, TranscodeLimits.None, cancellationToken);
+
+    /// <param name="limits">The highest quality to produce and the longest file to accept (a trailer's, say).</param>
+    public async Task<TranscodeOutcome> TranscodeAsync(string source, string outputDirectory, TranscodeLimits limits, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(limits);
+
         var probe = await ProbeAsync(source, cancellationToken).ConfigureAwait(false);
         if (probe is null)
         {
@@ -61,11 +75,17 @@ public sealed class FfmpegTranscoder(IOptions<TranscoderOptions> options)
             return new TranscodeOutcome.Rejected("The file has no picture to convert.");
         }
 
-        var rungs = Ladder.Where(rung => rung.Height <= probe.Height).ToList();
+        if (limits.MaxDuration is { } longest && probe.DurationSeconds > longest.TotalSeconds)
+        {
+            return new TranscodeOutcome.Rejected(string.Create(CultureInfo.InvariantCulture, $"The file lasts {probe.DurationSeconds:0.#} s; at most {longest.TotalSeconds:0} s is accepted."));
+        }
+
+        var highest = Math.Min(probe.Height, limits.MaxHeight ?? int.MaxValue);
+        var rungs = Ladder.Where(rung => rung.Height <= highest).ToList();
         if (rungs.Count == 0)
         {
             // Smaller than the lowest rung: kept at its own (even) height.
-            rungs.Add((probe.Height / 2 * 2, Ladder[0].Kbps));
+            rungs.Add((highest / 2 * 2, Ladder[0].Kbps));
         }
 
         var renditions = new List<Rendition>();
