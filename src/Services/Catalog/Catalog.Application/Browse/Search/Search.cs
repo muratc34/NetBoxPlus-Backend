@@ -24,6 +24,8 @@ public static class SearchErrors
 /// <summary>Published movies and series matching the text, best match first.</summary>
 public sealed record SearchTitlesQuery(string? Text, string Language, TitleKind? Kind, Guid? GenreId, int PageNumber, int PageSize) : IQuery<Page<SearchHit>>;
 
+/// <param name="PosterUrl">The portrait image (2:3), when the title has one.</param>
+/// <param name="BackdropUrl">The landscape image (16:9), when the title has one; null for a document indexed before it was added, until the title is indexed again.</param>
 public sealed record SearchHit(
     Guid Id,
     TitleKind Kind,
@@ -32,6 +34,7 @@ public sealed record SearchHit(
     int ReleaseYear,
     AgeRating AgeRating,
     Uri? PosterUrl,
+    Uri? BackdropUrl,
     IReadOnlyList<GenreReference> Genres);
 
 internal sealed class SearchTitlesValidator : IValidator<SearchTitlesQuery>
@@ -96,6 +99,7 @@ internal static class SearchHits
             document.ReleaseYear,
             document.AgeRating,
             document.PosterImage is { } poster ? storage.PublicAddress(poster) : null,
+            document.BackdropImage is { } backdrop ? storage.PublicAddress(backdrop) : null,
             [.. document.GenreList.Select(genre => new GenreReference(genre.Id, genre.Names.GetValueOrDefault(language) ?? genre.Names[Languages.Default]))]);
     }
 }

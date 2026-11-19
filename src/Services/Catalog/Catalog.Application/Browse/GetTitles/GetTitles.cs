@@ -28,6 +28,8 @@ public enum TitleSort
 /// <param name="Language">Texts come in this language, or in the default one where not translated.</param>
 public sealed record GetTitlesQuery(string Language, TitleKind? Kind, Guid? GenreId, Guid? PersonId, int PageNumber, int PageSize, TitleSort Sort = TitleSort.Newest) : IQuery<Page<TitleSummary>>;
 
+/// <param name="PosterUrl">The portrait image (2:3), when the title has one.</param>
+/// <param name="BackdropUrl">The landscape image (16:9), when the title has one; what rows of wide cards show.</param>
 public sealed record TitleSummary(
     Guid Id,
     TitleKind Kind,
@@ -36,6 +38,7 @@ public sealed record TitleSummary(
     int ReleaseYear,
     AgeRating AgeRating,
     Uri? PosterUrl,
+    Uri? BackdropUrl,
     IReadOnlyList<GenreReference> Genres);
 
 internal sealed class GetTitlesValidator : IValidator<GetTitlesQuery>
@@ -108,7 +111,7 @@ internal sealed class GetTitlesHandler(ICatalogReadModel readModel, ContentReade
             .Where(title => content.ContainsKey(title.Id))
             .Select(title => (title.Kind, Item: content[title.Id]))
             .Select(title => (title.Kind, title.Item, Text: title.Item.TextFor(query.Language)))
-            .Select(title => new TitleSummary(title.Item.Id, title.Kind, title.Text.Title, title.Text.Language, title.Item.Info.ReleaseYear, title.Item.Info.AgeRating, names.ImageAddress(title.Item.PosterImage), names.GenresOf(title.Item, query.Language)))
+            .Select(title => new TitleSummary(title.Item.Id, title.Kind, title.Text.Title, title.Text.Language, title.Item.Info.ReleaseYear, title.Item.Info.AgeRating, names.ImageAddress(title.Item.PosterImage), names.ImageAddress(title.Item.BackdropImage), names.GenresOf(title.Item, query.Language)))
             .ToList();
 
         return new Page<TitleSummary>(items, query.PageNumber, query.PageSize, totalCount);

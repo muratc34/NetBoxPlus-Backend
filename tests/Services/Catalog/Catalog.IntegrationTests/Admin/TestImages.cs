@@ -23,6 +23,8 @@ internal static class TestImages
 
     public static byte[] Poster() => Png(300, 450);
 
+    public static byte[] Backdrop() => Png(1280, 720);
+
     private static byte[] Encode(int width, int height, Action<Image<Rgba32>, MemoryStream> save)
     {
         using var image = new Image<Rgba32>(width, height);

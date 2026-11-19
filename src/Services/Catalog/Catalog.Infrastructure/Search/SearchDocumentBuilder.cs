@@ -65,7 +65,8 @@ internal sealed class SearchDocumentBuilder(CatalogDbContext context)
                     .ToDictionary(group => group.Key, group => (IReadOnlyList<string>)[.. group]),
                 list,
                 [.. item.Credits.Select(credit => people[credit.PersonId]).Distinct()],
-                popularity.GetValueOrDefault(item.Id));
+                popularity.GetValueOrDefault(item.Id),
+                item.BackdropImage);
         })];
     }
 }
