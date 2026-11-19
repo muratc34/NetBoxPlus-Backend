@@ -5,8 +5,8 @@
 .DESCRIPTION
     Wraps "docker compose" for deploy/compose.yaml. On the first "up" it creates deploy/.env from
     deploy/.env.example, replacing every "generate" value with a random password, and adds the
-    token and playback signing keys. "secrets" writes the services' connection settings and those
-    keys from deploy/.env into their user secrets.
+    token and playback signing keys and the gateway's server key. "secrets" writes the services'
+    connection settings and those keys from deploy/.env into their user secrets.
 
 .EXAMPLE
     ./deploy/dev.ps1 up            # Postgres, RabbitMQ, Valkey, Aspire dashboard
@@ -200,6 +200,9 @@ function Set-ServiceSecrets {
     $valkey = "localhost:6379,password=$($values['VALKEY_PASSWORD'])"
     & dotnet user-secrets set 'ConnectionStrings:Valkey' $valkey --id 'netboxplus-gateway' | Out-Null
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    # The web application's server proves itself to the gateway with this key (rate limit per visitor).
+    & dotnet user-secrets set 'ServerClient:Key' $values['GATEWAY_SERVER_KEY'] --id 'netboxplus-gateway' | Out-Null
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     Write-Host 'User secrets set for gateway (id netboxplus-gateway).'
 
     # The signing keys live in deploy/.env (see Initialize-SigningKeys), so the containers use the same ones.
@@ -267,6 +270,12 @@ function Initialize-SigningKeys {
             Write-Host "Playback signing key created in $envFile."
         }
         $added += "PLAYBACK_SIGNING_KEY=$playback"
+    }
+
+    # The web application's server sends it to the gateway; a new one only means restarting both.
+    if (-not $values['GATEWAY_SERVER_KEY']) {
+        $added += "GATEWAY_SERVER_KEY=$(New-Secret)"
+        Write-Host "Gateway server key created in $envFile."
     }
 
     if ($added.Count -gt 0) {

@@ -1,4 +1,5 @@
 using Gateway.Hosting;
+using Gateway.ServerClients;
 using Shared.Infrastructure.API.Hosting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,6 +11,7 @@ var app = builder.Build();
 
 app.UseServiceDefaults();
 app.UseCors();
+app.UseServerClients();
 app.UseRateLimiter();
 
 if (app.Environment.IsDevelopment())

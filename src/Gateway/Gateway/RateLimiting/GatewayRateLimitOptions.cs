@@ -21,6 +21,12 @@ public sealed class GatewayRateLimitOptions
 
     /// <summary>Per sending address: a payment provider sends bursts from few addresses, and retries what is refused.</summary>
     public FixedWindowLimit Webhooks { get; set; } = new() { PermitLimit = 300, Window = TimeSpan.FromSeconds(10) };
+
+    /// <summary>
+    /// Everything the web application's server sends on public routes, for its visitors or for itself
+    /// (pages rendered ahead of time). A request for a visitor also counts against that visitor.
+    /// </summary>
+    public FixedWindowLimit Server { get; set; } = new() { PermitLimit = 1000, Window = TimeSpan.FromSeconds(10) };
 }
 
 /// <summary>At most <see cref="PermitLimit"/> requests per <see cref="Window"/>.</summary>

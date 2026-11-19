@@ -112,7 +112,7 @@ Transcoder ve gateway; compose `app` profili, image'lar `netboxplus/<ad>:local` 
   `deploy/observability/dashboards/`'tan provision edilir. IDE'den çalışan servisler Aspire'a göndermeye devam eder.
 - Container'lar birbirine compose adıyla bağlanır; Azurite'in tarayıcıya verilen SAS/görsel adresleri
   `BlobStorage:PublicEndpoint` ile `127.0.0.1:10000`'e çevrilir (imza host'u kapsamaz).
-- İmza anahtarları (`AUTH_TOKEN_KEY_ID`, `AUTH_TOKEN_SIGNING_KEY`, `PLAYBACK_SIGNING_KEY`) `.env`'de;
+- İmza anahtarları (`AUTH_TOKEN_KEY_ID`, `AUTH_TOKEN_SIGNING_KEY`, `PLAYBACK_SIGNING_KEY`) ve gateway'in sunucu anahtarı (`GATEWAY_SERVER_KEY`) `.env`'de;
   ilk çalıştırmada üretilir (varsa User Secrets'takiler taşınır) ve hem `secrets` hem compose oradan okur.
 - `down`, `ps`, `logs`, `reset` app container'larını da kapsar.
 
@@ -264,6 +264,14 @@ Migrator'daki seed):
   yanıt aynen; oturum değişmez). Hesap silme `/session/deletion` (oturum + CSRF, Auth'un `/me/deletion`'ına; başarıda
   oturum Valkey'den silinir ve cookie temizlenir, Auth'a ayrıca sign-out gitmez). Parola alan veya e-posta gönderen uçlar `Credentials`
   limitindedir. Ayarlar `ConnectionStrings:Valkey`, `Session`, `RateLimiting:Credentials`.
+- **Web sunucusu (SSR):** Next sunucusu `X-NetBoxPlus-Server-Key` ile tanınır (`ServerClient:Key`, en az 32 karakter;
+  lokalde `GATEWAY_SERVER_KEY`), sadece `public` route'larda. İstek `X-Forwarded-For`'daki tek IP'nin kendi partition'ına
+  (`visitor:`, Public limiti; doğrudan gelen aynı IP'den ayrı) ve web sunucusunun toplam kotasına (`RateLimiting:Server`,
+  10 sn'de 1000) sayılır; IP yoksa sadece toplama. Ziyaretçi limitinin reddettiği istek toplamı harcamaz (`WithinTotalLimiter`;
+  ASP.NET Core'un `GlobalLimiter`'ı önce çalıştığı ve reddi tekrar denediği için kullanılmadı). Yanlış anahtar 401
+  `ServerClient.KeyInvalid`; anahtarsız `X-Forwarded-For` yok sayılır; anahtar servise gitmez, admin/webhook/`/session` onu yok
+  sayar. Next ziyaretçi IP'sini sadece `TRUSTED_PROXY_HOPS` ≥ 1 ise gönderir (Next header'ı yalnızca yoksa yazar, tarayıcı
+  uydurabilir). Metrik `netboxplus.gateway.rate_limit.rejections` (`group`, `client`: `direct`/`forwarded`/`server`).
 
 ## Çalışma kuralları
 
@@ -347,7 +355,7 @@ Migrator'daki seed):
   bir metrik sınıfında. Etiketlerde id, e-posta, ad yok; sadece sınırlı değerler (sonuç, tür, hata kodu).
   Veritabanından okunan gauge'lar arka planda (30 sn) ölçülür, callback sadece son değeri okur.
   Mevcutlar: outbox, messaging (işlenen/tekrar/DLQ, süre, DLQ derinliği), Auth giriş, Streaming transcode,
-  oynatma ve fragman, Notification e-posta. Health check servisinin logu Error seviyesinde: `Degraded` her probe'da tekrar
+  oynatma ve fragman, Notification e-posta, gateway rate limit reddi. Health check servisinin logu Error seviyesinde: `Degraded` her probe'da tekrar
   loglanmaz (olayı izleyicisi bir kez loglar), `Unhealthy` loglanır. Container'lar metriği 15 sn'de bir gönderir.
 - **Auth endpoint'leri:** `/register`, `/sign-in`, `/sign-in/admin`, `/refresh`, `/sign-out`, `/me`,
   `/me/password`, `/me/email`, `/me/deletion`, `/email-verification` (GET durum, POST yeniden gönder), `/email-verification/confirm`,

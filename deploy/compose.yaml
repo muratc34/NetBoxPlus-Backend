@@ -343,6 +343,7 @@ services:
       OTEL_METRIC_EXPORT_INTERVAL: "15000"
       OTEL_SERVICE_NAME: gateway
       ConnectionStrings__Valkey: valkey:6379,password=${VALKEY_PASSWORD}
+      ServerClient__Key: ${GATEWAY_SERVER_KEY:?run ./deploy/dev.ps1 once to create the keys}
       Cors__PublicOrigins__0: http://localhost:5173
       Cors__AdminOrigins__0: http://localhost:5174
     ports:
