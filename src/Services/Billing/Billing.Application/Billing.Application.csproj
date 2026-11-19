@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Billing service use cases.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Billing.Domain/Billing.Domain.csproj" />
+    <ProjectReference Include="../Billing.Contracts/Billing.Contracts.csproj" />
+    <!-- The only project another service may be referenced through: its published events. -->
+    <ProjectReference Include="../../Auth/Auth.Contracts/Auth.Contracts.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/Shared.Application/Shared.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Core package only, for async LINQ in query handlers; no database provider. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+  </ItemGroup>
+
+</Project>

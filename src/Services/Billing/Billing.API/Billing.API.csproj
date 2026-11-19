@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <Description>Billing service HTTP API: plans, subscriptions and payments.</Description>
+    <UserSecretsId>netboxplus-billing</UserSecretsId>
+    <!-- The OpenAPI document is generated at build time and committed, so API changes show in diffs. -->
+    <OpenApiGenerateDocuments>true</OpenApiGenerateDocuments>
+    <OpenApiDocumentsDirectory>$(MSBuildThisFileDirectory)../../../../docs/openapi</OpenApiDocumentsDirectory>
+    <OpenApiGenerateDocumentsOptions>--file-name billing</OpenApiGenerateDocumentsOptions>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Billing.Infrastructure/Billing.Infrastructure.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/Shared.Infrastructure.API/Shared.Infrastructure.API.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.Extensions.ApiDescription.Server" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Billing.IntegrationTests" />
+  </ItemGroup>
+
+</Project>

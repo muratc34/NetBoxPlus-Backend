@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\BuildingBlocks\Shared.Infrastructure.API\Shared.Infrastructure.API.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.Testing" />
+    <!-- Brings the LoggerMessage generator that understands [PersonalData]/[SecretData]. -->
+    <PackageReference Include="Microsoft.Extensions.Telemetry.Abstractions" />
+  </ItemGroup>
+
+</Project>

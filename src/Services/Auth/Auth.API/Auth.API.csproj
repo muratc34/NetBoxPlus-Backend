@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <Description>Auth service HTTP API: sign-in, tokens, users and roles.</Description>
+    <UserSecretsId>netboxplus-auth</UserSecretsId>
+    <!-- The OpenAPI document is generated at build time and committed, so API changes show in diffs. -->
+    <OpenApiGenerateDocuments>true</OpenApiGenerateDocuments>
+    <OpenApiDocumentsDirectory>$(MSBuildThisFileDirectory)../../../../docs/openapi</OpenApiDocumentsDirectory>
+    <OpenApiGenerateDocumentsOptions>--file-name auth</OpenApiGenerateDocumentsOptions>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Auth.Infrastructure/Auth.Infrastructure.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/Shared.Infrastructure.API/Shared.Infrastructure.API.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.Extensions.ApiDescription.Server" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Auth.IntegrationTests" />
+  </ItemGroup>
+
+</Project>

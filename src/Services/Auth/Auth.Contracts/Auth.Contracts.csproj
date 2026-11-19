@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Integration events published by the auth service.</Description>
+  </PropertyGroup>
+
+  <!-- Contracts have no dependencies: other services reference this project. -->
+
+</Project>

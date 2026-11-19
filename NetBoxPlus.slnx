@@ -1,0 +1,94 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/BuildingBlocks/">
+    <Project Path="src/BuildingBlocks/Shared.Application/Shared.Application.csproj" />
+    <Project Path="src/BuildingBlocks/Shared.Domain/Shared.Domain.csproj" />
+    <Project Path="src/BuildingBlocks/Shared.Infrastructure.API/Shared.Infrastructure.API.csproj" />
+    <Project Path="src/BuildingBlocks/Shared.Infrastructure.Messaging/Shared.Infrastructure.Messaging.csproj" />
+    <Project Path="src/BuildingBlocks/Shared.Infrastructure.Persistence/Shared.Infrastructure.Persistence.csproj" />
+  </Folder>
+  <Folder Name="/src/Gateway/">
+    <Project Path="src/Gateway/Gateway/Gateway.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/" />
+  <Folder Name="/src/Services/Auth/">
+    <Project Path="src/Services/Auth/Auth.API/Auth.API.csproj" />
+    <Project Path="src/Services/Auth/Auth.Application/Auth.Application.csproj" />
+    <Project Path="src/Services/Auth/Auth.Contracts/Auth.Contracts.csproj" />
+    <Project Path="src/Services/Auth/Auth.Domain/Auth.Domain.csproj" />
+    <Project Path="src/Services/Auth/Auth.Infrastructure/Auth.Infrastructure.csproj" />
+    <Project Path="src/Services/Auth/Auth.Migrator/Auth.Migrator.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Billing/">
+    <Project Path="src/Services/Billing/Billing.API/Billing.API.csproj" />
+    <Project Path="src/Services/Billing/Billing.Application/Billing.Application.csproj" />
+    <Project Path="src/Services/Billing/Billing.Contracts/Billing.Contracts.csproj" />
+    <Project Path="src/Services/Billing/Billing.Domain/Billing.Domain.csproj" />
+    <Project Path="src/Services/Billing/Billing.Infrastructure/Billing.Infrastructure.csproj" />
+    <Project Path="src/Services/Billing/Billing.Migrator/Billing.Migrator.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Catalog/">
+    <Project Path="src/Services/Catalog/Catalog.API/Catalog.API.csproj" />
+    <Project Path="src/Services/Catalog/Catalog.Application/Catalog.Application.csproj" />
+    <Project Path="src/Services/Catalog/Catalog.Contracts/Catalog.Contracts.csproj" />
+    <Project Path="src/Services/Catalog/Catalog.Domain/Catalog.Domain.csproj" />
+    <Project Path="src/Services/Catalog/Catalog.Infrastructure/Catalog.Infrastructure.csproj" />
+    <Project Path="src/Services/Catalog/Catalog.Migrator/Catalog.Migrator.csproj" />
+  </Folder>
+  <Folder Name="/src/Tools/">
+    <Project Path="src/Tools/NetBoxPlus.DemoSeeder/NetBoxPlus.DemoSeeder.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Architecture.Tests/Architecture.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/BuildingBlocks/">
+    <Project Path="tests/BuildingBlocks/Shared.Application.Tests/Shared.Application.Tests.csproj" />
+    <Project Path="tests/BuildingBlocks/Shared.Domain.Tests/Shared.Domain.Tests.csproj" />
+    <Project Path="tests/BuildingBlocks/Shared.Infrastructure.API.Tests/Shared.Infrastructure.API.Tests.csproj" />
+    <Project Path="tests/BuildingBlocks/Shared.Infrastructure.Messaging.Tests/Shared.Infrastructure.Messaging.Tests.csproj" />
+    <Project Path="tests/BuildingBlocks/Shared.Infrastructure.Persistence.Tests/Shared.Infrastructure.Persistence.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Gateway/">
+    <Project Path="tests/Gateway/Gateway.Tests/Gateway.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Services/" />
+  <Folder Name="/tests/Services/Auth/">
+    <Project Path="tests/Services/Auth/Auth.Domain.Tests/Auth.Domain.Tests.csproj" />
+    <Project Path="tests/Services/Auth/Auth.IntegrationTests/Auth.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Streaming/">
+    <Project Path="src/Services/Streaming/Streaming.API/Streaming.API.csproj" />
+    <Project Path="src/Services/Streaming/Streaming.Application/Streaming.Application.csproj" />
+    <Project Path="src/Services/Streaming/Streaming.Contracts/Streaming.Contracts.csproj" />
+    <Project Path="src/Services/Streaming/Streaming.Transcoder/Streaming.Transcoder.csproj" />
+    <Project Path="src/Services/Streaming/Streaming.Domain/Streaming.Domain.csproj" />
+    <Project Path="src/Services/Streaming/Streaming.Infrastructure/Streaming.Infrastructure.csproj" />
+    <Project Path="src/Services/Streaming/Streaming.Migrator/Streaming.Migrator.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Notification/">
+    <Project Path="src/Services/Notification/Notification.API/Notification.API.csproj" />
+    <Project Path="src/Services/Notification/Notification.Application/Notification.Application.csproj" />
+    <Project Path="src/Services/Notification/Notification.Domain/Notification.Domain.csproj" />
+    <Project Path="src/Services/Notification/Notification.Infrastructure/Notification.Infrastructure.csproj" />
+    <Project Path="src/Services/Notification/Notification.Migrator/Notification.Migrator.csproj" />
+  </Folder>
+  <Folder Name="/tests/Services/Notification/">
+    <Project Path="tests/Services/Notification/Notification.Domain.Tests/Notification.Domain.Tests.csproj" />
+    <Project Path="tests/Services/Notification/Notification.IntegrationTests/Notification.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Services/Billing/">
+    <Project Path="tests/Services/Billing/Billing.Domain.Tests/Billing.Domain.Tests.csproj" />
+    <Project Path="tests/Services/Billing/Billing.IntegrationTests/Billing.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Services/Streaming/">
+    <Project Path="tests/Services/Streaming/Streaming.Domain.Tests/Streaming.Domain.Tests.csproj" />
+    <Project Path="tests/Services/Streaming/Streaming.IntegrationTests/Streaming.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Services/Catalog/">
+    <Project Path="tests/Services/Catalog/Catalog.Domain.Tests/Catalog.Domain.Tests.csproj" />
+    <Project Path="tests/Services/Catalog/Catalog.IntegrationTests/Catalog.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Tools/">
+    <Project Path="tests/Tools/NetBoxPlus.DemoSeeder.Tests/NetBoxPlus.DemoSeeder.Tests.csproj" />
+  </Folder>
+</Solution>

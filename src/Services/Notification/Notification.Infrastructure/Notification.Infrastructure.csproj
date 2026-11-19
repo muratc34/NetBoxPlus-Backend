@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Notification service persistence, messaging and e-mail delivery.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Notification.Application/Notification.Application.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/Shared.Infrastructure.Persistence/Shared.Infrastructure.Persistence.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/Shared.Infrastructure.Messaging/Shared.Infrastructure.Messaging.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MailKit" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Telemetry.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Notification.IntegrationTests" />
+  </ItemGroup>
+
+</Project>

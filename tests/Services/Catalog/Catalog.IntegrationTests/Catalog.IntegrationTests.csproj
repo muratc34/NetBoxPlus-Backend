@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../../../../src/Services/Catalog/Catalog.API/Catalog.API.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Testcontainers.Azurite" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../../../TestSupport/DockerAvailability.cs" Link="TestSupport/DockerAvailability.cs" />
+    <Compile Include="../../../TestSupport/ContainerConnections.cs" Link="TestSupport/ContainerConnections.cs" />
+    <Compile Include="../../../TestSupport/StorageConnections.cs" Link="TestSupport/StorageConnections.cs" />
+    <Compile Include="../../../TestSupport/BlackHoleProxy.cs" Link="TestSupport/BlackHoleProxy.cs" />
+  </ItemGroup>
+
+</Project>
