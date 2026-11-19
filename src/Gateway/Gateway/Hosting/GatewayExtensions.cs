@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Gateway.Cors;
 using Gateway.RateLimiting;
 using Gateway.Routing;
+using Gateway.ServerClients;
 using Gateway.Sessions;
 using Gateway.Tracing;
 using OpenTelemetry;
@@ -17,7 +18,8 @@ internal static class GatewayExtensions
 
     /// <summary>
     /// The reverse proxy with its routes from the <c>ReverseProxy</c> section, browser sessions, the
-    /// per-group CORS and rate limiter policies, and the trust boundary for trace context.
+    /// per-group CORS and rate limiter policies, the web application's server as a client, and the
+    /// trust boundary for trace context.
     /// </summary>
     public static WebApplicationBuilder AddGateway(this WebApplicationBuilder builder)
     {
@@ -25,6 +27,7 @@ internal static class GatewayExtensions
 
         builder.Services.AddGatewayCors();
         builder.Services.AddGatewayRateLimiting();
+        builder.Services.AddServerClients();
         builder.Services.AddOpenApi();
 
         // The build-time OpenAPI generation only reads the endpoints; sessions need Valkey and the auth address.

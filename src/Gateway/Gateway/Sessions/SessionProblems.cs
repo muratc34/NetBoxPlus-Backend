@@ -21,6 +21,9 @@ internal sealed record GatewayProblem(int StatusCode, string Code, string Detail
     public static readonly GatewayProblem OriginNotAllowed = new(
         StatusCodes.Status403Forbidden, "Origin.NotAllowed", "Requests from this origin are not accepted.");
 
+    public static readonly GatewayProblem ServerKeyInvalid = new(
+        StatusCodes.Status401Unauthorized, "ServerClient.KeyInvalid", "The X-NetBoxPlus-Server-Key header does not match the gateway's server key.");
+
     public static readonly GatewayProblem AuthUnavailable = new(
         StatusCodes.Status503ServiceUnavailable, "Session.AuthUnavailable", "Sign-in is unavailable at the moment. Try again shortly.");
 
