@@ -48,7 +48,7 @@
 
   <ItemGroup Label="E-mail">
     <!-- MIT. SMTP for local delivery to Mailpit; Brevo is called over plain HTTP. -->
-    <PackageVersion Include="MailKit" Version="4.18.2" />
+    <PackageVersion Include="MailKit" Version="5.0.0" />
   </ItemGroup>
 
   <ItemGroup Label="Search">
