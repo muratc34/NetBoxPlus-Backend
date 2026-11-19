@@ -18,10 +18,11 @@ dokümanı güncelle.
 
 | Ref | Ne |
 |---|---|
-| `master` | **Varsayılan ve aktif branch.** Doğrudan commit yok: her iş kendi branch'inde (`phase8/<grup>-<konu>`) ve PR ile merge edilir; CI PR'da çalışır. |
-| `v2` | Yeniden yazımın (Faz 0–7, Faz 8 başı) geliştirildiği branch; 19.11.2026'da `master`'a merge edildi. Dokunulmaz. |
+| `master` | **Varsayılan ve tek branch.** Doğrudan commit yok: her iş kendi branch'inde (`phase8/<grup>-<konu>`) ve PR ile, CI yeşilken merge edilir; merge edilen branch silinir. |
 | `v1-graduation` (tag) | Eski bitirme projesinin (.NET 8) son hali. Sadece referans. |
-| `dev`, `movie` | v1 döneminin yarım kalmış branch'leri. Dokunulmaz. |
+
+Yeniden yazım (Faz 0–7, Faz 8 başı) `v2` branch'inde geliştirildi ve 19.11.2026'da `master`'a merge edildi; `v2` ve
+v1 döneminin yarım kalmış `dev`/`movie` branch'leri o gün silindi.
 
 Frontend ayrı repoda: `NetBoxPlus-Frontend` (pnpm monorepo: `apps/web` Next.js, `apps/admin` Vite + React; kendi `CLAUDE.md`si var). Faz 8 boyunca backend değişiklikleri (`docs/PHASE-8.md` grup B) burada.
 
@@ -279,8 +280,8 @@ Migrator'daki seed):
 - **Commit mesajı değişikliği anlatır.** Claude ile yapılan commit'lerde `Co-Authored-By` satırı eklenebilir.
 - **Commit'lenen md dosyaları sadece `CLAUDE.md` ve `README.md`.** Tasarım, faz, not gibi diğer
   tüm md dosyaları lokal kalır; yeni bir md dosyası açılırsa ignore edildiğinden emin ol.
-- **GitHub'da hiçbir şey silinmez** (repo, branch, tag, release, paket). Silme gerekiyorsa kullanıcıya
-  bırakılır. Force push yok.
+- **GitHub'da silinen tek şey merge edilmiş PR branch'leridir** (merge'den sonra, `gh pr merge --delete-branch`).
+  Repo, tag, release, paket ve merge edilmemiş branch silinmez; gerekiyorsa kullanıcıya bırakılır. Force push yok.
 - Repo public. Secret'lar repoya girmez: User Secrets / environment variable. v1 geçmişindeki eski
   değerler hiçbir yerde kullanılmaz.
 - Lisans: MIT.
