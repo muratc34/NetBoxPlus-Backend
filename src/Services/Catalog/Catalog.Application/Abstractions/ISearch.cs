@@ -28,7 +28,8 @@ public sealed record SearchDocument(
 
 public sealed record SearchDocumentGenre(Guid Id, IReadOnlyDictionary<string, string> Names);
 
-public sealed record SearchQuery(string Text, string Language, ContentKind? Kind, Guid? GenreId, int Offset, int Size);
+/// <param name="MaxAgeRating">Only titles a viewer of this age may see; all when null.</param>
+public sealed record SearchQuery(string Text, string Language, ContentKind? Kind, Guid? GenreId, int Offset, int Size, AgeRating? MaxAgeRating = null);
 
 public sealed record SearchResults(long Total, IReadOnlyList<SearchDocument> Items);
 
@@ -37,7 +38,7 @@ public interface ISearchIndex
 {
     Task<SearchResults> SearchAsync(SearchQuery query, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<SearchDocument>> SuggestAsync(string text, string language, int size, CancellationToken cancellationToken);
+    Task<IReadOnlyList<SearchDocument>> SuggestAsync(string text, string language, int size, AgeRating? maxAgeRating, CancellationToken cancellationToken);
 }
 
 public sealed class SearchUnavailableException(string message, Exception? innerException = null) : Exception(message, innerException);

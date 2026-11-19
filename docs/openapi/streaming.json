@@ -2022,6 +2022,15 @@
   },
   "components": {
     "schemas": {
+      "AgeRating": {
+        "enum": [
+          "All",
+          "Age7",
+          "Age13",
+          "Age16",
+          "Age18"
+        ]
+      },
       "AudioLayout": {
         "enum": [
           "Muxed",
@@ -2616,7 +2625,8 @@
           "videoId",
           "playlist",
           "durationSeconds",
-          "expiresAt"
+          "expiresAt",
+          "ageRating"
         ],
         "type": "object",
         "properties": {
@@ -2638,6 +2648,9 @@
           "expiresAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "ageRating": {
+            "$ref": "#/components/schemas/AgeRating"
           }
         }
       },

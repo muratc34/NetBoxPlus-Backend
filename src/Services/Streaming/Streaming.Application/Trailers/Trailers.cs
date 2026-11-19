@@ -15,7 +15,11 @@ namespace Streaming.Application.Trailers;
 public sealed record GetTrailerQuery(Guid TitleId) : IQuery<TrailerLink>;
 
 /// <param name="Playlist">The master playlist's address, relative to the service's root and signed until <paramref name="ExpiresAt"/>.</param>
-public sealed record TrailerLink(Guid VideoId, string Playlist, double DurationSeconds, DateTimeOffset ExpiresAt);
+/// <param name="AgeRating">
+/// The title's age rating. Trailers are for anyone, so the page decides: a profile too young for the title
+/// is not shown its trailer.
+/// </param>
+public sealed record TrailerLink(Guid VideoId, string Playlist, double DurationSeconds, DateTimeOffset ExpiresAt, AgeRating AgeRating);
 
 /// <summary>A trailer's master playlist: its renditions and its sound, each with a signed address.</summary>
 public sealed record GetTrailerMasterPlaylistQuery(Guid VideoId, long? Expires, string? Signature) : IQuery<string>;
@@ -42,8 +46,8 @@ internal sealed class TrailerSource(IStreamingReadModel readModel, IPlaybackSign
 {
     public DateTimeOffset Now { get; } = timeProvider.GetUtcNow();
 
-    /// <summary>The newest ready trailer of the title, if the title can be watched.</summary>
-    public async Task<Video?> FindAsync(Guid titleId, CancellationToken cancellationToken)
+    /// <summary>The newest ready trailer of the title with the title's age rating, if the title can be watched.</summary>
+    public async Task<(Video Trailer, AgeRating AgeRating)?> FindAsync(Guid titleId, CancellationToken cancellationToken)
     {
         var title = await readModel.PlayableTitles.FirstOrDefaultAsync(item => item.Id == titleId, cancellationToken).ConfigureAwait(false);
         if (title is null || title.Items.Count == 0)
@@ -52,11 +56,13 @@ internal sealed class TrailerSource(IStreamingReadModel readModel, IPlaybackSign
         }
 
         var kind = title.Kind == TitleKind.Movie ? ContentKind.Movie : ContentKind.Series;
-        return await readModel.Videos
+        var trailer = await readModel.Videos
             .Where(video => video.Purpose == VideoPurpose.Trailer && video.ContentKind == kind && video.ContentId == titleId && video.Status == VideoStatus.Ready)
             .OrderByDescending(video => video.Id)
             .FirstOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
+
+        return trailer is null ? null : (trailer, title.AgeRating);
     }
 
     /// <summary>The trailer behind a signed playlist address, checked again: a title taken off makes its trailer's links stop.</summary>
@@ -70,7 +76,7 @@ internal sealed class TrailerSource(IStreamingReadModel readModel, IPlaybackSign
         var video = await readModel.Videos
             .FirstOrDefaultAsync(item => item.Id == videoId && item.Purpose == VideoPurpose.Trailer && item.Status == VideoStatus.Ready, cancellationToken)
             .ConfigureAwait(false);
-        if (video is null || await FindAsync(video.ContentId, cancellationToken).ConfigureAwait(false) is not { } current || current.Id != video.Id)
+        if (video is null || await FindAsync(video.ContentId, cancellationToken).ConfigureAwait(false) is not { } current || current.Trailer.Id != video.Id)
         {
             return TrailerErrors.NotFound;
         }
@@ -91,8 +97,7 @@ internal sealed class GetTrailerHandler(TrailerSource source, IPlaybackSigner si
 {
     public async Task<Result<TrailerLink>> Handle(GetTrailerQuery query, CancellationToken cancellationToken)
     {
-        var trailer = await source.FindAsync(query.TitleId, cancellationToken).ConfigureAwait(false);
-        if (trailer is null)
+        if (await source.FindAsync(query.TitleId, cancellationToken).ConfigureAwait(false) is not var (trailer, ageRating))
         {
             metrics.TrailerRequested("not_found");
             return TrailerErrors.NotFound;
@@ -101,7 +106,7 @@ internal sealed class GetTrailerHandler(TrailerSource source, IPlaybackSigner si
         metrics.TrailerRequested("found");
         var expiresAt = source.Now + TrailerLinks.Lifetime;
         var signed = signer.SignTrailer(trailer.Id, PlaybackLinks.MasterPlaylist, expiresAt);
-        return new TrailerLink(trailer.Id, $"{TrailerLinks.MasterPlaylist(trailer.Id)}?{signed}", trailer.DurationSeconds ?? 0, expiresAt);
+        return new TrailerLink(trailer.Id, $"{TrailerLinks.MasterPlaylist(trailer.Id)}?{signed}", trailer.DurationSeconds ?? 0, expiresAt, ageRating);
     }
 }
 

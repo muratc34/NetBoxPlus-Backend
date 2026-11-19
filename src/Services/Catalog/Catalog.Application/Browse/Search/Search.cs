@@ -22,7 +22,8 @@ public static class SearchErrors
 }
 
 /// <summary>Published movies and series matching the text, best match first.</summary>
-public sealed record SearchTitlesQuery(string? Text, string Language, TitleKind? Kind, Guid? GenreId, int PageNumber, int PageSize) : IQuery<Page<SearchHit>>;
+/// <param name="MaxAgeRating">Only titles a viewer of this age may see, such as a child's profile; all when null.</param>
+public sealed record SearchTitlesQuery(string? Text, string Language, TitleKind? Kind, Guid? GenreId, int PageNumber, int PageSize, AgeRating? MaxAgeRating = null) : IQuery<Page<SearchHit>>;
 
 /// <param name="PosterUrl">The portrait image (2:3), when the title has one.</param>
 /// <param name="BackdropUrl">The landscape image (16:9), when the title has one; null for a document indexed before it was added, until the title is indexed again.</param>
@@ -73,7 +74,7 @@ internal sealed class SearchTitlesHandler(ISearchIndex index, IImageStorage stor
         try
         {
             var found = await index
-                .SearchAsync(new SearchQuery(query.Text!.Trim(), query.Language, kind, query.GenreId, PageLimits.Offset(query.PageNumber, query.PageSize), query.PageSize), cancellationToken)
+                .SearchAsync(new SearchQuery(query.Text!.Trim(), query.Language, kind, query.GenreId, PageLimits.Offset(query.PageNumber, query.PageSize), query.PageSize, query.MaxAgeRating), cancellationToken)
                 .ConfigureAwait(false);
 
             var items = found.Items.Select(document => SearchHits.ToHit(document, query.Language, storage)).ToList();

@@ -127,6 +127,49 @@ public sealed class BrowseApiTests(CatalogApiFixture api)
     }
 
     [Fact]
+    public async Task Titles_ForAnAge_LeaveOutOlderOnes_AndCountOnlyWhatIsListed()
+    {
+        using var admin = api.CreateClient(Everything);
+        using var visitor = api.CreateAnonymousClient();
+        var genre = await GenreAsync(admin);
+        var person = await PersonAsync(admin);
+        var forAll = await MovieAsync(admin, "Cartoon", genre, publish: true, person, ageRating: "All");
+        var seven = await MovieAsync(admin, "School", genre, publish: true, ageRating: "Age7");
+        var thirteen = await MovieAsync(admin, "Teens", genre, publish: true, person, ageRating: "Age13");
+        var adults = await MovieAsync(admin, "Night", genre, publish: true, person, ageRating: "Age18");
+        var sixteen = (await SeriesAsync(admin, genre, publishSeries: true)).Id;
+
+        async Task<Page<TitleSummary>> ListAsync(string filter)
+            => await ReadAsync<Page<TitleSummary>>(await visitor.GetAsync($"/titles?genreId={genre}{filter}", Cancellation));
+
+        var young = await ListAsync("&maxAgeRating=Age7");
+        Assert.Equal(2, young.TotalCount);
+        Assert.Equal([seven, forAll], young.Items.Select(title => title.Id));
+        Assert.Equal([forAll], (await ListAsync("&maxAgeRating=All")).Items.Select(title => title.Id));
+        Assert.Equal([sixteen, thirteen, seven, forAll], (await ListAsync("&maxAgeRating=Age16")).Items.Select(title => title.Id));
+        Assert.Equal(5, (await ListAsync(string.Empty)).TotalCount);
+        Assert.Equal(5, (await ListAsync("&maxAgeRating=Age18")).TotalCount);
+
+        // With the other filters, sorting and paging as before.
+        var paged = await ListAsync("&maxAgeRating=Age7&pageSize=1&page=2");
+        Assert.Equal((2, forAll), (paged.TotalCount, Assert.Single(paged.Items).Id));
+        Assert.Equal(2, (await ListAsync("&maxAgeRating=Age7&sort=Popular")).TotalCount);
+        Assert.Equal([thirteen, seven, forAll], (await ListAsync("&maxAgeRating=Age16&kind=Movie")).Items.Select(title => title.Id));
+        Assert.Equal([thirteen, forAll], (await ListAsync($"&maxAgeRating=Age13&personId={person}")).Items.Select(title => title.Id));
+        Assert.DoesNotContain(adults, (await ListAsync("&maxAgeRating=Age16")).Items.Select(title => title.Id));
+    }
+
+    [Theory]
+    [InlineData("/titles?maxAgeRating=Age99")]
+    [InlineData("/titles?maxAgeRating=adult")]
+    public async Task AnUnknownAge_Is400(string path)
+    {
+        using var visitor = api.CreateAnonymousClient();
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await visitor.GetAsync(path, Cancellation)).StatusCode);
+    }
+
+    [Fact]
     public async Task Titles_MixMoviesAndSeries_NewestFirst_AndPage()
     {
         using var admin = api.CreateClient(Everything);
@@ -339,10 +382,10 @@ public sealed class BrowseApiTests(CatalogApiFixture api)
         Assert.True((await dispatcher.Send(new ApplyVideoStateCommand(kind, contentId, video, VideoState.Ready, 2), Cancellation)).IsSuccess);
     }
 
-    private async Task<Guid> MovieAsync(HttpClient admin, string title, Guid genre, bool publish, Guid? person = null)
+    private async Task<Guid> MovieAsync(HttpClient admin, string title, Guid genre, bool publish, Guid? person = null, string ageRating = "Age13")
     {
         object[] credits = person is { } id ? [new { personId = id, role = "Actor", order = 1 }] : [];
-        var movie = await PostOkAsync(admin, "/admin/movies", new { translations = TestRequests.Text(title, "A journey."), releaseYear = 2024, ageRating = "Age13", runtimeMinutes = 120, genreIds = new[] { genre }, credits });
+        var movie = await PostOkAsync(admin, "/admin/movies", new { translations = TestRequests.Text(title, "A journey."), releaseYear = 2024, ageRating, runtimeMinutes = 120, genreIds = new[] { genre }, credits });
         if (publish)
         {
             var upload = await TestImages.UploadAsync(admin, TestImages.Poster(), Json, Cancellation);

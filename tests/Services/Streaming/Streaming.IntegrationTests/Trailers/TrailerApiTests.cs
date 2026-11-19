@@ -32,6 +32,19 @@ public sealed class TrailerApiTests(StreamingApiFixture api)
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
     [Fact]
+    public async Task TheLink_CarriesTheTitlesAgeRating_SoAPageCanKeepItFromAYoungerProfile()
+    {
+        var (title, _) = await WatchableTitleWithTrailerAsync(TitleKind.Movie);
+        using var visitor = api.CreateAnonymousClient();
+
+        Assert.Equal(AgeRating.Age13, (await VideoApiTests.ReadAsync<TrailerLink>(await visitor.GetAsync($"/titles/{title}/trailer", Cancellation))).AgeRating);
+
+        await SendAsync(new ApplyPlayableCommand(title, TitleKind.Movie, AgeRating.Age18, [new PlayableItem(title, Guid.CreateVersion7())], 2));
+
+        Assert.Equal(AgeRating.Age18, (await VideoApiTests.ReadAsync<TrailerLink>(await visitor.GetAsync($"/titles/{title}/trailer", Cancellation))).AgeRating);
+    }
+
+    [Fact]
     public async Task Anyone_GetsTheTrailerOfAWatchableTitle_UpTo720p_WithItsSound()
     {
         var (title, trailer) = await WatchableTitleWithTrailerAsync(TitleKind.Series);

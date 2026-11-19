@@ -26,7 +26,8 @@ public enum TitleSort
 
 /// <summary>Published movies and series in one list, most recently published first unless sorted otherwise.</summary>
 /// <param name="Language">Texts come in this language, or in the default one where not translated.</param>
-public sealed record GetTitlesQuery(string Language, TitleKind? Kind, Guid? GenreId, Guid? PersonId, int PageNumber, int PageSize, TitleSort Sort = TitleSort.Newest) : IQuery<Page<TitleSummary>>;
+/// <param name="MaxAgeRating">Only titles a viewer of this age may see, such as a child's profile; all when null.</param>
+public sealed record GetTitlesQuery(string Language, TitleKind? Kind, Guid? GenreId, Guid? PersonId, int PageNumber, int PageSize, TitleSort Sort = TitleSort.Newest, AgeRating? MaxAgeRating = null) : IQuery<Page<TitleSummary>>;
 
 /// <param name="PosterUrl">The portrait image (2:3), when the title has one.</param>
 /// <param name="BackdropUrl">The landscape image (16:9), when the title has one; what rows of wide cards show.</param>
@@ -61,17 +62,26 @@ internal sealed class GetTitlesHandler(ICatalogReadModel readModel, ContentReade
 {
     public async Task<Result<Page<TitleSummary>>> Handle(GetTitlesQuery query, CancellationToken cancellationToken)
     {
-        var movies = readModel.Movies
+        var publishedMovies = readModel.Movies
             .Where(movie => movie.Status == PublicationStatus.Published
                 && (query.GenreId == null || movie.Genres.Any(genre => genre.GenreId == query.GenreId))
-                && (query.PersonId == null || movie.Credits.Any(credit => credit.PersonId == query.PersonId)))
-            .Select(movie => new { movie.Id, Kind = TitleKind.Movie, movie.PublishedAt });
+                && (query.PersonId == null || movie.Credits.Any(credit => credit.PersonId == query.PersonId)));
 
-        var series = readModel.Series
+        var publishedSeries = readModel.Series
             .Where(item => item.Status == PublicationStatus.Published
                 && (query.GenreId == null || item.Genres.Any(genre => genre.GenreId == query.GenreId))
-                && (query.PersonId == null || item.Credits.Any(credit => credit.PersonId == query.PersonId)))
-            .Select(item => new { item.Id, Kind = TitleKind.Series, item.PublishedAt });
+                && (query.PersonId == null || item.Credits.Any(credit => credit.PersonId == query.PersonId)));
+
+        // Filtered here, not by the client: dropping titles from a page would leave it short and the count wrong.
+        if (query.MaxAgeRating is { } maximum)
+        {
+            var allowed = AgeRatings.UpTo(maximum);
+            publishedMovies = publishedMovies.Where(movie => allowed.Contains(movie.Info.AgeRating));
+            publishedSeries = publishedSeries.Where(item => allowed.Contains(item.Info.AgeRating));
+        }
+
+        var movies = publishedMovies.Select(movie => new { movie.Id, Kind = TitleKind.Movie, movie.PublishedAt });
+        var series = publishedSeries.Select(item => new { item.Id, Kind = TitleKind.Series, item.PublishedAt });
 
         var titles = query.Kind switch
         {
