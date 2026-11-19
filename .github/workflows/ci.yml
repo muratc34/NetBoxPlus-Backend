@@ -78,10 +78,13 @@ jobs:
         env:
           CACHED: ${{ steps.ffmpeg-packages.outputs.cache-hit }}
           PACKAGES: ${{ runner.temp }}/ffmpeg-packages
-        # Installing the files themselves needs no package lists and downloads nothing. If cached
-        # files do not fit this runner, apt refuses before changing anything and they are fetched again.
+        # The files go back into apt's own archive cache under the names apt gave them: given only as
+        # paths, apt still looked for them there ("%3a" in the names stands for the version's epoch)
+        # and failed with --no-download. If cached files do not fit this runner, apt refuses before
+        # changing anything and they are fetched again.
         run: |
           install_files() {
+            sudo cp "$PACKAGES"/*.deb /var/cache/apt/archives/
             sudo apt-get install --yes --no-install-recommends --no-download "$PACKAGES"/*.deb
           }
           if [ "$CACHED" != "true" ] || ! install_files; then
