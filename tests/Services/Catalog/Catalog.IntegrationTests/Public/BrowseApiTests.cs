@@ -279,6 +279,34 @@ public sealed class BrowseApiTests(CatalogApiFixture api)
         Assert.Equal(HttpStatusCode.Created, otherLanguage.StatusCode);
     }
 
+    [Fact]
+    public async Task Titles_CarryTheBackdrop_WhenTheTitleHasOne()
+    {
+        using var admin = api.CreateClient(Everything);
+        using var visitor = api.CreateAnonymousClient();
+        var genre = await GenreAsync(admin);
+        var withBackdrop = await MovieAsync(admin, "Wide", genre, publish: true);
+        var posterOnly = await MovieAsync(admin, "Tall", genre, publish: true);
+        await AttachBackdropAsync(admin, withBackdrop);
+
+        var titles = (await ReadAsync<Page<TitleSummary>>(await visitor.GetAsync($"/titles?genreId={genre}", Cancellation))).Items.ToDictionary(title => title.Id);
+
+        var wide = titles[withBackdrop];
+        Assert.NotNull(wide.PosterUrl);
+        Assert.NotNull(wide.BackdropUrl);
+        Assert.NotEqual(wide.PosterUrl, wide.BackdropUrl);
+        Assert.Equal((await ReadAsync<PublishedMovie>(await visitor.GetAsync($"/movies/{withBackdrop}", Cancellation))).BackdropUrl, wide.BackdropUrl);
+        Assert.NotNull(titles[posterOnly].PosterUrl);
+        Assert.Null(titles[posterOnly].BackdropUrl);
+    }
+
+    private async Task AttachBackdropAsync(HttpClient admin, Guid movie)
+    {
+        var upload = await TestImages.UploadAsync(admin, TestImages.Backdrop(), Json, Cancellation);
+        var version = (await ReadAsync<MovieDetails>(await admin.GetAsync($"/admin/movies/{movie}", Cancellation))).Version;
+        Assert.True((await admin.PutAsJsonAsync($"/admin/movies/{movie}/images/backdrop", new AttachImageRequest(upload, version), Json, Cancellation)).IsSuccessStatusCode);
+    }
+
     private async Task PublishMovieAsync(HttpClient admin, Guid movie)
     {
         var upload = await TestImages.UploadAsync(admin, TestImages.Poster(), Json, Cancellation);

@@ -4,6 +4,10 @@ namespace Catalog.Application.Abstractions;
 
 /// <summary>A movie or series as the search index holds it.</summary>
 /// <param name="Popularity">The title's score in the streaming service's weekly ranking; 0 when it is not in it.</param>
+/// <param name="BackdropImage">
+/// The landscape image's name. Stored, not searched (the mapping is not dynamic), so adding it changed no mapping;
+/// documents indexed before it have none until they are indexed again (<c>Catalog.Migrator -- reindex</c>).
+/// </param>
 public sealed record SearchDocument(
     Guid Id,
     ContentKind Kind,
@@ -19,7 +23,8 @@ public sealed record SearchDocument(
     IReadOnlyDictionary<string, IReadOnlyList<string>> Genres,
     IReadOnlyList<SearchDocumentGenre> GenreList,
     IReadOnlyList<string> People,
-    int Popularity = 0);
+    int Popularity = 0,
+    string? BackdropImage = null);
 
 public sealed record SearchDocumentGenre(Guid Id, IReadOnlyDictionary<string, string> Names);
 

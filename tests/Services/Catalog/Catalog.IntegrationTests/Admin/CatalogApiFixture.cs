@@ -41,6 +41,9 @@ public sealed class CatalogApiFixture : IAsyncLifetime
     /// <summary>The storage account's connection string, as the service is given it.</summary>
     public string ImagesConnectionString => _images;
 
+    /// <summary>The Elasticsearch container's address, for tests that look at the index itself.</summary>
+    public string SearchAddress { get; private set; } = string.Empty;
+
     public string SkipReason { get; private set; } = string.Empty;
 
     public async ValueTask InitializeAsync()
@@ -69,7 +72,8 @@ public sealed class CatalogApiFixture : IAsyncLifetime
         await ImageStorageSetup.EnsureAsync(StorageConnections.CreateClient(_azurite.GetConnectionString()), []);
         _images = _azurite.GetConnectionString();
         _database = ContainerConnections.ConnectionString(_postgres.GetConnectionString());
-        _factory = new CatalogApiFactory(_database, _images, $"http://127.0.0.1:{_elasticsearch.GetMappedPublicPort(9200)}", _signingKey);
+        SearchAddress = $"http://127.0.0.1:{_elasticsearch.GetMappedPublicPort(9200)}";
+        _factory = new CatalogApiFactory(_database, _images, SearchAddress, _signingKey);
 
         await using var scope = _factory.Services.CreateAsyncScope();
         await scope.ServiceProvider.GetRequiredService<CatalogDbContext>().Database.MigrateAsync();

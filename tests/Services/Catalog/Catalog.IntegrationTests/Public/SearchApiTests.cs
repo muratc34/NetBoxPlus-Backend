@@ -165,6 +165,54 @@ public sealed class SearchApiTests(CatalogApiFixture api)
     }
 
     [Fact]
+    public async Task HitsAndSuggestions_CarryTheBackdrop_OnceTheTitleHasOne()
+    {
+        using var admin = api.CreateClient(Everything);
+        using var visitor = api.CreateAnonymousClient();
+        var genre = await GenreAsync(admin);
+        var marker = $"qb{Guid.NewGuid():N}"[..14];
+        var movie = await MovieAsync(admin, genre, $"{marker} Manzara");
+        await IndexAsync();
+        Assert.Null(Assert.Single((await SearchAsync(visitor, marker, genre)).Items).BackdropUrl);
+
+        await AttachBackdropAsync(admin, movie);
+        await IndexAsync();
+
+        var hit = Assert.Single((await SearchAsync(visitor, marker, genre)).Items);
+        var suggested = Assert.Single(await ReadAsync<List<SearchHit>>(await visitor.GetAsync($"/search/suggest?q={marker}", Cancellation)), item => item.Id == movie);
+        Assert.NotNull(hit.BackdropUrl);
+        Assert.NotEqual(hit.PosterUrl, hit.BackdropUrl);
+        Assert.Equal(hit.BackdropUrl, suggested.BackdropUrl);
+        Assert.Equal((await ReadAsync<MovieDetails>(await admin.GetAsync($"/admin/movies/{movie}", Cancellation))).BackdropUrl, hit.BackdropUrl);
+    }
+
+    [Fact]
+    public async Task DocumentIndexedBeforeBackdropsExisted_IsStillRead_WithoutOne()
+    {
+        using var admin = api.CreateClient(Everything);
+        using var visitor = api.CreateAnonymousClient();
+        var genre = await GenreAsync(admin);
+        var marker = $"qo{Guid.NewGuid():N}"[..14];
+        var movie = await MovieAsync(admin, genre, $"{marker} Eski");
+        await AttachBackdropAsync(admin, movie);
+        await IndexAsync();
+
+        // Rewrite the document as an earlier release indexed it: no backdropImage member at all.
+        using var elastic = new HttpClient { BaseAddress = new Uri(api.SearchAddress) };
+        using var stored = JsonDocument.Parse(await elastic.GetStringAsync($"/{ElasticSearchIndex.Alias}/_doc/{movie}", Cancellation));
+        var source = System.Text.Json.Nodes.JsonNode.Parse(stored.RootElement.GetProperty("_source").GetRawText())!.AsObject();
+        Assert.True(source.Remove("backdropImage"));
+        var index = stored.RootElement.GetProperty("_index").GetString();
+        using var rewrite = new StringContent(source.ToJsonString(), System.Text.Encoding.UTF8, "application/json");
+        Assert.True((await elastic.PutAsync($"/{index}/_doc/{movie}?refresh=true", rewrite, Cancellation)).IsSuccessStatusCode);
+
+        var hit = Assert.Single((await SearchAsync(visitor, marker, genre)).Items);
+        Assert.Equal(movie, hit.Id);
+        Assert.NotNull(hit.PosterUrl);
+        Assert.Null(hit.BackdropUrl);
+    }
+
+    [Fact]
     public async Task Search_FiltersByKind_AndPages()
     {
         using var admin = api.CreateClient(Everything);
@@ -312,6 +360,13 @@ public sealed class SearchApiTests(CatalogApiFixture api)
         await api.VideoReadyAsync("Movie", movie);
         Assert.True((await admin.PostAsync($"/admin/movies/{movie}/publish", null, Cancellation)).IsSuccessStatusCode);
         return movie;
+    }
+
+    private async Task AttachBackdropAsync(HttpClient admin, Guid movie)
+    {
+        var upload = await TestImages.UploadAsync(admin, TestImages.Backdrop(), Json, Cancellation);
+        var version = (await ReadAsync<MovieDetails>(await admin.GetAsync($"/admin/movies/{movie}", Cancellation))).Version;
+        Assert.True((await admin.PutAsJsonAsync($"/admin/movies/{movie}/images/backdrop", new AttachImageRequest(upload, version), Json, Cancellation)).IsSuccessStatusCode);
     }
 
     private static async Task<Guid> PostAsync(HttpClient admin, string path, object body)
