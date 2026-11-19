@@ -60,8 +60,33 @@ jobs:
 
       # The streaming transcoder's and the demo seeder's tests run the real ffmpeg; like Docker, it
       # is required here. The seeder draws titles with the DejaVu font, as in its image.
+      # Ubuntu's mirror sometimes serves the ~60 MB of packages at a crawl (minutes), so the .deb
+      # files are cached per runner image: the same image needs exactly the same packages.
+      - name: Find the runner image
+        id: runner-image
+        run: echo "version=$ImageOS-$ImageVersion" >> "$GITHUB_OUTPUT"
+
+      - name: Restore the ffmpeg packages
+        id: ffmpeg-packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ffmpeg-packages
+          key: ffmpeg-${{ steps.runner-image.outputs.version }}
+
       - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends ffmpeg fonts-dejavu-core
+        env:
+          CACHED: ${{ steps.ffmpeg-packages.outputs.cache-hit }}
+          PACKAGES: ${{ runner.temp }}/ffmpeg-packages
+        run: |
+          if [ "$CACHED" != "true" ]; then
+            sudo apt-get update
+            sudo apt-get install --yes --no-install-recommends --download-only ffmpeg fonts-dejavu-core
+            mkdir -p "$PACKAGES"
+            cp /var/cache/apt/archives/*.deb "$PACKAGES"/
+          fi
+          # Installing the files themselves needs no package lists and downloads nothing.
+          sudo apt-get install --yes --no-install-recommends --no-download "$PACKAGES"/*.deb
+          ffmpeg -hide_banner -version | head -n 1
 
       # Integration tests start PostgreSQL and RabbitMQ with Testcontainers. Locally they are
       # skipped without Docker; here a missing Docker fails them.
