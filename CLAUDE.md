@@ -288,7 +288,9 @@ Migrator'daki seed):
 
 ## Temel kurallar (özet — ayrıntı ARCHITECTURE'da)
 
-- **SDK:** stable .NET 10, `global.json` (`10.0.403`, `latestFeature`, prerelease yok).
+- **SDK:** stable .NET 10, `global.json` (`10.0.403`, `latestFeature`, prerelease yok). Dependabot .NET'le gelen paketlerin
+  (`Microsoft.AspNetCore.*`, `Microsoft.EntityFrameworkCore*`, `Microsoft.Extensions.*`, `System.*`, `Npgsql*`) major'ını önermez;
+  bir sonraki .NET'e geçiş ayrı bir karar.
 - **Paketler:** Central Package Management (`Directory.Packages.props`); csproj'larda `Version`
   attribute'u yok. Uyarılar hata (`TreatWarningsAsErrors`); uyarıyı susturma, düzelt.
 - **Referans kuralları:**

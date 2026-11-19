@@ -16,6 +16,20 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # The services run on .NET 10 (global.json). These packages ship with each .NET major, so
+    # their next major means moving to the next .NET: a decision of its own, not a weekly update.
+    # Minor and patch versions still come. A grouped update that mixed majors failed to restore.
+    ignore:
+      - dependency-name: "Microsoft.AspNetCore.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.EntityFrameworkCore*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.Extensions.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "System.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Npgsql*"
+        update-types: ["version-update:semver-major"]
     groups:
       microsoft:
         patterns: ["Microsoft.*", "System.*", "Npgsql*"]
