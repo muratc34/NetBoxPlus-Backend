@@ -14,6 +14,8 @@ internal sealed class MediaFactory(SeederOptions options)
 {
     public const int VideoSeconds = 30;
 
+    public const int TrailerSeconds = 20;
+
     public Task<string> PosterAsync(string title, Palette palette, CancellationToken cancellationToken)
         => ImageAsync("poster", title, palette, 600, 900, 64, cancellationToken);
 
@@ -24,10 +26,19 @@ internal sealed class MediaFactory(SeederOptions options)
         => ImageAsync("photo", name, new Palette("slategray", "lightsteelblue"), 400, 400, 36, cancellationToken);
 
     /// <summary>A test pattern with the title, a running clock and a tone.</summary>
-    public async Task<string> VideoAsync(string title, int height, CancellationToken cancellationToken)
+    public Task<string> VideoAsync(string title, int height, CancellationToken cancellationToken)
+        => VideoAsync(title, height, VideoSeconds, cancellationToken);
+
+    /// <summary>A shorter test pattern named as the title's trailer.</summary>
+    public Task<string> TrailerAsync(string title, CancellationToken cancellationToken)
+        => VideoAsync($"{title}\nFragman", 720, TrailerSeconds, cancellationToken);
+
+    private async Task<string> VideoAsync(string title, int height, int seconds, CancellationToken cancellationToken)
     {
         var width = height * 16 / 9;
-        var file = OutputFile("video", $"{title}|{height}", ".mp4");
+
+        // The 30-second videos keep the names earlier runs gave them, so their files are reused.
+        var file = OutputFile("video", seconds == VideoSeconds ? $"{title}|{height}" : $"{title}|{height}|{seconds}s", ".mp4");
         if (File.Exists(file))
         {
             return file;
@@ -41,8 +52,8 @@ internal sealed class MediaFactory(SeederOptions options)
             $"drawtext=fontfile='{font}':text='%{{pts\\:hms}}':fontsize={size}:fontcolor=white:borderw=3:bordercolor=black:x=(w-text_w)/2:y=h-h/4";
         await RunAsync(
             [
-                "-f", "lavfi", "-i", $"testsrc2=size={width}x{height}:rate=25:duration={VideoSeconds}",
-                "-f", "lavfi", "-i", $"sine=frequency=440:duration={VideoSeconds}",
+                "-f", "lavfi", "-i", $"testsrc2=size={width}x{height}:rate=25:duration={seconds}",
+                "-f", "lavfi", "-i", $"sine=frequency=440:duration={seconds}",
                 "-vf", filter,
                 "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
                 "-c:a", "aac", "-b:a", "96k", "-shortest",

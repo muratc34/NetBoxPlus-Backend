@@ -14,6 +14,7 @@ internal sealed record Palette(string From, string To);
 
 /// <param name="VideoHeight">The generated video's height: 720 or 1080.</param>
 /// <param name="Dubbed">The movie gets an English dub and Turkish and English subtitles, to show both in the player.</param>
+/// <param name="Trailer">The movie gets a short trailer, to show it playing on its page.</param>
 internal sealed record MovieSeed(
     string OriginalTitle,
     Texts Turkish,
@@ -25,12 +26,14 @@ internal sealed record MovieSeed(
     IReadOnlyList<CreditSeed> Credits,
     Palette Palette,
     int VideoHeight = 720,
-    bool Dubbed = false);
+    bool Dubbed = false,
+    bool Trailer = false);
 
 internal sealed record EpisodeSeed(int Number, Texts Turkish, Texts English, int RuntimeMinutes);
 
 internal sealed record SeasonSeed(int Number, string TitleTurkish, string TitleEnglish, IReadOnlyList<EpisodeSeed> Episodes);
 
+/// <param name="Trailer">The series gets a short trailer, to show it playing on its page.</param>
 internal sealed record SeriesSeed(
     string OriginalTitle,
     Texts Turkish,
@@ -40,7 +43,8 @@ internal sealed record SeriesSeed(
     IReadOnlyList<string> Genres,
     IReadOnlyList<CreditSeed> Credits,
     Palette Palette,
-    IReadOnlyList<SeasonSeed> Seasons);
+    IReadOnlyList<SeasonSeed> Seasons,
+    bool Trailer = false);
 
 /// <summary>
 /// The demo catalog. Every title, person and story is made up; Turkish is the catalog's required
@@ -80,7 +84,7 @@ internal static class DemoContent
             new("Northern Light", "A keeper living alone in a northern lighthouse faces his past when a stranger knocks on his door on a stormy night."),
             2023, "Age13", 108, ["Dram"],
             [new("Kerem Yalçın", "Director"), new("Elif Karadağ", "Writer"), new("Defne Aksoy", "Actor", "Nehir"), new("Can Erdem", "Actor", "Fener Bekçisi")],
-            new("navy", "teal"), VideoHeight: 1080, Dubbed: true),
+            new("navy", "teal"), VideoHeight: 1080, Dubbed: true, Trailer: true),
         new(
             "Last Stop Mars",
             new("Son Durak Mars", "Mars'a giden son kargo gemisinin mürettebatı, rotalarında olmaması gereken bir sinyal yakalar."),
@@ -140,7 +144,8 @@ internal static class DemoContent
                     Episode(2, "Rüzgâra Karşı", "Rüya zor bir karar verir.", "Against the Wind", "Rüya makes a hard decision.", 49),
                     Episode(3, "Sakin Deniz", "Fırtına diner, sırlar ortaya çıkar.", "Calm Sea", "The storm passes and secrets come out.", 52),
                 ]),
-            ]),
+            ],
+            Trailer: true),
         new(
             "Robot Workshop",
             new("Robot Atölyesi", "Meraklı iki kardeş, dedelerinin atölyesinde konuşan robotlarla maceradan maceraya koşar."),

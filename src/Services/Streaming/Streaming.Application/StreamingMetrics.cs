@@ -32,6 +32,7 @@ public sealed class StreamingMetrics
     private readonly Counter<long> _transcodes;
     private readonly Histogram<double> _transcodeDuration;
     private readonly Counter<long> _playbackStarts;
+    private readonly Counter<long> _trailerRequests;
     private volatile StreamingSnapshot? _latest;
 
     public StreamingMetrics(IMeterFactory meterFactory)
@@ -42,6 +43,7 @@ public sealed class StreamingMetrics
         _transcodes = meter.CreateCounter<long>("netboxplus.transcode.completed", "{job}", "Transcode attempts by outcome.");
         _transcodeDuration = meter.CreateHistogram<double>("netboxplus.transcode.duration", "s", "Time to download, convert and upload one video.");
         _playbackStarts = meter.CreateCounter<long>("netboxplus.playback.sessions.started", "{session}", "Playback starts: 'started', or the error code that refused one.");
+        _trailerRequests = meter.CreateCounter<long>("netboxplus.streaming.trailer.requests", "{request}", "Trailer links asked for: 'found', or 'not_found' for a title without a playable trailer.");
         meter.CreateObservableGauge(
             "netboxplus.transcode.jobs",
             () => _latest is { } snapshot
@@ -71,4 +73,6 @@ public sealed class StreamingMetrics
     }
 
     public void PlaybackStarted(string outcome) => _playbackStarts.Add(1, new TagList { { "outcome", outcome } });
+
+    public void TrailerRequested(string outcome) => _trailerRequests.Add(1, new TagList { { "outcome", outcome } });
 }

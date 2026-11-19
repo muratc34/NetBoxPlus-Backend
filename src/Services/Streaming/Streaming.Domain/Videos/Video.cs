@@ -7,6 +7,21 @@ public enum ContentKind
 {
     Movie,
     Episode,
+
+    /// <summary>A whole series: only a trailer belongs to one.</summary>
+    Series,
+}
+
+public enum VideoPurpose
+{
+    /// <summary>The movie or the episode itself: played in sessions, announced to the catalog.</summary>
+    Feature,
+
+    /// <summary>
+    /// A preview of a movie or a series: played to anyone while the title can be watched, never announced (the
+    /// catalog would take it for the title's own video), original sound only, at most <see cref="Video.TrailerMaxHeight"/>p.
+    /// </summary>
+    Trailer,
 }
 
 public enum VideoStatus
@@ -25,8 +40,8 @@ public enum VideoStatus
 public sealed record Rendition(int Height, int Width, int Bandwidth, string Playlist);
 
 /// <summary>
-/// The video of a movie or an episode, from the promised upload to the playable result. A content
-/// can have several: the latest that is ready is the one played.
+/// The video of a movie or an episode, or the trailer of a movie or a series, from the promised upload to the
+/// playable result. A content can have several: the latest that is ready is the one played.
 /// </summary>
 public sealed class Video : AggregateRoot, IAuditableEntity
 {
@@ -40,15 +55,22 @@ public sealed class Video : AggregateRoot, IAuditableEntity
     /// <summary>A dub as long as the video, give or take this much.</summary>
     public static readonly TimeSpan AudioDurationTolerance = TimeSpan.FromSeconds(2);
 
+    /// <summary>The longest trailer accepted.</summary>
+    public static readonly TimeSpan TrailerMaxDuration = TimeSpan.FromMinutes(5);
+
+    /// <summary>The highest quality a trailer is converted to: it plays to anyone, often in a corner of the page.</summary>
+    public const int TrailerMaxHeight = 720;
+
     private readonly List<Rendition> _renditions = [];
 
     private readonly List<AudioTrack> _audioTracks = [];
 
     private readonly List<Subtitle> _subtitles = [];
 
-    private Video(Guid id, ContentKind contentKind, Guid contentId, string originalAudioLanguage, DateTimeOffset uploadExpiresAt)
+    private Video(Guid id, VideoPurpose purpose, ContentKind contentKind, Guid contentId, string originalAudioLanguage, DateTimeOffset uploadExpiresAt)
         : base(id)
     {
+        Purpose = purpose;
         ContentKind = contentKind;
         ContentId = contentId;
         OriginalAudioLanguage = originalAudioLanguage;
@@ -60,6 +82,8 @@ public sealed class Video : AggregateRoot, IAuditableEntity
     private Video()
     {
     }
+
+    public VideoPurpose Purpose { get; private set; }
 
     public ContentKind ContentKind { get; private set; }
 
@@ -94,14 +118,29 @@ public sealed class Video : AggregateRoot, IAuditableEntity
 
     public DateTimeOffset? ModifiedAt { get; private set; }
 
-    public static Result<Video> StartUpload(ContentKind contentKind, Guid contentId, string originalAudioLanguage, DateTimeOffset now)
+    /// <summary>The highest quality a video of this purpose is converted to; <see langword="null"/> for no limit beyond the source.</summary>
+    public static int? MaxRenditionHeightOf(VideoPurpose purpose) => purpose == VideoPurpose.Trailer ? TrailerMaxHeight : null;
+
+    /// <summary>The longest file of this purpose accepted; <see langword="null"/> for any length.</summary>
+    public static TimeSpan? MaxDurationOf(VideoPurpose purpose) => purpose == VideoPurpose.Trailer ? TrailerMaxDuration : null;
+
+    /// <param name="purpose">A movie's or an episode's own video, or the trailer of a movie or a series.</param>
+    public static Result<Video> StartUpload(ContentKind contentKind, Guid contentId, string originalAudioLanguage, DateTimeOffset now, VideoPurpose purpose = VideoPurpose.Feature)
     {
         if (!MediaLanguages.IsSupported(originalAudioLanguage))
         {
             return VideoErrors.LanguageUnsupported;
         }
 
-        if (!Enum.IsDefined(contentKind))
+        if (!Enum.IsDefined(purpose))
+        {
+            return VideoErrors.PurposeInvalid;
+        }
+
+        var fits = purpose == VideoPurpose.Trailer
+            ? contentKind is ContentKind.Movie or ContentKind.Series
+            : contentKind is ContentKind.Movie or ContentKind.Episode;
+        if (!fits)
         {
             return VideoErrors.ContentKindInvalid;
         }
@@ -111,7 +150,7 @@ public sealed class Video : AggregateRoot, IAuditableEntity
             return VideoErrors.ContentRequired;
         }
 
-        return new Video(Guid.CreateVersion7(), contentKind, contentId, originalAudioLanguage, now + UploadLifetime);
+        return new Video(Guid.CreateVersion7(), purpose, contentKind, contentId, originalAudioLanguage, now + UploadLifetime);
     }
 
     /// <summary>Accepts the uploaded file and puts the video in line for conversion.</summary>
@@ -140,7 +179,7 @@ public sealed class Video : AggregateRoot, IAuditableEntity
 
         SizeBytes = sizeBytes;
         ChangeStatus(VideoStatus.Queued);
-        RaiseDomainEvent(new VideoQueuedDomainEvent(Id, ContentKind, ContentId, Revision));
+        Announce(new VideoQueuedDomainEvent(Id, ContentKind, ContentId, Revision));
         return Result.Success();
     }
 
@@ -161,6 +200,11 @@ public sealed class Video : AggregateRoot, IAuditableEntity
             return VideoErrors.NothingConverted;
         }
 
+        if (MaxDurationOf(Purpose) is { } longest && durationSeconds > longest.TotalSeconds)
+        {
+            return MarkFailed(string.Create(CultureInfo.InvariantCulture, $"The trailer lasts {durationSeconds:0.#} s; at most {longest.TotalSeconds:0} s is accepted."));
+        }
+
         DurationSeconds = durationSeconds;
         _renditions.Clear();
         _renditions.AddRange(renditions.OrderBy(rendition => rendition.Height));
@@ -172,7 +216,7 @@ public sealed class Video : AggregateRoot, IAuditableEntity
         }
 
         ChangeStatus(VideoStatus.Ready);
-        RaiseDomainEvent(new VideoReadyDomainEvent(Id, ContentKind, ContentId, durationSeconds, Revision));
+        Announce(new VideoReadyDomainEvent(Id, ContentKind, ContentId, durationSeconds, Revision));
         TracksChanged();
         return Result.Success();
     }
@@ -188,7 +232,7 @@ public sealed class Video : AggregateRoot, IAuditableEntity
 
         FailureReason = reason.Length > FailureReasonMaxLength ? reason[..FailureReasonMaxLength] : reason;
         ChangeStatus(VideoStatus.Failed);
-        RaiseDomainEvent(new VideoFailedDomainEvent(Id, ContentKind, ContentId, FailureReason, Revision));
+        Announce(new VideoFailedDomainEvent(Id, ContentKind, ContentId, FailureReason, Revision));
         return Result.Success();
     }
 
@@ -201,6 +245,11 @@ public sealed class Video : AggregateRoot, IAuditableEntity
         if (!MediaLanguages.IsSupported(language))
         {
             return VideoErrors.LanguageUnsupported;
+        }
+
+        if (Purpose == VideoPurpose.Trailer)
+        {
+            return VideoErrors.TrailerHasNoTracks;
         }
 
         if (Status != VideoStatus.Ready)
@@ -335,6 +384,11 @@ public sealed class Video : AggregateRoot, IAuditableEntity
             return VideoErrors.LanguageUnsupported;
         }
 
+        if (Purpose == VideoPurpose.Trailer)
+        {
+            return VideoErrors.TrailerHasNoTracks;
+        }
+
         if (Status != VideoStatus.Ready)
         {
             return VideoErrors.NotReady;
@@ -416,7 +470,16 @@ public sealed class Video : AggregateRoot, IAuditableEntity
     {
         Revision++;
         var (audio, subtitles) = ReadyLanguages();
-        RaiseDomainEvent(new VideoTracksChangedDomainEvent(Id, ContentKind, ContentId, audio, subtitles, Revision));
+        Announce(new VideoTracksChangedDomainEvent(Id, ContentKind, ContentId, audio, subtitles, Revision));
+    }
+
+    /// <summary>Raises an event the catalog hears of; a trailer's are kept in, or the catalog would take it for the title's video.</summary>
+    private void Announce(IDomainEvent domainEvent)
+    {
+        if (Purpose == VideoPurpose.Feature)
+        {
+            RaiseDomainEvent(domainEvent);
+        }
     }
 
     /// <summary>The upload was not finished in time; nothing outside the service heard of it.</summary>
@@ -439,7 +502,11 @@ public static class VideoErrors
 {
     public static readonly Error NotFound = Error.NotFound("Video.NotFound", "The video was not found.");
 
-    public static readonly Error ContentKindInvalid = Error.Validation("Video.ContentKindInvalid", "The content kind must be Movie or Episode.");
+    public static readonly Error ContentKindInvalid = Error.Validation("Video.ContentKindInvalid", "A video belongs to a Movie or an Episode; a trailer to a Movie or a Series.");
+
+    public static readonly Error PurposeInvalid = Error.Validation("Video.PurposeInvalid", "The purpose must be Feature or Trailer.");
+
+    public static readonly Error TrailerHasNoTracks = Error.Conflict("Video.TrailerHasNoTracks", "A trailer keeps its original sound only; it takes no dubs or subtitles.");
 
     public static readonly Error ContentRequired = Error.Validation("Video.ContentRequired", "The content id is required.");
 

@@ -12,6 +12,7 @@ internal sealed class VideoConfiguration : IEntityTypeConfiguration<Video>
         builder.ToTable("Videos");
         builder.HasKey(video => video.Id);
         builder.Property(video => video.Id).ValueGeneratedNever();
+        builder.Property(video => video.Purpose).HasConversion<string>().HasMaxLength(16);
         builder.Property(video => video.ContentKind).HasConversion<string>().HasMaxLength(16);
         builder.Property(video => video.Status).HasConversion<string>().HasMaxLength(16);
         builder.Property(video => video.FailureReason).HasMaxLength(Video.FailureReasonMaxLength);

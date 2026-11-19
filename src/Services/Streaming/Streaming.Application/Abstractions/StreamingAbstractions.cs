@@ -83,4 +83,9 @@ public interface IPlaybackSigner
     string Sign(Guid sessionId, string path, DateTimeOffset expiresAt);
 
     bool IsValid(Guid sessionId, string path, long? expires, string? signature, DateTimeOffset now);
+
+    /// <summary>The same for a trailer's playlists, bound to the video; never valid as a session's address, nor the other way round.</summary>
+    string SignTrailer(Guid videoId, string path, DateTimeOffset expiresAt);
+
+    bool IsValidTrailer(Guid videoId, string path, long? expires, string? signature, DateTimeOffset now);
 }

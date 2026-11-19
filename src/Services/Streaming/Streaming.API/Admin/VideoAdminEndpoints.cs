@@ -19,7 +19,11 @@ internal static class StreamingPermissions
 }
 
 /// <param name="OriginalAudioLanguage">The language spoken in the file, such as <c>tr-TR</c>; Turkish when not given.</param>
-public sealed record StartVideoUploadRequest(ContentKind ContentKind, Guid ContentId, string? OriginalAudioLanguage = null);
+/// <param name="Purpose">
+/// <c>Feature</c> (the default): a movie's or an episode's own video. <c>Trailer</c>: a movie's or a series' trailer, played to
+/// anyone while the title can be watched; at most five minutes, converted up to 720p, original sound only.
+/// </param>
+public sealed record StartVideoUploadRequest(ContentKind ContentKind, Guid ContentId, string? OriginalAudioLanguage = null, VideoPurpose Purpose = VideoPurpose.Feature);
 
 public sealed record StartAudioTrackUploadRequest(string Language);
 
@@ -34,7 +38,7 @@ internal static class VideoAdminEndpoints
 
         group.MapPost("/", StartAsync)
             .WithName("StartVideoUpload")
-            .WithSummary("Promises a video upload for a movie or an episode and returns where to send the file.")
+            .WithSummary("Promises a video upload for a movie or an episode, or a trailer for a movie or a series, and returns where to send the file.")
             .RequirePermission(StreamingPermissions.VideosWrite)
             .Produces<VideoUploadTicket>(StatusCodes.Status201Created)
             .ProducesValidationProblem()
@@ -162,7 +166,7 @@ internal static class VideoAdminEndpoints
 
     private static async Task<IResult> StartAsync([FromBody] StartVideoUploadRequest request, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
     {
-        var result = await dispatcher.Send(new StartVideoUploadCommand(request.ContentKind, request.ContentId, request.OriginalAudioLanguage), cancellationToken);
+        var result = await dispatcher.Send(new StartVideoUploadCommand(request.ContentKind, request.ContentId, request.OriginalAudioLanguage, request.Purpose), cancellationToken);
         return result.ToHttpResult(ticket => TypedResults.Created($"/admin/videos/{ticket.VideoId}", ticket));
     }
 
@@ -175,8 +179,9 @@ internal static class VideoAdminEndpoints
         [FromQuery] Guid? contentId = null,
         [FromQuery] VideoStatus? status = null,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = PageLimits.DefaultPageSize)
-        => (await dispatcher.Query(new GetVideosQuery(contentId, status, page, pageSize), cancellationToken)).ToHttpResult();
+        [FromQuery] int pageSize = PageLimits.DefaultPageSize,
+        [FromQuery] VideoPurpose? purpose = null)
+        => (await dispatcher.Query(new GetVideosQuery(contentId, status, page, pageSize, purpose), cancellationToken)).ToHttpResult();
 
     private static async Task<IResult> GetVideoAsync(Guid id, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
         => (await dispatcher.Query(new GetVideoQuery(id), cancellationToken)).ToHttpResult();

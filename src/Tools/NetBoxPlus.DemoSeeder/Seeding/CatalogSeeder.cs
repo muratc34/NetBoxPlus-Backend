@@ -48,6 +48,16 @@ internal sealed class CatalogSeeder(
             series.Add((show, await SeedSeriesAsync(show, cancellationToken).ConfigureAwait(false)));
         }
 
+        foreach (var (seed, id) in movies.Where(movie => movie.Seed.Trailer))
+        {
+            await EnsureTrailerAsync("Movie", id, seed.OriginalTitle, seed.Turkish.Title, cancellationToken).ConfigureAwait(false);
+        }
+
+        foreach (var (seed, id) in series.Where(show => show.Seed.Trailer))
+        {
+            await EnsureTrailerAsync("Series", id, seed.OriginalTitle, seed.Turkish.Title, cancellationToken).ConfigureAwait(false);
+        }
+
         await WaitForVideosAsync(cancellationToken).ConfigureAwait(false);
 
         foreach (var (seed, id) in movies.Where(movie => movie.Seed.Dubbed))
@@ -268,7 +278,8 @@ internal sealed class CatalogSeeder(
 
     private async Task EnsureVideoAsync(string contentKind, Guid contentId, string name, string caption, int height, CancellationToken cancellationToken)
     {
-        var videos = await gateway.GetAsync<Page<VideoItem>>($"{Streaming}/videos?contentId={contentId}&pageSize=100", cancellationToken).ConfigureAwait(false);
+        // Trailers share the content id; only the title's own videos decide here.
+        var videos = await gateway.GetAsync<Page<VideoItem>>($"{Streaming}/videos?contentId={contentId}&purpose=Feature&pageSize=100", cancellationToken).ConfigureAwait(false);
         switch (SeedDecisions.ForVideo(videos.Items))
         {
             case VideoStep.Ready:
@@ -284,6 +295,28 @@ internal sealed class CatalogSeeder(
                 await gateway.PostAsync($"{Streaming}/videos/{ticket.VideoId}/uploaded", body: null, cancellationToken).ConfigureAwait(false);
                 _pendingVideos.Add(ticket.VideoId);
                 Changed(contentKind, name, "video uploaded");
+                return;
+        }
+    }
+
+    /// <summary>A short trailer for the movie or the series, converted with the videos; played on the title's page once it is published.</summary>
+    private async Task EnsureTrailerAsync(string titleKind, Guid titleId, string name, string caption, CancellationToken cancellationToken)
+    {
+        var trailers = await gateway.GetAsync<Page<VideoItem>>($"{Streaming}/videos?contentId={titleId}&purpose=Trailer&pageSize=100", cancellationToken).ConfigureAwait(false);
+        switch (SeedDecisions.ForVideo(trailers.Items))
+        {
+            case VideoStep.Ready:
+                return;
+            case VideoStep.Wait wait:
+                _pendingVideos.Add(wait.VideoId);
+                return;
+            default:
+                var file = await media.TrailerAsync(caption, cancellationToken).ConfigureAwait(false);
+                var ticket = await gateway.PostAsync<VideoUploadTicket>($"{Streaming}/videos", new { contentKind = titleKind, contentId = titleId, purpose = "Trailer" }, cancellationToken).ConfigureAwait(false);
+                await uploader.UploadAsync(ticket.UploadAddress, file, "video/mp4", cancellationToken).ConfigureAwait(false);
+                await gateway.PostAsync($"{Streaming}/videos/{ticket.VideoId}/uploaded", body: null, cancellationToken).ConfigureAwait(false);
+                _pendingVideos.Add(ticket.VideoId);
+                Changed(titleKind, name, "trailer uploaded");
                 return;
         }
     }
@@ -341,7 +374,7 @@ internal sealed class CatalogSeeder(
 
     private async Task<VideoDetails> ReadyVideoAsync(Guid contentId, CancellationToken cancellationToken)
     {
-        var videos = await gateway.GetAsync<Page<VideoItem>>($"{Streaming}/videos?contentId={contentId}&status=Ready&pageSize=100", cancellationToken).ConfigureAwait(false);
+        var videos = await gateway.GetAsync<Page<VideoItem>>($"{Streaming}/videos?contentId={contentId}&status=Ready&purpose=Feature&pageSize=100", cancellationToken).ConfigureAwait(false);
         var latest = videos.Items.MaxBy(item => item.CreatedAt) ?? throw new InvalidOperationException($"Movie {contentId} has no ready video.");
         return await gateway.GetAsync<VideoDetails>($"{Streaming}/videos/{latest.Id}", cancellationToken).ConfigureAwait(false);
     }
