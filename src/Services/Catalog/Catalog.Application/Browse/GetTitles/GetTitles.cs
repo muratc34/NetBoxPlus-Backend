@@ -24,10 +24,22 @@ public enum TitleSort
     Popular,
 }
 
+public static class TitleListErrors
+{
+    /// <summary>As many as one page holds: a client asking by id gets all of them on one page.</summary>
+    public const int MaxIds = PageLimits.MaxPageSize;
+
+    public static readonly Error TooManyIds = Error.Validation("Titles.TooManyIds", $"Ask for at most {MaxIds} titles by id at once.");
+}
+
 /// <summary>Published movies and series in one list, most recently published first unless sorted otherwise.</summary>
 /// <param name="Language">Texts come in this language, or in the default one where not translated.</param>
 /// <param name="MaxAgeRating">Only titles a viewer of this age may see, such as a child's profile; all when null.</param>
-public sealed record GetTitlesQuery(string Language, TitleKind? Kind, Guid? GenreId, Guid? PersonId, int PageNumber, int PageSize, TitleSort Sort = TitleSort.Newest, AgeRating? MaxAgeRating = null) : IQuery<Page<TitleSummary>>;
+/// <param name="Ids">
+/// Only these titles, such as the ones another service names by id (a profile's list); all when null or empty.
+/// Unknown and unpublished ids are left out, and the list keeps its own order, not the order of the ids.
+/// </param>
+public sealed record GetTitlesQuery(string Language, TitleKind? Kind, Guid? GenreId, Guid? PersonId, int PageNumber, int PageSize, TitleSort Sort = TitleSort.Newest, AgeRating? MaxAgeRating = null, IReadOnlyList<Guid>? Ids = null) : IQuery<Page<TitleSummary>>;
 
 /// <param name="PosterUrl">The portrait image (2:3), when the title has one.</param>
 /// <param name="BackdropUrl">The landscape image (16:9), when the title has one; what rows of wide cards show.</param>
@@ -55,6 +67,11 @@ internal sealed class GetTitlesValidator : IValidator<GetTitlesQuery>
         {
             yield return new ValidationFailure("Page", PageLimits.OutOfRange.Code, PageLimits.OutOfRange.Message);
         }
+
+        if (instance.Ids is { Count: > TitleListErrors.MaxIds })
+        {
+            yield return new ValidationFailure("ids", TitleListErrors.TooManyIds.Code, TitleListErrors.TooManyIds.Message);
+        }
     }
 }
 
@@ -78,6 +95,13 @@ internal sealed class GetTitlesHandler(ICatalogReadModel readModel, ContentReade
             var allowed = AgeRatings.UpTo(maximum);
             publishedMovies = publishedMovies.Where(movie => allowed.Contains(movie.Info.AgeRating));
             publishedSeries = publishedSeries.Where(item => allowed.Contains(item.Info.AgeRating));
+        }
+
+        if (query.Ids is { Count: > 0 } wanted)
+        {
+            var wantedIds = wanted.Distinct().ToList();
+            publishedMovies = publishedMovies.Where(movie => wantedIds.Contains(movie.Id));
+            publishedSeries = publishedSeries.Where(item => wantedIds.Contains(item.Id));
         }
 
         var movies = publishedMovies.Select(movie => new { movie.Id, Kind = TitleKind.Movie, movie.PublishedAt });

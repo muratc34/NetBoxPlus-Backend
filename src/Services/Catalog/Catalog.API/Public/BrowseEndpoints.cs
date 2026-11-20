@@ -26,7 +26,7 @@ internal static class BrowseEndpoints
 
         browse.MapGet("/titles", GetTitlesAsync)
             .WithName("GetTitles")
-            .WithSummary("Lists published movies and series, most recently published first, or watched most in the last week first with sort=Popular.")
+            .WithSummary("Lists published movies and series, most recently published first, or watched most in the last week first with sort=Popular; with ids, only those titles (at most 100).")
             .Produces<Page<TitleSummary>>()
             .ProducesValidationProblem();
 
@@ -84,8 +84,9 @@ internal static class BrowseEndpoints
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = PageLimits.DefaultPageSize,
         [FromQuery] TitleSort sort = TitleSort.Newest,
-        [FromQuery] AgeRating? maxAgeRating = null)
-        => (await dispatcher.Query(new GetTitlesQuery(lang ?? Languages.Default, kind, genreId, personId, page, pageSize, sort, maxAgeRating), cancellationToken)).ToHttpResult();
+        [FromQuery] AgeRating? maxAgeRating = null,
+        [FromQuery] Guid[]? ids = null)
+        => (await dispatcher.Query(new GetTitlesQuery(lang ?? Languages.Default, kind, genreId, personId, page, pageSize, sort, maxAgeRating, ids), cancellationToken)).ToHttpResult();
 
     private static async Task<IResult> SearchAsync(
         [FromServices] IDispatcher dispatcher,

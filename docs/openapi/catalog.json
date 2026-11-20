@@ -2275,7 +2275,7 @@
         "tags": [
           "Browse"
         ],
-        "summary": "Lists published movies and series, most recently published first, or watched most in the last week first with sort=Popular.",
+        "summary": "Lists published movies and series, most recently published first, or watched most in the last week first with sort=Popular; with ids, only those titles (at most 100).",
         "operationId": "GetTitles",
         "parameters": [
           {
@@ -2347,6 +2347,17 @@
             "in": "query",
             "schema": {
               "$ref": "#/components/schemas/AgeRating"
+            }
+          },
+          {
+            "name": "ids",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
             }
           }
         ],

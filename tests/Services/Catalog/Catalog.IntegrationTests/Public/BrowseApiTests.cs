@@ -159,6 +159,49 @@ public sealed class BrowseApiTests(CatalogApiFixture api)
         Assert.DoesNotContain(adults, (await ListAsync("&maxAgeRating=Age16")).Items.Select(title => title.Id));
     }
 
+    [Fact]
+    public async Task Titles_ByIds_ListOnlyThosePublished_InTheListsOwnOrder()
+    {
+        using var admin = api.CreateClient(Everything);
+        using var visitor = api.CreateAnonymousClient();
+        var genre = await GenreAsync(admin);
+        var movie = await MovieAsync(admin, "Asked", genre, publish: true);
+        await MovieAsync(admin, "Not asked", genre, publish: true);
+        var hidden = await MovieAsync(admin, "Hidden", genre, publish: false);
+        var series = (await SeriesAsync(admin, genre, publishSeries: true)).Id;
+        var ids = $"ids={movie}&ids={Guid.NewGuid()}&ids={series}&ids={hidden}&ids={movie}";
+
+        async Task<Page<TitleSummary>> ListAsync(string filter)
+            => await ReadAsync<Page<TitleSummary>>(await visitor.GetAsync($"/titles?{ids}{filter}", Cancellation));
+
+        var asked = await ListAsync(string.Empty);
+        Assert.Equal(2, asked.TotalCount);
+        Assert.Equal([series, movie], asked.Items.Select(title => title.Id));
+        Assert.Equal("Asked", asked.Items[1].Title);
+        var single = await ReadAsync<Page<TitleSummary>>(await visitor.GetAsync($"/titles?ids={movie}", Cancellation));
+        Assert.Equal([movie], single.Items.Select(title => title.Id));
+
+        // With the other filters as before.
+        Assert.Equal([movie], (await ListAsync("&maxAgeRating=Age13")).Items.Select(title => title.Id));
+        Assert.Equal([series], (await ListAsync("&kind=Series")).Items.Select(title => title.Id));
+        Assert.Equal([movie], (await ListAsync("&pageSize=1&page=2")).Items.Select(title => title.Id));
+    }
+
+    [Fact]
+    public async Task Titles_ByIds_TakeAtMostOnePageOfIds()
+    {
+        using var visitor = api.CreateAnonymousClient();
+        static string Ids(int count) => string.Join('&', Enumerable.Range(0, count).Select(_ => $"ids={Guid.NewGuid()}"));
+
+        var full = await visitor.GetAsync($"/titles?{Ids(100)}", Cancellation);
+        var tooMany = await visitor.GetAsync($"/titles?{Ids(101)}", Cancellation);
+
+        Assert.Equal(0, (await ReadAsync<Page<TitleSummary>>(full)).TotalCount);
+        Assert.Equal(HttpStatusCode.BadRequest, tooMany.StatusCode);
+        var codes = (await tooMany.Content.ReadFromJsonAsync<JsonElement>(Cancellation)).GetProperty("errorCodes").GetProperty("ids");
+        Assert.Equal("Titles.TooManyIds", Assert.Single(codes.EnumerateArray()).GetString());
+    }
+
     [Theory]
     [InlineData("/titles?maxAgeRating=Age99")]
     [InlineData("/titles?maxAgeRating=adult")]
