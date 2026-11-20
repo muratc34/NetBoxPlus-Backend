@@ -139,31 +139,34 @@ public sealed class MovieTests
     }
 
     [Fact]
-    public void Version_GrowsWithEveryChange_ButNotWithARefusedOne()
+    public void Version_GrowsOncePerSave_ButNotWithARefusedChange()
     {
         var movie = TestContent.Movie();
-        var versions = new List<int> { movie.Version };
+        movie.ClearDomainEvents();
+        var loaded = movie.Version;
 
+        // One save carrying several changes, as an update does.
         movie.Describe(TestContent.Info("Other"));
-        versions.Add(movie.Version);
         movie.ChangeRuntime(90);
-        versions.Add(movie.Version);
         movie.SetGenres([Guid.CreateVersion7()]);
-        versions.Add(movie.Version);
         movie.SetCredits([]);
-        versions.Add(movie.Version);
-        movie.SetImage(ContentImageSlot.Poster, "poster.jpg");
-        versions.Add(movie.Version);
-        movie.Publish(TestContent.Now);
-        versions.Add(movie.Version);
-        movie.Publish(TestContent.Now);
-        Assert.Equal(versions[^1], movie.Version);
-        movie.Unpublish();
-        versions.Add(movie.Version);
+        Assert.Equal(loaded + 1, movie.Version);
 
-        Assert.Equal(versions.Count, versions.Distinct().Count());
+        // Each save after that moves it on again: an image, publishing (twice is once), unpublishing.
+        movie.ClearDomainEvents();
+        movie.SetImage(ContentImageSlot.Poster, "poster.jpg");
+        Assert.Equal(loaded + 2, movie.Version);
+        movie.ClearDomainEvents();
+        movie.Publish(TestContent.Now);
+        movie.Publish(TestContent.Now);
+        Assert.Equal(loaded + 3, movie.Version);
+        movie.ClearDomainEvents();
+        movie.Unpublish();
+        Assert.Equal(loaded + 4, movie.Version);
+
+        movie.ClearDomainEvents();
         Assert.True(movie.ChangeRuntime(0).IsFailure);
-        Assert.Equal(versions[^1], movie.Version);
+        Assert.Equal(loaded + 4, movie.Version);
     }
 
     [Fact]
@@ -203,13 +206,15 @@ public sealed class MovieTests
     public void ImageChanges_RaiseTheVersion()
     {
         var movie = TestContent.Movie();
+        movie.ClearDomainEvents();
         var before = movie.Version;
 
         movie.SetImage(ContentImageSlot.Backdrop, "backdrop.jpg");
-        var afterSet = movie.Version;
+        Assert.Equal(before + 1, movie.Version);
+        movie.ClearDomainEvents();
         movie.RemoveImage(ContentImageSlot.Backdrop);
 
-        Assert.True(before < afterSet && afterSet < movie.Version);
+        Assert.Equal(before + 2, movie.Version);
     }
 
     private static Movie Published()

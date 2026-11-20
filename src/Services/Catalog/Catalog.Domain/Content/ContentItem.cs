@@ -275,10 +275,18 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
     /// <summary>The published videos of the title, as if it were published itself.</summary>
     protected abstract IReadOnlyList<PlayableVideo> PlayableVideos();
 
-    /// <summary>For changes a derived aggregate makes to its own parts.</summary>
+    /// <summary>
+    /// For changes a derived aggregate makes to its own parts. The version moves once per save, however many
+    /// changes it carries (an update applies the texts, details, genres and credits one by one): the editor that
+    /// saved knows its copy is now exactly one version on, and anyone else's change in between still shows.
+    /// </summary>
     protected void MarkChanged()
     {
-        Version++;
+        if (!DomainEvents.OfType<ContentChangedDomainEvent>().Any())
+        {
+            Version++;
+        }
+
         Announce();
     }
 
