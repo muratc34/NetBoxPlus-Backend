@@ -374,6 +374,9 @@ Migrator'daki seed):
   ile girer (compose'da `docker compose ... --profile app run --rm --no-deps catalog-migrator reindex`).
 - **Listelerde görseller (Catalog):** `GET /titles`, `/search` ve `/search/suggest` hem `posterUrl` (2:3) hem `backdropUrl` (16:9) döner;
   görsel yoksa `null`. Arama dokümanındaki `backdropImage` Faz 8'de eklendi.
+- **Id ile başlıklar (Catalog):** `GET /titles?ids=a&ids=b` (tekrarlanan parametre, en fazla 100; fazlası 400 `Titles.TooManyIds`) sadece o
+  başlıkları döner; bilinmeyen ve yayında olmayan id atlanır, sıra listenin kendi sırası, diğer filtreler aynen. Başlığı id ile tutan
+  Streaming listeleri (izlemeye devam et, Listem) için. Boş liste parametre olarak gitmez ve filtresiz liste döner: istemci boşken sormaz.
 - **Yaş filtresi (Catalog):** aynı üç uç isteğe bağlı `maxAgeRating` alır (`All`…`Age18`, profilin `MaxAgeRating`'iyle aynı; geçersiz 400).
   Filtre `AgeRatings.UpTo` listesiyle: SQL'de `IN` (kolon adı saklıyor, `<=` alfabetik karşılaştırır), Elasticsearch'te `ageRating`
   `keyword` üzerinde `terms`; sayfa ve toplam filtreli sonuca göre. Alan mapping'e Faz 8'de eklendi: eski doküman reindex'e kadar
