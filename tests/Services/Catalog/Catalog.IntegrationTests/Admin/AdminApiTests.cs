@@ -76,6 +76,8 @@ public sealed class AdminApiTests(CatalogApiFixture api)
         Assert.Equal("Draft", loaded.Status.ToString());
         var updated = await client.PutAsJsonAsync($"/admin/movies/{id}", Movie("Night Train 2", [genre], [new { personId = person, role = "Actor", characterName = "Hero", order = 1 }], loaded.Version), Json, Cancellation);
         Assert.Equal(HttpStatusCode.NoContent, updated.StatusCode);
+        // Texts, details, genres and credits changed in one save: the editor's copy is exactly one version behind.
+        Assert.Equal(loaded.Version + 1, (await GetMovieAsync(client, id)).Version);
 
         Assert.Equal("Content.PosterRequired", await CodeAsync(await client.PostAsync($"/admin/movies/{id}/publish", null, Cancellation)));
         await AttachMoviePosterAsync(client, id);

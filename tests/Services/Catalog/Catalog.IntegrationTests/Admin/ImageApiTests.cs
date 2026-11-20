@@ -211,10 +211,12 @@ public sealed class ImageApiTests(CatalogApiFixture api)
     {
         using var client = api.CreateClient(Everything);
         var movie = await MovieAsync(client);
+        var before = (await GetAsync(client, movie)).Version;
 
         Assert.Equal(HttpStatusCode.NoContent, (await AttachAsync(client, movie, "backdrop", await TestImages.UploadAsync(client, TestImages.Png(1280, 720), Json, Cancellation))).StatusCode);
         var attached = await GetAsync(client, movie);
         Assert.NotNull(attached.BackdropUrl);
+        Assert.Equal(before + 1, attached.Version);
 
         Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/admin/movies/{movie}/images/backdrop?version={attached.Version}", Cancellation)).StatusCode);
         Assert.Null((await GetAsync(client, movie)).BackdropUrl);

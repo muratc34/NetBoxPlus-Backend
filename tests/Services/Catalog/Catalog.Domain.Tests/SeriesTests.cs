@@ -165,19 +165,23 @@ public sealed class SeriesTests
     }
 
     [Fact]
-    public void ChangesToSeasonsAndEpisodes_RaiseTheVersionOfTheSeries()
+    public void ChangesToSeasonsAndEpisodes_RaiseTheVersionOfTheSeries_OncePerSave()
     {
         var (series, season) = TestContent.SeriesWithSeason();
+        series.ClearDomainEvents();
         var before = series.Version;
 
+        // Each step below is its own save, as each is its own request.
         var episode = series.AddEpisode(season.Id, TestContent.Details()).Value;
-        var afterAdd = series.Version;
+        Assert.Equal(before + 1, series.Version);
+        series.ClearDomainEvents();
         series.ChangeEpisode(episode.Id, TestContent.Details(2));
-        var afterChange = series.Version;
-        TestContent.Playable(series, episode.Id).PublishEpisode(episode.Id, TestContent.Now);
-        var afterPublish = series.Version;
-
-        Assert.True(before < afterAdd && afterAdd < afterChange && afterChange < afterPublish);
+        Assert.Equal(before + 2, series.Version);
+        TestContent.Playable(series, episode.Id);
+        series.ClearDomainEvents();
+        var playable = series.Version;
+        series.PublishEpisode(episode.Id, TestContent.Now);
+        Assert.Equal(playable + 1, series.Version);
     }
 
     [Fact]
