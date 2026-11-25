@@ -53,7 +53,7 @@ public sealed class EmailVerificationApiTests(AuthApiFixture api)
         var userId = await RegisterAsync(client, email);
         var token = Assert.Single(await RequestsAsync(userId)).Token;
         var accessToken = await SignInAsync(client, email);
-        Assert.Equal(new VerificationStatus(false, null), await GetStatusAsync(client, accessToken));
+        Assert.Equal(new VerificationStatus(false, null, email), await GetStatusAsync(client, accessToken));
 
         var first = await ConfirmAsync(client, token);
         var again = await ConfirmAsync(client, token);

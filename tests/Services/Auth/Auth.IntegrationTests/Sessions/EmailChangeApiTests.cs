@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Auth.API.Sessions;
+using Auth.Application.EmailVerification.GetVerificationStatus;
 using Auth.Application.Sessions;
 using Auth.Contracts;
 using Auth.Domain.UserTokens;
@@ -65,6 +66,11 @@ public sealed class EmailChangeApiTests(AuthApiFixture api)
         Assert.Equal((newEmail, 2), (changed.Email, changed.Revision));
         // The first verification of the account, through the new address.
         Assert.Equal(newEmail, Assert.Single(await PublishedAsync<EmailVerified>(userId)).Email);
+        // A token issued before the change still names the old address; the status names the new one.
+        using var statusRequest = new HttpRequestMessage(HttpMethod.Get, "/email-verification");
+        statusRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        var status = await client.SendAsync(statusRequest, Cancellation);
+        Assert.Equal(newEmail, (await status.Content.ReadFromJsonAsync<VerificationStatus>(Cancellation))!.Email);
 
         Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/sign-in", new SignInRequest(newEmail, Password), Cancellation)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/sign-in", new SignInRequest(email, Password), Cancellation)).StatusCode);
