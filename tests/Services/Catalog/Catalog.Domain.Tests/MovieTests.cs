@@ -84,6 +84,16 @@ public sealed class MovieTests
     }
 
     [Fact]
+    public void ReleasingAGenreOrPerson_IsOnlyForDeletedContent()
+    {
+        var movie = Published();
+
+        Assert.Throws<InvalidOperationException>(() => movie.ReleaseGenre(movie.Genres.First().GenreId));
+        Assert.Throws<InvalidOperationException>(() => movie.ReleasePerson(Guid.NewGuid()));
+        Assert.NotEmpty(movie.Genres);
+    }
+
+    [Fact]
     public void CanDelete_OnlyWhenUnpublished()
     {
         var movie = Published();
