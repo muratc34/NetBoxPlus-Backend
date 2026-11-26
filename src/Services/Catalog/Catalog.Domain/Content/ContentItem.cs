@@ -117,6 +117,32 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
         return Result.Success();
     }
 
+    /// <summary>
+    /// Lets go of a genre that is being deleted. Deleted content only: it is kept for the ids watch history
+    /// points at and shown nowhere, so what it was filed under must not keep the genre from going. No version
+    /// change and nothing announced, as for anything else about deleted content.
+    /// </summary>
+    public void ReleaseGenre(Guid genreId)
+    {
+        EnsureDeleted();
+        _genres.RemoveAll(genre => genre.GenreId == genreId);
+    }
+
+    /// <summary>Lets go of a person who is being deleted; deleted content only, as <see cref="ReleaseGenre"/>.</summary>
+    public void ReleasePerson(Guid personId)
+    {
+        EnsureDeleted();
+        _credits.RemoveAll(credit => credit.PersonId == personId);
+    }
+
+    private void EnsureDeleted()
+    {
+        if (!IsDeleted)
+        {
+            throw new InvalidOperationException("Only deleted content lets go of a genre or person; content in use keeps them.");
+        }
+    }
+
     /// <summary>Replaces the credits; a person may hold several roles, but each role once.</summary>
     public Result SetCredits(IReadOnlyCollection<CreditInput> credits)
     {

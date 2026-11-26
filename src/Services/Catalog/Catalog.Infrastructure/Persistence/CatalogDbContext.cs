@@ -35,10 +35,6 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
 
     IQueryable<TitlePopularity> ICatalogReadModel.TitlePopularity => Set<TitlePopularity>().AsNoTracking();
 
-    IQueryable<Movie> ICatalogReadModel.MoviesIncludingDeleted => Movies.IgnoreQueryFilters().AsNoTracking();
-
-    IQueryable<Series> ICatalogReadModel.SeriesIncludingDeleted => Series.IgnoreQueryFilters().AsNoTracking();
-
     IQueryable<Movie> ICatalogReadModel.MoviesTitled(string fragment)
     {
         var pattern = Pattern(fragment);

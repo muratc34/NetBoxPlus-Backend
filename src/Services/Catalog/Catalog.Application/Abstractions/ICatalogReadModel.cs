@@ -20,12 +20,6 @@ public interface ICatalogReadModel
     /// <summary>The scores of the titles watched most in the last week; a title not in it scores 0.</summary>
     IQueryable<TitlePopularity> TitlePopularity { get; }
 
-    /// <summary>Deleted movies too: their rows still refer to genres and people.</summary>
-    IQueryable<Movie> MoviesIncludingDeleted { get; }
-
-    /// <summary>Deleted series too: their rows still refer to genres and people.</summary>
-    IQueryable<Series> SeriesIncludingDeleted { get; }
-
     /// <summary>Movies whose title or original title contains the text, ignoring case.</summary>
     IQueryable<Movie> MoviesTitled(string fragment);
 

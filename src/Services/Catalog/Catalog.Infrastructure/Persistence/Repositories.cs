@@ -11,6 +11,13 @@ internal sealed class MovieRepository(CatalogDbContext context) : IMovieReposito
     public Task<Movie?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
         => context.Movies.FirstOrDefaultAsync(movie => movie.Id == id, cancellationToken);
 
+    public async Task<IReadOnlyList<Movie>> ListDeletedUsingAsync(Guid? genreId, Guid? personId, CancellationToken cancellationToken)
+        => await context.Movies.IgnoreQueryFilters()
+            .Where(movie => movie.IsDeleted)
+            .Where(movie => movie.Genres.Any(genre => genre.GenreId == genreId) || movie.Credits.Any(credit => credit.PersonId == personId))
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
     public void Add(Movie movie) => context.Movies.Add(movie);
 
     public void Remove(Movie movie) => context.Movies.Remove(movie);
@@ -32,6 +39,14 @@ internal sealed class SeriesRepository(CatalogDbContext context) : ISeriesReposi
             .ThenInclude(season => season.Episodes)
             .AsSplitQuery()
             .FirstOrDefaultAsync(series => series.Seasons.Any(season => season.Episodes.Any(episode => episode.Id == episodeId)), cancellationToken);
+
+    // Without seasons: only the series' own genres and credits change.
+    public async Task<IReadOnlyList<Series>> ListDeletedUsingAsync(Guid? genreId, Guid? personId, CancellationToken cancellationToken)
+        => await context.Series.IgnoreQueryFilters()
+            .Where(series => series.IsDeleted)
+            .Where(series => series.Genres.Any(genre => genre.GenreId == genreId) || series.Credits.Any(credit => credit.PersonId == personId))
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
 
     public void Add(Series series) => context.Series.Add(series);
 

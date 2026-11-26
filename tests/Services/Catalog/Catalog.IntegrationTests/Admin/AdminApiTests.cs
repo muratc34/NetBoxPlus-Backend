@@ -255,18 +255,54 @@ public sealed class AdminApiTests(CatalogApiFixture api)
     }
 
     [Fact]
-    public async Task GenreInUse_CannotBeDeleted_EvenByDeletedContent()
+    public async Task GenreInUse_CannotBeDeleted_ButDeletedContentLetsGoOfIt()
     {
         using var client = api.CreateClient(Everything);
         var genre = await CreateGenreAsync(client);
         var movie = await CreateMovieAsync(client, "Uses it", [genre]);
+        var series = (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync("/admin/series", Series("Also uses it", [genre]), Json, Cancellation))).Id;
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/admin/series/{series}", Cancellation)).StatusCode);
 
+        // A movie still uses it: the deleted series does not count, the movie does.
         Assert.Equal("Genre.InUse", await CodeAsync(await client.DeleteAsync($"/admin/genres/{genre}", Cancellation)));
+        Assert.Equal(1, (await GenreAsync(client, genre)).UsageCount);
 
-        await client.DeleteAsync($"/admin/movies/{movie}", Cancellation);
-        Assert.Equal("Genre.InUse", await CodeAsync(await client.DeleteAsync($"/admin/genres/{genre}", Cancellation)));
-        var listed = (await ReadAsync<List<GenreResponse>>(await client.GetAsync("/admin/genres", Cancellation))).Single(item => item.Id == genre);
-        Assert.Equal(1, listed.UsageCount);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/admin/movies/{movie}", Cancellation)).StatusCode);
+        Assert.Equal(0, (await GenreAsync(client, genre)).UsageCount);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/admin/genres/{genre}", Cancellation)).StatusCode);
+
+        Assert.DoesNotContain(await ReadAsync<List<GenreResponse>>(await client.GetAsync("/admin/genres", Cancellation)), item => item.Id == genre);
+        await using var scope = api.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+        var deletedMovie = await context.Movies.IgnoreQueryFilters().AsNoTracking().SingleAsync(item => item.Id == movie, Cancellation);
+        var deletedSeries = await context.Series.IgnoreQueryFilters().AsNoTracking().SingleAsync(item => item.Id == series, Cancellation);
+        // Kept for watch history's ids, without the genre.
+        Assert.True(deletedMovie.IsDeleted);
+        Assert.Empty(deletedMovie.Genres);
+        Assert.True(deletedSeries.IsDeleted);
+        Assert.Empty(deletedSeries.Genres);
+    }
+
+    [Fact]
+    public async Task PersonCreditedOnlyByDeletedContent_CanBeDeleted()
+    {
+        using var client = api.CreateClient(Everything);
+        var person = await CreatePersonAsync(client);
+        var credit = new { personId = person, role = "Actor", characterName = "Lead", order = 0 };
+        var movie = (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync("/admin/movies", Movie("Stars them", [], [credit]), Json, Cancellation))).Id;
+        var series = (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync("/admin/series", Series("Stars them too", [], [credit]), Json, Cancellation))).Id;
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/admin/movies/{movie}", Cancellation)).StatusCode);
+
+        Assert.Equal("Person.InUse", await CodeAsync(await client.DeleteAsync($"/admin/people/{person}", Cancellation)));
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/admin/series/{series}", Cancellation)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/admin/people/{person}", Cancellation)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/admin/people/{person}", Cancellation)).StatusCode);
+
+        await using var scope = api.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+        Assert.Empty((await context.Movies.IgnoreQueryFilters().AsNoTracking().SingleAsync(item => item.Id == movie, Cancellation)).Credits);
+        Assert.Empty((await context.Series.IgnoreQueryFilters().AsNoTracking().SingleAsync(item => item.Id == series, Cancellation)).Credits);
     }
 
     [Fact]
@@ -343,6 +379,9 @@ public sealed class AdminApiTests(CatalogApiFixture api)
 
     private static async Task<Guid> CreateGenreAsync(HttpClient client)
         => (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync("/admin/genres", TestRequests.Genre($"Genre {Guid.NewGuid():N}"), Json, Cancellation))).Id;
+
+    private static async Task<GenreResponse> GenreAsync(HttpClient client, Guid id)
+        => (await ReadAsync<List<GenreResponse>>(await client.GetAsync("/admin/genres", Cancellation))).Single(item => item.Id == id);
 
     private static async Task<Guid> CreatePersonAsync(HttpClient client)
         => (await ReadAsync<CreatedResponse>(await client.PostAsJsonAsync("/admin/people", TestRequests.Person("Ada", null), Json, Cancellation))).Id;

@@ -9,15 +9,15 @@ namespace Catalog.Application.Genres.GetGenres;
 /// <summary>Every genre; there are few, so the list is not paged.</summary>
 public sealed record GetGenresQuery : IQuery<IReadOnlyList<GenreResponse>>;
 
-/// <param name="UsageCount">Movies and series using it, deleted ones included: above zero it cannot be deleted.</param>
+/// <param name="UsageCount">Movies and series using it, deleted ones left out: above zero it cannot be deleted.</param>
 public sealed record GenreResponse(Guid Id, string Name, IReadOnlyDictionary<string, string> Translations, int UsageCount);
 
 internal sealed class GetGenresHandler(ICatalogReadModel readModel) : IQueryHandler<GetGenresQuery, IReadOnlyList<GenreResponse>>
 {
     public async Task<Result<IReadOnlyList<GenreResponse>>> Handle(GetGenresQuery query, CancellationToken cancellationToken)
     {
-        var movies = await CountAsync(readModel.MoviesIncludingDeleted.SelectMany(movie => movie.Genres), cancellationToken).ConfigureAwait(false);
-        var series = await CountAsync(readModel.SeriesIncludingDeleted.SelectMany(item => item.Genres), cancellationToken).ConfigureAwait(false);
+        var movies = await CountAsync(readModel.Movies.SelectMany(movie => movie.Genres), cancellationToken).ConfigureAwait(false);
+        var series = await CountAsync(readModel.Series.SelectMany(item => item.Genres), cancellationToken).ConfigureAwait(false);
 
         var genres = await readModel.Genres.ToListAsync(cancellationToken).ConfigureAwait(false);
 
