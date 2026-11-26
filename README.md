@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 The backend of a subscription video streaming platform: a catalog in two languages, Stripe
-subscriptions, HLS video with dubbing, subtitles, screen limits and age ratings, per-profile lists
+subscriptions, HLS video with dubbing, subtitles, trailers, screen limits and age ratings, per-profile lists
 and continue watching, a popularity ranking, and transactional e-mail. It is built
 on .NET 10 as five independently deployable services behind a YARP gateway, in a single
 repository, and the whole system comes up with one command.
@@ -52,11 +52,11 @@ blob storage with short-lived SAS URLs.
 | Service | Responsibility | Publishes | Consumes |
 |---|---|---|---|
 | **Auth** | Accounts, profiles, roles and permissions, access and refresh tokens, e-mail verification and change, password reset, account deletion | `UserRegistered`, `Profile*`, `EmailVerificationRequested`, `EmailVerified`, `EmailChangeRequested`, `EmailChanged`, `PasswordResetRequested`, `PasswordChanged`, `UserDeleted` | — |
-| **Catalog** | Movies, series, people and genres in Turkish and English; full-text search; publishing rules; audio and subtitle languages; sorting by popularity | `PlayableChanged` | `Video*`, `PopularityUpdated` |
+| **Catalog** | Movies, series, people and genres in Turkish and English; full-text search; publishing rules; audio and subtitle languages; sorting by popularity; filters by age rating and by id | `PlayableChanged` | `Video*`, `PopularityUpdated` |
 | **Billing** | Plans, Stripe Checkout and customer portal, a mirror of Stripe subscriptions and invoices | `Subscription*`, `PaymentFailed` | `UserRegistered`, `EmailVerified`, `EmailChanged`, `UserDeleted` |
-| **Streaming** | Video upload and transcoding, dubbing and subtitles, playback sessions, screen limits, watch progress, My List, popularity | `Video*`, `PopularityUpdated` | `Profile*`, `Subscription*`, `PlayableChanged`, `UserDeleted` |
+| **Streaming** | Video upload and transcoding, dubbing and subtitles, trailers, playback sessions, screen limits, watch progress, My List, popularity | `Video*`, `PopularityUpdated` | `Profile*`, `Subscription*`, `PlayableChanged`, `UserDeleted` |
 | **Notification** | Queued, retried transactional e-mail | — | `UserRegistered`, `EmailVerificationRequested`, `EmailChangeRequested`, `EmailChanged`, `PasswordResetRequested`, `PasswordChanged`, `UserDeleted`, `SubscriptionActivated`, `SubscriptionCanceled`, `PaymentFailed` |
-| **Gateway** | Routing, CORS and rate limits per route group, cookie sessions for browsers | — | — |
+| **Gateway** | Routing, CORS and rate limits per route group, cookie sessions for browsers, rate limits per visitor for the web app's server rendering | — | — |
 
 ### Key flows
 
@@ -110,7 +110,9 @@ sends a farewell e-mail and empties the others. The address can be registered ag
   service metrics (sign-ins, outbox and dead-letter depth, transcoding, playback, e-mail) and a
   provisioned Grafana dashboard. Lost or stuck events turn health checks `Degraded` and log an error.
 - **Tests against real infrastructure:** over 1,300 tests; integration tests run PostgreSQL,
-  RabbitMQ and Azurite in containers (Testcontainers), and transcoding tests run real ffmpeg.
+  RabbitMQ and Azurite in containers (Testcontainers), and transcoding tests run real ffmpeg. The
+  frontend repository drives the whole system end to end with Playwright, from sign-up and a
+  Stripe test payment to playback, and from an upload in the admin panel to a published title.
 - **Measured:** a mixed k6 scenario (browsing, playback with heartbeats, one sign-up per second)
   ran at about 36 requests/s with a p95 of 24 ms and 0.01% errors, on a Ryzen 5 3600 running the
   whole system and k6 in Docker Desktop. Its slowest requests are password hashing
@@ -132,8 +134,13 @@ builds every image and waits until all services report ready. Then fill the cata
 ```
 
 The seeder signs in as the administrator through the gateway, like the admin panel, and creates
-genres, people, six movies and two series with generated posters and 30-second videos, waits for
-transcoding and publishes them (about four minutes; running it again changes nothing).
+genres, people, six movies and two series with generated posters and 30-second videos, a dub,
+subtitles in two languages and two trailers, waits for transcoding and publishes them (about four
+minutes; running it again changes nothing). With a Stripe key it also creates two plans.
+
+The web app and the admin panel are in
+[NetBoxPlus-Frontend](https://github.com/muratc34/NetBoxPlus-Frontend): with this system running,
+`pnpm dev` there serves them on http://localhost:5173 and http://localhost:5174.
 
 | What | Where |
 |---|---|
