@@ -4,8 +4,8 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 The backend of a subscription video streaming platform: a catalog in two languages, Stripe
-subscriptions, HLS video with dubbing, subtitles, trailers, screen limits and age ratings, per-profile lists
-and continue watching, a popularity ranking, and transactional e-mail. It is built
+subscriptions, HLS video with dubbing, subtitles, trailers, screen limits and age ratings, per-profile lists,
+continue watching, ratings and recommendations, a popularity ranking, and transactional e-mail. It is built
 on .NET 10 as five independently deployable services behind a YARP gateway, in a single
 repository, and the whole system comes up with one command.
 
@@ -83,6 +83,12 @@ languages from `VideoTracksChanged` and shows them on the title.
 keeping only the daily totals, and publishes the top 100 with `PopularityUpdated` when it changes.
 Catalog sorts titles by it and lets it lift popular titles slightly in search.
 
+**Recommendations.** A profile rates titles (not for me, like, love), and Streaming turns its ratings
+and watching into a taste: title ids it is drawn to and away from. The web app passes them to Catalog,
+which finds similar titles with Elasticsearch's `more_like_this` over genres, people, synopsis and
+title, leaving out what the profile has seen. Catalog never learns who the profile is, and no service
+calls another. Removing a title from the watching history removes it from the taste too.
+
 **Account deletion.** Auth anonymizes the account and publishes `UserDeleted`. Billing deletes the
 Stripe customer, which cancels the subscription at once, and keeps the invoices without card
 details. Streaming removes profiles, lists and watch progress and ends open sessions. Notification
@@ -107,7 +113,8 @@ sends a farewell e-mail and empties the others. The address can be registered ag
 - **Playback rules:** HMAC-signed playlists, read-only SAS for segments, a screen limit enforced
   with optimistic concurrency, heartbeats that re-check the rules.
 - **Observability:** OpenTelemetry traces, metrics and logs with redaction of personal data;
-  service metrics (sign-ins, outbox and dead-letter depth, transcoding, playback, e-mail) and a
+  service metrics (sign-ins, outbox and dead-letter depth, transcoding, playback, ratings and
+  recommendations, e-mail) and a
   provisioned Grafana dashboard. Lost or stuck events turn health checks `Degraded` and log an error.
 - **Tests against real infrastructure:** over 1,300 tests; integration tests run PostgreSQL,
   RabbitMQ and Azurite in containers (Testcontainers), and transcoding tests run real ffmpeg. The
