@@ -3,13 +3,14 @@ using Shared.Domain;
 using Streaming.Domain.Access;
 using Streaming.Domain.Lists;
 using Streaming.Domain.Playback;
+using Streaming.Domain.Ratings;
 
 namespace Streaming.Application.Access;
 
 /// <summary>The account service's news about a profile; no age rating means it was removed. Sent by the event handlers, not by people.</summary>
 public sealed record ApplyProfileCommand(Guid ProfileId, Guid UserId, AgeRating? MaxAgeRating, int Revision) : ICommand;
 
-internal sealed class ApplyProfileHandler(IProfileCopyRepository profiles, IWatchProgressRepository progress, IMyListRepository lists, IPlaybackPreferenceRepository preferences)
+internal sealed class ApplyProfileHandler(IProfileCopyRepository profiles, IWatchProgressRepository progress, IMyListRepository lists, IPlaybackPreferenceRepository preferences, ITitleRatingRepository ratings)
     : ICommandHandler<ApplyProfileCommand>
 {
     public async Task<Result> Handle(ApplyProfileCommand command, CancellationToken cancellationToken)
@@ -27,10 +28,11 @@ internal sealed class ApplyProfileHandler(IProfileCopyRepository profiles, IWatc
         }
         else if (profile.Remove(command.Revision))
         {
-            // What a removed profile watched and saved goes with it.
+            // What a removed profile watched, saved and rated goes with it.
             await progress.RemoveForProfileAsync(command.ProfileId, cancellationToken).ConfigureAwait(false);
             await lists.RemoveForProfileAsync(command.ProfileId, cancellationToken).ConfigureAwait(false);
             await preferences.RemoveForProfileAsync(command.ProfileId, cancellationToken).ConfigureAwait(false);
+            await ratings.RemoveForProfileAsync(command.ProfileId, cancellationToken).ConfigureAwait(false);
         }
 
         return Result.Success();

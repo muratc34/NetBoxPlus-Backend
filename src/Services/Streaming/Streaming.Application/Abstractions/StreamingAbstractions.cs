@@ -2,6 +2,7 @@ using Streaming.Domain.Access;
 using Streaming.Domain.Lists;
 using Streaming.Domain.Playback;
 using Streaming.Domain.Popularity;
+using Streaming.Domain.Ratings;
 using Streaming.Domain.Videos;
 
 namespace Streaming.Application.Abstractions;
@@ -68,6 +69,9 @@ public interface IStreamingReadModel
 
     /// <summary>The languages profiles chose in the player.</summary>
     IQueryable<PlaybackPreference> PlaybackPreferences { get; }
+
+    /// <summary>How profiles rated titles.</summary>
+    IQueryable<TitleRating> TitleRatings { get; }
 
     /// <summary>How many profiles started each title on the finished days of the last week.</summary>
     IQueryable<DailyPlays> DailyPlays { get; }
