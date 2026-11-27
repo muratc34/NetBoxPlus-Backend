@@ -20,6 +20,7 @@ internal sealed class OutgoingEmailConfiguration : IEntityTypeConfiguration<Outg
         builder.Property(email => email.SourceKey).HasMaxLength(OutgoingEmail.SourceKeyMaxLength).IsRequired();
         builder.Property(email => email.Subject).HasMaxLength(OutgoingEmail.SubjectMaxLength).IsRequired();
         builder.Property(email => email.ToAddress).HasMaxLength(Recipient.EmailMaxLength);
+        builder.Property(email => email.UnsubscribeUrl).HasMaxLength(OutgoingEmail.UnsubscribeUrlMaxLength);
         builder.Property(email => email.LastError).HasMaxLength(OutgoingEmail.LastErrorMaxLength);
         builder.Property<DateTimeOffset?>(LeasedUntil);
 

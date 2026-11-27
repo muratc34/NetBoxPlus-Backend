@@ -52,6 +52,7 @@ public sealed class NotificationDatabaseFixture : IAsyncLifetime
             ["Email:Smtp:Host"] = "127.0.0.1",
             ["Email:Smtp:Port"] = "1",
             ["Notification:WebBaseUrl"] = "https://app.netboxplus.test",
+            ["Notification:ApiBaseUrl"] = "https://api.netboxplus.test/notification/",
         };
         foreach (var (key, value) in settings ?? new Dictionary<string, string?>())
         {

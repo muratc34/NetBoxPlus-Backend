@@ -232,6 +232,112 @@
           }
         }
       }
+    },
+    "/me/notification-preferences": {
+      "get": {
+        "tags": [
+          "Preferences"
+        ],
+        "summary": "The caller's e-mail preferences; an alert is on until turned off.",
+        "operationId": "GetNotificationPreferences",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPreferencesView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Preferences"
+        ],
+        "summary": "Turns the caller's e-mail alerts on or off. E-mails about the account itself cannot be turned off.",
+        "operationId": "SetNotificationPreferences",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationPreferencesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/unsubscribe": {
+      "post": {
+        "tags": [
+          "Preferences"
+        ],
+        "summary": "Turns the sign-in alerts off with the token of an alert's link; works again and again until it expires.",
+        "operationId": "Unsubscribe",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -319,7 +425,10 @@
           "SubscriptionEnded",
           "EmailChangeVerification",
           "EmailChanged",
-          "AccountDeleted"
+          "AccountDeleted",
+          "NewSignIn",
+          "PasskeyAdded",
+          "PasskeyRemoved"
         ]
       },
       "EmailStatus": {
@@ -427,6 +536,28 @@
           }
         }
       },
+      "NotificationPreferencesRequest": {
+        "required": [
+          "signInAlerts"
+        ],
+        "type": "object",
+        "properties": {
+          "signInAlerts": {
+            "type": "boolean"
+          }
+        }
+      },
+      "NotificationPreferencesView": {
+        "required": [
+          "signInAlerts"
+        ],
+        "type": "object",
+        "properties": {
+          "signInAlerts": {
+            "type": "boolean"
+          }
+        }
+      },
       "PageOfEmailSummary": {
         "required": [
           "items",
@@ -511,6 +642,9 @@
   "tags": [
     {
       "name": "Emails"
+    },
+    {
+      "name": "Preferences"
     }
   ]
 }

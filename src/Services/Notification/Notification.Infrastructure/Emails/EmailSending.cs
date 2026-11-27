@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Notification.Application.Abstractions;
 using Notification.Domain.Emails;
+using Notification.Domain.SignIns;
 using Notification.Infrastructure.Persistence;
 
 namespace Notification.Infrastructure.Emails;
@@ -16,15 +17,27 @@ public sealed class NotificationOptions
     /// <summary>The customer web app, where the links in e-mails go.</summary>
     public Uri? WebBaseUrl { get; set; }
 
-    internal bool IsValid => WebBaseUrl is { IsAbsoluteUri: true } address && (address.Scheme == Uri.UriSchemeHttps || address.Scheme == Uri.UriSchemeHttp);
+    /// <summary>
+    /// This service as the outside world reaches it, through the gateway (such as <c>https://…/notification/</c>): where a
+    /// mail program turns alerts off in one click.
+    /// </summary>
+    public Uri? ApiBaseUrl { get; set; }
+
+    internal bool IsValid => IsHttp(WebBaseUrl) && IsHttp(ApiBaseUrl);
+
+    private static bool IsHttp(Uri? address) => address is { IsAbsoluteUri: true } && (address.Scheme == Uri.UriSchemeHttps || address.Scheme == Uri.UriSchemeHttp);
 }
 
 internal sealed class EmailLinks(IOptions<NotificationOptions> options) : IEmailLinks
 {
-    public Uri To(string relative)
+    public Uri To(string relative) => Under(options.Value.WebBaseUrl!, relative);
+
+    public Uri Api(string relative) => Under(options.Value.ApiBaseUrl!, relative);
+
+    private static Uri Under(Uri root, string relative)
     {
-        var root = options.Value.WebBaseUrl!.AbsoluteUri;
-        return new Uri(new Uri(root.EndsWith('/') ? root : root + "/"), relative);
+        var address = root.AbsoluteUri;
+        return new Uri(new Uri(address.EndsWith('/') ? address : address + "/"), relative);
     }
 }
 
@@ -83,7 +96,23 @@ internal sealed partial class EmailDispatcher(
         var before = timeProvider.GetUtcNow() - FailedContentKept;
         return context.Emails
             .Where(email => email.Status == EmailStatus.Failed && email.HtmlBody != null && email.ModifiedAt < before)
-            .ExecuteUpdateAsync(setters => setters.SetProperty(email => email.HtmlBody, (string?)null).SetProperty(email => email.TextBody, (string?)null), cancellationToken);
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(email => email.HtmlBody, (string?)null)
+                    .SetProperty(email => email.TextBody, (string?)null)
+                    .SetProperty(email => email.ToAddress, (string?)null)
+                    .SetProperty(email => email.UnsubscribeUrl, (string?)null),
+                cancellationToken);
+    }
+
+    /// <summary>Devices not seen for <see cref="KnownDevice.RememberedFor"/> and unsubscribe links that expired.</summary>
+    public async Task<int> ForgetOldSignInRecordsAsync(CancellationToken cancellationToken)
+    {
+        var now = timeProvider.GetUtcNow();
+        var before = now - KnownDevice.RememberedFor;
+        var devices = await context.KnownDevices.Where(device => device.LastSeenAt < before).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+        var links = await context.UnsubscribeLinks.Where(link => link.ExpiresAt < now).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+        return devices + links;
     }
 
     private async Task SendAsync(Guid id, CancellationToken cancellationToken)
@@ -114,7 +143,7 @@ internal sealed partial class EmailDispatcher(
         }
         else
         {
-            delivery = await sender.SendAsync(new EmailMessage(address, email.Subject, email.HtmlBody, email.TextBody ?? string.Empty), cancellationToken).ConfigureAwait(false);
+            delivery = await sender.SendAsync(new EmailMessage(address, email.Subject, email.HtmlBody, email.TextBody ?? string.Empty, email.UnsubscribeUrl is null ? null : new Uri(email.UnsubscribeUrl)), cancellationToken).ConfigureAwait(false);
             switch (delivery.Outcome)
             {
                 case EmailDeliveryOutcome.Sent:
@@ -187,6 +216,7 @@ internal sealed partial class EmailSendingService(IServiceScopeFactory scopes, T
                     if (timeProvider.GetUtcNow() >= nextCleanup)
                     {
                         await dispatcher.ForgetOldFailuresAsync(stoppingToken).ConfigureAwait(false);
+                        await dispatcher.ForgetOldSignInRecordsAsync(stoppingToken).ConfigureAwait(false);
                         nextCleanup = timeProvider.GetUtcNow() + CleanupInterval;
                     }
                 }

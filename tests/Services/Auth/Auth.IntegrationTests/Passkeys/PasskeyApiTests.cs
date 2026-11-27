@@ -78,6 +78,20 @@ public sealed class PasskeyApiTests(AuthApiFixture api)
     }
 
     [Fact]
+    public async Task APasskeySignIn_IsAnnouncedAsASignIn()
+    {
+        using var client = api.CreateClient();
+        var (userId, tokens) = await AccountAsync(client);
+        using var authenticator = new TestAuthenticator();
+        await AddPasskeyAsync(client, tokens.AccessToken, authenticator, "Key");
+
+        var signedIn = await (await SignInAsync(client, authenticator)).Content.ReadFromJsonAsync<TokenPair>(Cancellation);
+
+        var announced = await PublishedAsync<SignedIn>(item => item.SessionId == signedIn!.SessionId);
+        Assert.Equal((userId, false, "Customer"), (announced.UserId, announced.Registration, announced.Kind));
+    }
+
+    [Fact]
     public async Task ASignature_WorksOnce_AndACounterThatGoesBack_IsRefused()
     {
         using var client = api.CreateClient();

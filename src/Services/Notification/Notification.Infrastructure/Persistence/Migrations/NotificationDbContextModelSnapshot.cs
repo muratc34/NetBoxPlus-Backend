@@ -79,6 +79,10 @@ namespace Notification.Infrastructure.Persistence.Migrations
                         .HasMaxLength(320)
                         .HasColumnType("character varying(320)");
 
+                    b.Property<string>("UnsubscribeUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
@@ -114,6 +118,69 @@ namespace Notification.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Recipients", (string)null);
+                });
+
+            modelBuilder.Entity("Notification.Domain.SignIns.KnownDevice", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Label")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("UserId", "Label");
+
+                    b.HasIndex("LastSeenAt");
+
+                    b.ToTable("KnownDevices", (string)null);
+                });
+
+            modelBuilder.Entity("Notification.Domain.SignIns.NotificationPreference", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("SignInAlerts")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("NotificationPreferences", (string)null);
+                });
+
+            modelBuilder.Entity("Notification.Domain.SignIns.UnsubscribeLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UnsubscribeLinks", (string)null);
                 });
 
             modelBuilder.Entity("Shared.Infrastructure.Persistence.Auditing.AuditLogEntry", b =>

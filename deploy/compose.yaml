@@ -326,6 +326,7 @@ services:
       OTEL_SERVICE_NAME: notification-api
       ConnectionStrings__Database: Host=postgres;Port=5432;Database=notification;Username=notification;Password=${POSTGRES_SERVICE_PASSWORD}
       Notification__WebBaseUrl: http://localhost:5173
+      Notification__ApiBaseUrl: http://localhost:5100/notification/
       # dev.ps1 sets these to Brevo only when deploy/.env says EMAIL_PROVIDER=Brevo, as "secrets" does.
       Email__Provider: ${NETBOXPLUS_EMAIL_PROVIDER:-Smtp}
       Email__From: ${NETBOXPLUS_EMAIL_FROM:-no-reply@netboxplus.local}

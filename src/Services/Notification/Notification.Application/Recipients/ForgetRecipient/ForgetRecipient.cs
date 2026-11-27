@@ -2,6 +2,7 @@ using Auth.Contracts;
 using Notification.Application.Emails;
 using Notification.Domain.Emails;
 using Notification.Domain.Recipients;
+using Notification.Domain.SignIns;
 using Shared.Application.Cqrs;
 using Shared.Application.Messaging;
 using Shared.Domain;
@@ -16,12 +17,13 @@ namespace Notification.Application.Recipients.ForgetRecipient;
 /// </summary>
 public sealed record ForgetRecipientCommand(Guid UserId, DateTimeOffset DeletedAt) : ICommand;
 
-internal sealed class ForgetRecipientHandler(IRecipientRepository recipients, IOutgoingEmailRepository emails, TimeProvider timeProvider)
+internal sealed class ForgetRecipientHandler(IRecipientRepository recipients, IOutgoingEmailRepository emails, ISignInRecordRepository signIns, TimeProvider timeProvider)
     : ICommandHandler<ForgetRecipientCommand>
 {
     public async Task<Result> Handle(ForgetRecipientCommand command, CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();
+        await signIns.RemoveForUserAsync(command.UserId, cancellationToken).ConfigureAwait(false);
         var recipient = await recipients.GetAsync(command.UserId, cancellationToken).ConfigureAwait(false);
         if (recipient is null)
         {

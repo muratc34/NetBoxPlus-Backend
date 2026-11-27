@@ -60,6 +60,14 @@ internal sealed class SessionTokens(
         return Complete(user, RefreshToken.Issue(user.Id, kind, Hash(value), timeProvider.GetUtcNow(), deviceLabel), value, grants, []);
     }
 
+    /// <summary>A new session that someone signed in to (or registered): <see cref="Start"/>, announced as a sign-in.</summary>
+    public TokenPair SignIn(User user, SessionKind kind, Grants grants, string? deviceLabel, bool registration = false)
+    {
+        var pair = Start(user, kind, grants, deviceLabel);
+        user.RecordSignIn(pair.SessionId, kind.ToString(), deviceLabel, timeProvider.GetUtcNow(), registration);
+        return pair;
+    }
+
     /// <summary>The same session, renewed: the next token of <paramref name="current"/>'s family, with the profiles it has opened.</summary>
     public async Task<TokenPair> ContinueAsync(User user, RefreshToken current, Grants grants, CancellationToken cancellationToken)
     {
