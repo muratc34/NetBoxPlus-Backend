@@ -4,6 +4,7 @@ using Streaming.API.Admin;
 using Streaming.API.Lists;
 using Streaming.API.Playback;
 using Streaming.API.Preferences;
+using Streaming.API.Taste;
 using Streaming.API.Trailers;
 using Shared.Infrastructure.API.Security;
 using Streaming.Application;
@@ -40,6 +41,7 @@ app.MapPlaybackEndpoints();
 app.MapTrailerEndpoints();
 app.MapMyListEndpoints();
 app.MapPlaybackPreferenceEndpoints();
+app.MapTasteEndpoints();
 app.MapDefaultEndpoints();
 
 app.Run();

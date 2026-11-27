@@ -5,6 +5,7 @@ using Streaming.Domain.Access;
 using Streaming.Domain.Lists;
 using Streaming.Domain.Playback;
 using Streaming.Domain.Popularity;
+using Streaming.Domain.Ratings;
 using Streaming.Domain.Videos;
 
 namespace Streaming.Infrastructure.Persistence;
@@ -36,6 +37,8 @@ public sealed class StreamingDbContext(DbContextOptions<StreamingDbContext> opti
 
     public DbSet<DailyPlays> DailyPlays => Set<DailyPlays>();
 
+    public DbSet<TitleRating> TitleRatings => Set<TitleRating>();
+
     IQueryable<Video> IStreamingReadModel.Videos => Videos.AsNoTracking();
 
     IQueryable<PlaybackSession> IStreamingReadModel.PlaybackSessions => PlaybackSessions.AsNoTracking();
@@ -53,6 +56,8 @@ public sealed class StreamingDbContext(DbContextOptions<StreamingDbContext> opti
     IQueryable<PlaybackPreference> IStreamingReadModel.PlaybackPreferences => PlaybackPreferences.AsNoTracking();
 
     IQueryable<DailyPlays> IStreamingReadModel.DailyPlays => DailyPlays.AsNoTracking();
+
+    IQueryable<TitleRating> IStreamingReadModel.TitleRatings => TitleRatings.AsNoTracking();
 
     protected override void ConfigureModel(ModelBuilder modelBuilder)
         => modelBuilder.ApplyConfigurationsFromAssembly(typeof(StreamingDbContext).Assembly);

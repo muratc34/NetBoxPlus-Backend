@@ -96,6 +96,9 @@ internal sealed class WatchProgressRepository(StreamingDbContext context) : IWat
     public Task<WatchProgress?> FindAsync(Guid profileId, Guid contentId, CancellationToken cancellationToken)
         => context.WatchProgress.AsNoTracking().FirstOrDefaultAsync(progress => progress.ProfileId == profileId && progress.ContentId == contentId, cancellationToken);
 
+    public async Task RemoveForTitleAsync(Guid profileId, Guid titleId, CancellationToken cancellationToken)
+        => context.WatchProgress.RemoveRange(await context.WatchProgress.Where(progress => progress.ProfileId == profileId && progress.TitleId == titleId).ToListAsync(cancellationToken).ConfigureAwait(false));
+
     public async Task RemoveForUserAsync(Guid userId, CancellationToken cancellationToken)
         => context.WatchProgress.RemoveRange(await context.WatchProgress.Where(progress => progress.UserId == userId).ToListAsync(cancellationToken).ConfigureAwait(false));
 

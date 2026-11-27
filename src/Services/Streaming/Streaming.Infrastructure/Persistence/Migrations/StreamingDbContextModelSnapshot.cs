@@ -410,6 +410,34 @@ namespace Streaming.Infrastructure.Persistence.Migrations
                     b.ToTable("PopularityRankings", (string)null);
                 });
 
+            modelBuilder.Entity("Streaming.Domain.Ratings.TitleRating", b =>
+                {
+                    b.Property<Guid>("ProfileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TitleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Level")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTimeOffset>("RatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("ProfileId", "TitleId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("ProfileId", "RatedAt");
+
+                    b.ToTable("TitleRatings", (string)null);
+                });
+
             modelBuilder.Entity("Streaming.Domain.Videos.Video", b =>
                 {
                     b.Property<Guid>("Id")

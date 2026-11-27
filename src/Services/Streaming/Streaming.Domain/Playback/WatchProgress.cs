@@ -144,6 +144,9 @@ public interface IWatchProgressRepository
 
     Task<WatchProgress?> FindAsync(Guid profileId, Guid contentId, CancellationToken cancellationToken);
 
+    /// <summary>Removes, with the change being saved, the profile's progress on every movie or episode of a title.</summary>
+    Task RemoveForTitleAsync(Guid profileId, Guid titleId, CancellationToken cancellationToken);
+
     /// <summary>Removes, with the change being saved, all progress of a profile that no longer exists.</summary>
     Task RemoveForProfileAsync(Guid profileId, CancellationToken cancellationToken);
 

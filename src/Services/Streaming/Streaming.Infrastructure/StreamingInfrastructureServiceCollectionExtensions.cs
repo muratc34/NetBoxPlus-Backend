@@ -10,6 +10,7 @@ using Streaming.Domain.Access;
 using Streaming.Domain.Lists;
 using Streaming.Domain.Playback;
 using Streaming.Domain.Popularity;
+using Streaming.Domain.Ratings;
 using Streaming.Domain.Videos;
 using Streaming.Infrastructure.Media;
 using Streaming.Infrastructure.Persistence;
@@ -99,6 +100,7 @@ public static class StreamingInfrastructureServiceCollectionExtensions
         services.AddScoped<IMyListRepository, MyListRepository>();
         services.AddScoped<IPlaybackPreferenceRepository, PlaybackPreferenceRepository>();
         services.AddScoped<IPopularityRepository, PopularityRepository>();
+        services.AddScoped<ITitleRatingRepository, TitleRatingRepository>();
         return services;
     }
 
