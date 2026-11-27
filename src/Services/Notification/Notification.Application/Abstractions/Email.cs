@@ -1,9 +1,12 @@
 using Notification.Domain.Emails;
 
+using Notification.Domain.SignIns;
+
 namespace Notification.Application.Abstractions;
 
 /// <summary>One e-mail to one address, with an HTML and a plain text body.</summary>
-public sealed record EmailMessage(string To, string Subject, string HtmlBody, string TextBody);
+/// <param name="UnsubscribeUrl">Sent as <c>List-Unsubscribe</c> with <c>List-Unsubscribe-Post: List-Unsubscribe=One-Click</c> (RFC 8058).</param>
+public sealed record EmailMessage(string To, string Subject, string HtmlBody, string TextBody, Uri? UnsubscribeUrl = null);
 
 public enum EmailDeliveryOutcome
 {
@@ -37,10 +40,15 @@ public interface IEmailLinks
 {
     /// <summary>An address in the web app, such as <c>verify-email?token=…</c>, relative to its root.</summary>
     Uri To(string relative);
+
+    /// <summary>An address of this service as the outside world reaches it (through the gateway), relative to its root.</summary>
+    Uri Api(string relative);
 }
 
 /// <summary>Untracked queryable views for query handlers.</summary>
 public interface INotificationReadModel
 {
     IQueryable<OutgoingEmail> Emails { get; }
+
+    IQueryable<NotificationPreference> Preferences { get; }
 }

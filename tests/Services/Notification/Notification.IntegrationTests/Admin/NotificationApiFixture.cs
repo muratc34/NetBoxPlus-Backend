@@ -114,6 +114,7 @@ public sealed class NotificationApiFixture : IAsyncLifetime
             builder.UseSetting("Email:Smtp:Host", "127.0.0.1");
             builder.UseSetting("Email:Smtp:Port", "1");
             builder.UseSetting("Notification:WebBaseUrl", "https://app.netboxplus.test");
+            builder.UseSetting("Notification:ApiBaseUrl", "https://api.netboxplus.test/notification/");
 
             builder.ConfigureTestServices(services =>
             {

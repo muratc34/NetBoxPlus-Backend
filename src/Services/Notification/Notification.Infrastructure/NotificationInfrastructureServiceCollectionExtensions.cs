@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Notification.Application.Abstractions;
 using Notification.Domain.Emails;
 using Notification.Domain.Recipients;
+using Notification.Domain.SignIns;
 using Notification.Infrastructure.Email;
 using Notification.Infrastructure.Emails;
 using Notification.Infrastructure.Persistence;
@@ -40,17 +41,18 @@ public static class NotificationInfrastructureServiceCollectionExtensions
         services.AddPersistence<NotificationDbContext>(connectionString);
         services.AddScoped<IRecipientRepository, RecipientRepository>();
         services.AddScoped<IOutgoingEmailRepository, OutgoingEmailRepository>();
+        services.AddScoped<ISignInRecordRepository, SignInRecordRepository>();
         services.AddScoped<INotificationReadModel>(provider => provider.GetRequiredService<NotificationDbContext>());
 
         return services;
     }
 
-    /// <summary>Links in e-mails (from <c>Notification:WebBaseUrl</c>), the dispatcher and the worker that sends.</summary>
+    /// <summary>Links in e-mails (from <c>Notification:WebBaseUrl</c> and <c>ApiBaseUrl</c>), the dispatcher and the worker that sends.</summary>
     internal static IServiceCollection AddEmailSending(this IServiceCollection services)
     {
         services.AddOptions<NotificationOptions>()
             .BindConfiguration(NotificationOptions.SectionName)
-            .Validate(options => options.IsValid, $"{NotificationOptions.SectionName}:WebBaseUrl must be an absolute http(s) address.")
+            .Validate(options => options.IsValid, $"{NotificationOptions.SectionName}:WebBaseUrl and ApiBaseUrl must be absolute http(s) addresses.")
             .ValidateOnStart();
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<IEmailLinks, EmailLinks>();

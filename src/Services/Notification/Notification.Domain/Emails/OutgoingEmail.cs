@@ -22,6 +22,13 @@ public enum EmailKind
 
     /// <summary>The last e-mail to a deleted account, to the address it had.</summary>
     AccountDeleted,
+
+    /// <summary>A sign-in from a device not seen lately; the only kind the user can turn off.</summary>
+    NewSignIn,
+
+    PasskeyAdded,
+
+    PasskeyRemoved,
 }
 
 public enum EmailStatus
@@ -45,6 +52,7 @@ public sealed class OutgoingEmail : AggregateRoot, IAuditableEntity
     public const int SubjectMaxLength = 200;
     public const int SourceKeyMaxLength = 100;
     public const int LastErrorMaxLength = 500;
+    public const int UnsubscribeUrlMaxLength = 500;
 
     /// <summary>Attempts before an e-mail the provider keeps turning away is given up: about a day.</summary>
     public const int MaxAttempts = 8;
@@ -60,11 +68,12 @@ public sealed class OutgoingEmail : AggregateRoot, IAuditableEntity
         TimeSpan.FromHours(12),
     ];
 
-    private OutgoingEmail(Guid id, Guid userId, EmailKind kind, string sourceKey, EmailContent content, string? toAddress, DateTimeOffset now)
+    private OutgoingEmail(Guid id, Guid userId, EmailKind kind, string sourceKey, EmailContent content, string? toAddress, Uri? unsubscribeUrl, DateTimeOffset now)
         : base(id)
     {
         UserId = userId;
         ToAddress = toAddress;
+        UnsubscribeUrl = unsubscribeUrl?.AbsoluteUri;
         Kind = kind;
         SourceKey = sourceKey;
         Subject = content.Subject;
@@ -97,6 +106,12 @@ public sealed class OutgoingEmail : AggregateRoot, IAuditableEntity
     /// </summary>
     public string? ToAddress { get; private set; }
 
+    /// <summary>
+    /// Where a mail program turns this kind of e-mail off in one click (the <c>List-Unsubscribe</c> header); only on
+    /// e-mails the user may turn off. Emptied with the content.
+    /// </summary>
+    public string? UnsubscribeUrl { get; private set; }
+
     public EmailStatus Status { get; private set; }
 
     public int Attempts { get; private set; }
@@ -112,7 +127,8 @@ public sealed class OutgoingEmail : AggregateRoot, IAuditableEntity
     public DateTimeOffset? ModifiedAt { get; private set; }
 
     /// <param name="toAddress">Only when the e-mail must not go to the user's current address.</param>
-    public static Result<OutgoingEmail> Queue(Guid userId, EmailKind kind, string sourceKey, EmailContent content, DateTimeOffset now, string? toAddress = null)
+    /// <param name="unsubscribeUrl">Only on an e-mail the user may turn off.</param>
+    public static Result<OutgoingEmail> Queue(Guid userId, EmailKind kind, string sourceKey, EmailContent content, DateTimeOffset now, string? toAddress = null, Uri? unsubscribeUrl = null)
     {
         ArgumentNullException.ThrowIfNull(content);
 
@@ -136,7 +152,12 @@ public sealed class OutgoingEmail : AggregateRoot, IAuditableEntity
             return OutgoingEmailErrors.ToAddressInvalid;
         }
 
-        return new OutgoingEmail(Guid.CreateVersion7(), userId, kind, sourceKey, content, toAddress?.Trim(), now);
+        if (unsubscribeUrl is not null && (!unsubscribeUrl.IsAbsoluteUri || unsubscribeUrl.AbsoluteUri.Length > UnsubscribeUrlMaxLength))
+        {
+            return OutgoingEmailErrors.UnsubscribeUrlInvalid;
+        }
+
+        return new OutgoingEmail(Guid.CreateVersion7(), userId, kind, sourceKey, content, toAddress?.Trim(), unsubscribeUrl, now);
     }
 
     /// <summary>The provider took it.</summary>
@@ -199,6 +220,7 @@ public sealed class OutgoingEmail : AggregateRoot, IAuditableEntity
         HtmlBody = null;
         TextBody = null;
         ToAddress = null;
+        UnsubscribeUrl = null;
     }
 
     private void Fail() => Status = EmailStatus.Failed;
@@ -218,6 +240,8 @@ public static class OutgoingEmailErrors
     public static readonly Error SourceKeyInvalid = Error.Validation("Email.SourceKeyInvalid", $"The source key is required, at most {OutgoingEmail.SourceKeyMaxLength} characters.");
 
     public static readonly Error ToAddressInvalid = Error.Validation("Email.ToAddressInvalid", $"The address is at most {Recipients.Recipient.EmailMaxLength} characters.");
+
+    public static readonly Error UnsubscribeUrlInvalid = Error.Validation("Email.UnsubscribeUrlInvalid", $"The unsubscribe address must be absolute, at most {OutgoingEmail.UnsubscribeUrlMaxLength} characters.");
 
     public static readonly Error SubjectInvalid = Error.Validation("Email.SubjectInvalid", $"The subject is required, at most {OutgoingEmail.SubjectMaxLength} characters.");
 

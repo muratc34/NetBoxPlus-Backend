@@ -192,7 +192,54 @@ internal static class EmailTemplates
         return $"{amount} {(currency == "TRY" ? "TL" : currency)}";
     }
 
-    private static EmailContent Render(string subject, IReadOnlyList<string> paragraphs, (string Label, Uri Address)? action = null)
+    /// <param name="device">The browser and system, or empty when the account service could not tell.</param>
+    /// <param name="admin">Signed in to the admin panel rather than the web app.</param>
+    public static EmailContent NewSignIn(string device, bool admin, DateTimeOffset signedInAt, Uri devices, Uri turnOff)
+    {
+        ArgumentNullException.ThrowIfNull(devices);
+        ArgumentNullException.ThrowIfNull(turnOff);
+        var when = signedInAt.ToUniversalTime().ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
+        var what = string.IsNullOrEmpty(device) ? "tanımadığımız bir cihazdan" : $"yeni bir cihazdan ({device})";
+        var where = admin ? "yönetim paneline" : "hesabına";
+        return Render(
+            "Yeni bir cihazdan giriş yapıldı",
+            [
+                $"NetBoxPlus {where} {when} (UTC) tarihinde {what} giriş yapıldı.",
+                "Bu sendin ise bir şey yapmana gerek yok.",
+                "Sen değilsen Cihazlar sayfasından o oturumu kapat ve şifreni değiştir.",
+            ],
+            ("Cihazlarımı gör", devices),
+            ("Yeni giriş uyarılarını kapat", turnOff));
+    }
+
+    public static EmailContent PasskeyAdded(string name, DateTimeOffset addedAt, Uri security)
+    {
+        ArgumentNullException.ThrowIfNull(security);
+        var when = addedAt.ToUniversalTime().ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
+        return Render(
+            "Hesabına bir passkey eklendi",
+            [
+                $"NetBoxPlus hesabına {when} (UTC) tarihinde \"{name}\" adlı bir passkey eklendi. Artık bu passkey ile şifresiz giriş yapılabilir.",
+                "Bunu sen yaptıysan bir şey yapmana gerek yok.",
+                "Sen yapmadıysan passkey'i hemen sil ve şifreni değiştir.",
+            ],
+            ("Güvenlik ayarlarımı aç", security));
+    }
+
+    public static EmailContent PasskeyRemoved(string name, DateTimeOffset removedAt, Uri security)
+    {
+        ArgumentNullException.ThrowIfNull(security);
+        var when = removedAt.ToUniversalTime().ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
+        return Render(
+            "Hesabından bir passkey silindi",
+            [
+                $"NetBoxPlus hesabından {when} (UTC) tarihinde \"{name}\" adlı passkey silindi; bu passkey ile artık giriş yapılamaz.",
+                "Bunu sen yapmadıysan güvenlik ayarlarını kontrol et ve şifreni değiştir.",
+            ],
+            ("Güvenlik ayarlarımı aç", security));
+    }
+
+    private static EmailContent Render(string subject, IReadOnlyList<string> paragraphs, (string Label, Uri Address)? action = null, (string Label, Uri Address)? turnOff = null)
     {
         var html = new StringBuilder();
         html.Append("<!DOCTYPE html><html lang=\"tr\"><head><meta charset=\"utf-8\"><title>")
@@ -220,8 +267,16 @@ internal static class EmailTemplates
             text.Append(label).Append(": ").AppendLine(address.AbsoluteUri).AppendLine();
         }
 
-        html.Append("<p style=\"color:#8c8c8c;font-size:12px\">Bu e-postayı NetBoxPlus hesabın için gönderdik.</p></div></body></html>");
+        html.Append("<p style=\"color:#8c8c8c;font-size:12px\">Bu e-postayı NetBoxPlus hesabın için gönderdik.");
         text.Append("Bu e-postayı NetBoxPlus hesabın için gönderdik.");
+        if (turnOff is var (offLabel, offAddress))
+        {
+            html.Append(" <a href=\"").Append(WebUtility.HtmlEncode(offAddress.AbsoluteUri)).Append("\" style=\"color:#8c8c8c\">")
+                .Append(WebUtility.HtmlEncode(offLabel)).Append("</a>");
+            text.AppendLine().Append(offLabel).Append(": ").Append(offAddress.AbsoluteUri);
+        }
+
+        html.Append("</p></div></body></html>");
         return new EmailContent(subject, html.ToString(), text.ToString());
     }
 }

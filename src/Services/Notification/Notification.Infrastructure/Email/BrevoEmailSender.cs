@@ -26,7 +26,14 @@ internal sealed partial class BrevoEmailSender(HttpClient http, IOptions<EmailOp
             [new BrevoAddress(message.To, null)],
             message.Subject,
             message.HtmlBody,
-            message.TextBody);
+            message.TextBody,
+            message.UnsubscribeUrl is { } unsubscribe
+                ? new Dictionary<string, string>
+                {
+                    [UnsubscribeHeaders.ListUnsubscribe] = UnsubscribeHeaders.ListUnsubscribeValue(unsubscribe),
+                    [UnsubscribeHeaders.ListUnsubscribePost] = UnsubscribeHeaders.OneClick,
+                }
+                : null);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(settings.Brevo.BaseAddress, SendPath))
         {
@@ -78,5 +85,6 @@ internal sealed partial class BrevoEmailSender(HttpClient http, IOptions<EmailOp
         [property: JsonPropertyName("to")] IReadOnlyList<BrevoAddress> To,
         [property: JsonPropertyName("subject")] string Subject,
         [property: JsonPropertyName("htmlContent")] string HtmlContent,
-        [property: JsonPropertyName("textContent")] string TextContent);
+        [property: JsonPropertyName("textContent")] string TextContent,
+        [property: JsonPropertyName("headers"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyDictionary<string, string>? Headers);
 }

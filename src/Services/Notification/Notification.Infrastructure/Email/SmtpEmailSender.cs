@@ -23,6 +23,11 @@ internal sealed partial class SmtpEmailSender(IOptions<EmailOptions> options, IL
         mime.To.Add(MailboxAddress.Parse(message.To));
         mime.Subject = message.Subject;
         mime.Body = new BodyBuilder { HtmlBody = message.HtmlBody, TextBody = message.TextBody }.ToMessageBody();
+        if (message.UnsubscribeUrl is { } unsubscribe)
+        {
+            mime.Headers.Add(UnsubscribeHeaders.ListUnsubscribe, UnsubscribeHeaders.ListUnsubscribeValue(unsubscribe));
+            mime.Headers.Add(UnsubscribeHeaders.ListUnsubscribePost, UnsubscribeHeaders.OneClick);
+        }
 
         using var client = new SmtpClient();
         try

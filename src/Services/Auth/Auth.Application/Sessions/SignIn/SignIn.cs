@@ -98,6 +98,6 @@ internal sealed class SignInHandler(
         }
 
         metrics.SignIn(command.Kind, SignInResults.Succeeded);
-        return sessions.Start(user, command.Kind, grants, command.DeviceLabel);
+        return sessions.SignIn(user, command.Kind, grants, command.DeviceLabel);
     }
 }

@@ -67,6 +67,10 @@ public sealed class MailpitFixture : IAsyncLifetime
         return null;
     }
 
+    /// <summary>The headers of a received e-mail, each with its values.</summary>
+    public async Task<Dictionary<string, List<string>>> HeadersAsync(Received received, CancellationToken cancellationToken)
+        => (await Api.GetFromJsonAsync<Dictionary<string, List<string>>>($"api/v1/message/{received.Id}/headers", cancellationToken))!;
+
     public async Task<int> CountAsync(string to, CancellationToken cancellationToken)
     {
         var list = await Api.GetFromJsonAsync<MessageList>($"api/v1/search?query={Uri.EscapeDataString("to:" + to)}", cancellationToken);
@@ -89,6 +93,7 @@ public sealed class MailpitFixture : IAsyncLifetime
     public sealed record Address([property: JsonPropertyName("Name")] string Name, [property: JsonPropertyName("Address")] string Email);
 
     public sealed record Received(
+        [property: JsonPropertyName("ID")] string Id,
         [property: JsonPropertyName("From")] Address From,
         [property: JsonPropertyName("To")] IReadOnlyList<Address> To,
         [property: JsonPropertyName("Subject")] string Subject,

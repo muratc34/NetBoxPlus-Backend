@@ -108,6 +108,10 @@ public sealed class User : AggregateRoot, IAuditableEntity
         LockedOutUntil = null;
     }
 
+    /// <summary>A session began by signing in or registering; announced so that the user can be told about a new device.</summary>
+    public void RecordSignIn(Guid sessionId, string kind, string? deviceLabel, DateTimeOffset now, bool registration = false)
+        => RaiseDomainEvent(new SignedInDomainEvent(Id, sessionId, kind, deviceLabel, now, registration));
+
     /// <summary>
     /// Stores the same password hashed with newer parameters, after a successful sign-in. Not a
     /// password change: the user is not told.
@@ -343,6 +347,8 @@ public sealed record PasswordChangedDomainEvent(Guid UserId, Guid ChangeId, Date
 /// <summary>The address was proven for the first time.</summary>
 /// <summary>The account moved to a new address; <paramref name="Revision"/> is the new <see cref="User.EmailRevision"/>.</summary>
 public sealed record EmailChangedDomainEvent(Guid UserId, string Email, int Revision, DateTimeOffset ChangedAt) : IDomainEvent;
+
+public sealed record SignedInDomainEvent(Guid UserId, Guid SessionId, string Kind, string? DeviceLabel, DateTimeOffset SignedInAt, bool Registration) : IDomainEvent;
 
 public sealed record UserDeletedDomainEvent(Guid UserId, DateTimeOffset DeletedAt) : IDomainEvent;
 

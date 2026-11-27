@@ -16,6 +16,7 @@ public sealed class HostTests
             ["Email:From"] = "no-reply@netboxplus.test",
             ["Email:Smtp:Host"] = "localhost",
             ["Notification:WebBaseUrl"] = "https://app.netboxplus.test",
+            ["Notification:ApiBaseUrl"] = "https://api.netboxplus.test/notification/",
         }).Build();
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(configuration);

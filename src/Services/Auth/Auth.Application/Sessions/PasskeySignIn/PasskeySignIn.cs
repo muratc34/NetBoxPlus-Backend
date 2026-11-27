@@ -94,6 +94,6 @@ internal sealed class FinishPasskeySignInHandler(
 
         passkey.RecordUse(signCount.Value, now);
         user.RecordSuccessfulSignIn();
-        return sessions.Start(user, command.Kind, grants, command.DeviceLabel);
+        return sessions.SignIn(user, command.Kind, grants, command.DeviceLabel);
     }
 }

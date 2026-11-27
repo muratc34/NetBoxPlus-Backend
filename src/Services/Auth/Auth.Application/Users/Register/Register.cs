@@ -57,6 +57,6 @@ internal sealed class RegisterHandler(IUserRepository users, IPasswordHasher has
         tokenIssuer.IssueEmailVerification(user.Id);
 
         var grants = await sessions.GetGrantsAsync(user, cancellationToken).ConfigureAwait(false);
-        return new RegisteredAccount(user.Id, sessions.Start(user, SessionKind.Customer, grants, command.DeviceLabel));
+        return new RegisteredAccount(user.Id, sessions.SignIn(user, SessionKind.Customer, grants, command.DeviceLabel, registration: true));
     }
 }
