@@ -1,3 +1,5 @@
+using Auth.Infrastructure.Security.Passkeys;
+using Auth.Domain.Passkeys;
 using Auth.Application.Abstractions;
 using Auth.Domain.RefreshTokens;
 using Auth.Domain.Roles;
@@ -33,6 +35,7 @@ public static class AuthInfrastructureServiceCollectionExtensions
 
         services.AddAuthPersistence(connectionString);
         services.AddAuthTokens();
+        services.AddPasskeys();
         services.AddRabbitMqMessaging();
 
         return services;
@@ -50,6 +53,7 @@ public static class AuthInfrastructureServiceCollectionExtensions
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IUserTokenRepository, UserTokenRepository>();
+        services.AddScoped<IPasskeyRepository, PasskeyRepository>();
 
         services.Configure<PasswordHasherOptions>(options =>
         {
@@ -58,6 +62,18 @@ public static class AuthInfrastructureServiceCollectionExtensions
         });
         services.AddSingleton<IPasswordHasher, IdentityPasswordHasher>();
 
+        return services;
+    }
+
+    /// <summary>The WebAuthn ceremonies; the service does not start without a relying party and its origins.</summary>
+    internal static IServiceCollection AddPasskeys(this IServiceCollection services)
+    {
+        services.AddOptions<PasskeyOptions>()
+            .BindConfiguration(PasskeyOptions.SectionName)
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<PasskeyOptions>, PasskeyOptionsValidator>());
+        services.AddSingleton<IPasskeyCeremonies, Fido2PasskeyCeremonies>();
+        services.AddHostedService<PasskeyChallengeCleanup>();
         return services;
     }
 

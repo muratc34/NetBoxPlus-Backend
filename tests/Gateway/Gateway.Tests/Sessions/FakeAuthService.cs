@@ -78,6 +78,12 @@ public sealed class FakeAuthService : IAsyncDisposable
     /// <summary>The session id of every sign-in and registration, in order.</summary>
     public ConcurrentQueue<Guid> Sessions { get; } = new();
 
+    /// <summary>The challenge a passkey sign-in must name to succeed.</summary>
+    public static readonly Guid PasskeyChallenge = Guid.Parse("01a00000-0000-7000-8000-000000000001");
+
+    /// <summary>Every request to <c>/me/passkeys…</c>: method, path and bearer.</summary>
+    public ConcurrentQueue<(string Method, string Path, string Bearer)> PasskeyCalls { get; } = new();
+
     /// <summary>The sessions ended through <c>DELETE /me/sessions[/{id}]</c>.</summary>
     public ConcurrentQueue<Guid> EndedSessions { get; } = new();
 
@@ -103,6 +109,21 @@ public sealed class FakeAuthService : IAsyncDisposable
             return service.SignIn(request, admin: false);
         });
         app.MapPost("/sign-in/admin", (Credentials request) => service.SignIn(request, admin: true));
+
+        app.MapPost("/sign-in/passkey/options", () => Results.Ok(new { challengeId = PasskeyChallenge, options = new { challenge = "Y2hhbGxlbmdl", rpId = "localhost" } }));
+        app.MapPost("/sign-in/passkey", (HttpContext context, PasskeyAnswer answer) => service.PasskeySignIn(context, answer, admin: false));
+        app.MapPost("/sign-in/passkey/admin", (HttpContext context, PasskeyAnswer answer) => service.PasskeySignIn(context, answer, admin: true));
+        app.Map("/me/passkeys/{**rest}", (HttpContext context, string? rest) =>
+        {
+            service.PasskeyCalls.Enqueue((context.Request.Method, "/" + rest, context.Request.Headers.Authorization.ToString()["Bearer ".Length..]));
+            return context.Request.Method switch
+            {
+                "GET" => Results.Ok(new[] { new { id = Guid.Empty, name = "Phone", createdAt = service.Time.GetUtcNow(), lastUsedAt = (DateTimeOffset?)null } }),
+                "POST" when rest == "options" => Results.Ok(new { challengeId = PasskeyChallenge, options = new { challenge = "Y2hhbGxlbmdl" } }),
+                "POST" => Results.Created((string?)null, new { id = Guid.Empty }),
+                _ => Results.NoContent(),
+            };
+        });
 
         // Every session it issued belongs to whoever asks: enough to see the gateway pass the answers on.
         app.MapGet("/me/sessions", (HttpContext context) =>
@@ -187,6 +208,14 @@ public sealed class FakeAuthService : IAsyncDisposable
 
     public async ValueTask DisposeAsync() => await _app.DisposeAsync();
 
+    private IResult PasskeySignIn(HttpContext context, PasskeyAnswer answer, bool admin)
+    {
+        UserAgents.Enqueue(context.Request.Headers.UserAgent.ToString());
+        return answer.ChallengeId == PasskeyChallenge && answer.Credential.ValueKind == System.Text.Json.JsonValueKind.Object
+            ? Results.Ok(Issue(new Account(Guid.CreateVersion7().ToString(), "passkey@example.com", admin, NewSession()), SignInAccessTokenLifetime))
+            : Problem(401, "Passkey.SignInFailed");
+    }
+
     private static Guid? SessionOf(HttpContext context)
         => Guid.TryParse(new JsonWebToken(context.Request.Headers.Authorization.ToString()["Bearer ".Length..]).GetClaim("sid").Value, out var id) ? id : null;
 
@@ -270,6 +299,8 @@ public sealed class FakeAuthService : IAsyncDisposable
     private sealed record TokenFields(string AccessToken, DateTimeOffset AccessTokenExpiresAt, string RefreshToken, DateTimeOffset RefreshTokenExpiresAt, Guid SessionId);
 
     public sealed record Credentials(string? Email, string? Password);
+
+    public sealed record PasskeyAnswer(Guid ChallengeId, System.Text.Json.JsonElement Credential);
 
     public sealed record RefreshRequest(string RefreshToken);
 

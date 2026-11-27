@@ -59,6 +59,17 @@ internal sealed partial class AuthClient(IHttpClientFactory httpClientFactory, I
     public Task<AuthResult> ChangePasswordAsync(string accessToken, string? currentPassword, string? newPassword, string? userAgent, CancellationToken cancellationToken)
         => SendAsync(HttpMethod.Post, "/me/password", new { currentPassword, newPassword }, accessToken, cancellationToken, userAgent);
 
+    public Task<AuthJson> StartPasskeySignInAsync(CancellationToken cancellationToken)
+        => SendForJsonAsync(HttpMethod.Post, "/sign-in/passkey/options", null, cancellationToken, new { });
+
+    /// <param name="answer">The browser's challenge id and credential, passed on as they came.</param>
+    public Task<AuthResult> PasskeySignInAsync(object answer, SessionKind kind, string? userAgent, CancellationToken cancellationToken)
+        => SendAsync(HttpMethod.Post, kind == SessionKind.Admin ? "/sign-in/passkey/admin" : "/sign-in/passkey", answer, null, cancellationToken, userAgent);
+
+    /// <summary>The account's passkeys: listing, the options for adding one, adding, renaming and removing; answers passed on.</summary>
+    public Task<AuthJson> PasskeysAsync(HttpMethod method, string path, string accessToken, object? body, CancellationToken cancellationToken)
+        => SendForJsonAsync(method, "/me/passkeys" + path, accessToken, cancellationToken, body);
+
     public Task<AuthJson> GetSessionsAsync(string accessToken, CancellationToken cancellationToken)
         => SendForJsonAsync(HttpMethod.Get, "/me/sessions", accessToken, cancellationToken);
 
@@ -81,10 +92,18 @@ internal sealed partial class AuthClient(IHttpClientFactory httpClientFactory, I
         => SendAsync(HttpMethod.Post, "/password-reset/confirm", new { token, newPassword }, null, cancellationToken);
 
     /// <summary>A call whose answer the gateway passes on: its status and body, whatever they are.</summary>
-    private async Task<AuthJson> SendForJsonAsync(HttpMethod method, string path, string accessToken, CancellationToken cancellationToken)
+    private async Task<AuthJson> SendForJsonAsync(HttpMethod method, string path, string? accessToken, CancellationToken cancellationToken, object? body = null)
     {
         using var request = new HttpRequestMessage(method, path);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        if (body is not null)
+        {
+            request.Content = JsonContent.Create(body);
+        }
+
+        if (accessToken is not null)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        }
 
         try
         {
@@ -95,10 +114,10 @@ internal sealed partial class AuthClient(IHttpClientFactory httpClientFactory, I
                 return new AuthJson(0, null);
             }
 
-            var body = response.Content.Headers.ContentLength == 0
+            var text = response.Content.Headers.ContentLength == 0
                 ? null
                 : await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            return new AuthJson((int)response.StatusCode, body);
+            return new AuthJson((int)response.StatusCode, text);
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
         {
