@@ -175,6 +175,14 @@ internal sealed class ElasticSearchIndex(ElasticsearchClient client) : ISearchIn
             fields.AddRange([$"title.{Languages.Default}^2", $"genres.{Languages.Default}", $"synopsis.{Languages.Default}"]);
         }
 
+        // Results come while the visitor is still typing, so the title also matches the start of its last word
+        // ("bre" finds "Breaking Bad"). Whole words weigh more: a finished word ranks as it did before.
+        var typing = new List<string>();
+        foreach (var candidate in new[] { query.Language, Languages.Default }.Distinct(StringComparer.Ordinal))
+        {
+            typing.AddRange([$"suggest.{candidate}", $"suggest.{candidate}._2gram", $"suggest.{candidate}._3gram"]);
+        }
+
         var filters = new List<object>();
         if (query.Kind is { } kind)
         {
@@ -206,7 +214,12 @@ internal sealed class ElasticSearchIndex(ElasticsearchClient client) : ISearchIn
                     {
                         @bool = new
                         {
-                            must = new object[] { new { multi_match = new { query = query.Text, fields, type = "best_fields" } } },
+                            should = new object[]
+                            {
+                                new { multi_match = new { query = query.Text, fields, type = "best_fields" } },
+                                new { multi_match = new { query = query.Text, fields = typing, type = "bool_prefix" } },
+                            },
+                            minimum_should_match = 1,
                             filter = filters,
                         },
                     },
@@ -218,24 +231,6 @@ internal sealed class ElasticSearchIndex(ElasticsearchClient client) : ISearchIn
 
         var (documents, total) = await RunSearchAsync(request, cancellationToken).ConfigureAwait(false);
         return new SearchResults(total, documents);
-    }
-
-    public async Task<IReadOnlyList<SearchDocument>> SuggestAsync(string text, string language, int size, AgeRating? maxAgeRating, CancellationToken cancellationToken)
-    {
-        var fields = new List<string>();
-        foreach (var candidate in new[] { language, Languages.Default }.Distinct(StringComparer.Ordinal))
-        {
-            fields.AddRange([$"suggest.{candidate}", $"suggest.{candidate}._2gram", $"suggest.{candidate}._3gram"]);
-        }
-
-        var match = new { multi_match = new { query = text, type = "bool_prefix", fields } };
-        object search = AgeFilter(maxAgeRating) is { } ages
-            ? new { @bool = new { must = new object[] { match }, filter = new[] { ages } } }
-            : match;
-        var request = new { size, query = search };
-
-        var (documents, _) = await RunSearchAsync(request, cancellationToken).ConfigureAwait(false);
-        return documents;
     }
 
     // A document indexed before the field was mapped has no indexed age and matches no age filter, until

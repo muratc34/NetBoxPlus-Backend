@@ -4,7 +4,6 @@ using Catalog.Application.Browse.GetPublishedMovie;
 using Catalog.Application.Browse.GetPublishedSeries;
 using Catalog.Application.Browse.GetTitles;
 using Catalog.Application.Browse.Search;
-using Catalog.Application.Browse.Suggest;
 using Catalog.Application.Content;
 using Catalog.Domain.Content;
 using Microsoft.AspNetCore.Mvc;
@@ -32,15 +31,8 @@ internal static class BrowseEndpoints
 
         browse.MapGet("/search", SearchAsync)
             .WithName("SearchTitles")
-            .WithSummary("Searches published movies and series, best match first.")
+            .WithSummary("Searches published movies and series, best match first; the last word may be unfinished.")
             .Produces<Page<SearchHit>>()
-            .ProducesValidationProblem()
-            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
-
-        browse.MapGet("/search/suggest", SuggestAsync)
-            .WithName("SuggestTitles")
-            .WithSummary("Suggests titles for what has been typed so far.")
-            .Produces<IReadOnlyList<SearchHit>>()
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
@@ -99,14 +91,6 @@ internal static class BrowseEndpoints
         [FromQuery] int pageSize = PageLimits.DefaultPageSize,
         [FromQuery] AgeRating? maxAgeRating = null)
         => (await dispatcher.Query(new SearchTitlesQuery(q, lang ?? Languages.Default, kind, genreId, page, pageSize, maxAgeRating), cancellationToken)).ToHttpResult();
-
-    private static async Task<IResult> SuggestAsync(
-        [FromServices] IDispatcher dispatcher,
-        CancellationToken cancellationToken,
-        [FromQuery] string? q = null,
-        [FromQuery] string? lang = null,
-        [FromQuery] AgeRating? maxAgeRating = null)
-        => (await dispatcher.Query(new SuggestTitlesQuery(q, lang ?? Languages.Default, maxAgeRating), cancellationToken)).ToHttpResult();
 
     private static async Task<IResult> GetMovieAsync(Guid id, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken, [FromQuery] string? lang = null)
         => (await dispatcher.Query(new GetPublishedMovieQuery(id, lang ?? Languages.Default), cancellationToken)).ToHttpResult();

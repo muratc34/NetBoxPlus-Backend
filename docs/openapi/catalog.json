@@ -2390,7 +2390,7 @@
         "tags": [
           "Browse"
         ],
-        "summary": "Searches published movies and series, best match first.",
+        "summary": "Searches published movies and series, best match first; the last word may be unfinished.",
         "operationId": "SearchTitles",
         "parameters": [
           {
@@ -2463,73 +2463,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PageOfSearchHit"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/search/suggest": {
-      "get": {
-        "tags": [
-          "Browse"
-        ],
-        "summary": "Suggests titles for what has been typed so far.",
-        "operationId": "SuggestTitles",
-        "parameters": [
-          {
-            "name": "q",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "lang",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "maxAgeRating",
-            "in": "query",
-            "schema": {
-              "$ref": "#/components/schemas/AgeRating"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/SearchHit"
-                  }
                 }
               }
             }
