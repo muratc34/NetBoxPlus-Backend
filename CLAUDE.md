@@ -376,10 +376,12 @@ Migrator'daki seed):
 - **Çoklu dil (Catalog):** diller `Languages` sınıfında (`tr` zorunlu ve varsayılan, `en`); çeviriler kayıt başına tabloda. Admin `translations`,
   müşteri `?lang=` kullanır; çeviri yoksa Türkçe döner, yanıttaki `language` metnin gerçek dilini söyler.
 - **Arama (Catalog):** Elasticsearch `ConnectionStrings:Search`, alias `catalog-titles`. Değişiklik `SearchIndexQueue`'ya aynı transaction'da yazılır, worker index'e taşır; arama `ISearchIndex` arkasında, Elasticsearch yoksa 503 `Search.Unavailable`, katalog okumaları etkilenmez. `HttpClient` değil transport ile düz JSON.
+  Sonuçlar yazarken gelir: `/search` tam kelimeyi (`best_fields`, kök bulma) ve başlığın yazılmakta olan son kelimesini (`suggest.<dil>`,
+  `search_as_you_type`, `bool_prefix`) birlikte eşler; tam kelime önde. Ayrı öneri ucu yok (`/search/suggest` Faz 8 sonunda kaldırıldı).
   Mapping `dynamic: false`: sadece aranan alanlar mapping'de, gösterilenler (görsel adları) dokümanda saklanır. Dokümana sonradan
   eklenen alan opsiyoneldir (eski doküman hatasız okunur, değeri boş) ve var olan dokümanlara bir kez `Catalog.Migrator -- reindex`
   ile girer (compose'da `docker compose ... --profile app run --rm --no-deps catalog-migrator reindex`).
-- **Listelerde görseller (Catalog):** `GET /titles`, `/search` ve `/search/suggest` hem `posterUrl` (2:3) hem `backdropUrl` (16:9) döner;
+- **Listelerde görseller (Catalog):** `GET /titles` ve `/search` hem `posterUrl` (2:3) hem `backdropUrl` (16:9) döner;
   görsel yoksa `null`. Arama dokümanındaki `backdropImage` Faz 8'de eklendi.
 - **Logo (Catalog):** film ve dizinin isteğe bağlı üçüncü görseli (`/images/logo`): başlığın kendine özgü yazısı, görsellerin üstüne çizilir.
   Sadece PNG ya da WebP (şeffaflık; JPEG 400 `Image.LogoNotTransparent`), en az 200×50, oran serbest; yayındayken de kaldırılabilir. Liste,
@@ -387,7 +389,7 @@ Migrator'daki seed):
 - **Id ile başlıklar (Catalog):** `GET /titles?ids=a&ids=b` (tekrarlanan parametre, en fazla 100; fazlası 400 `Titles.TooManyIds`) sadece o
   başlıkları döner; bilinmeyen ve yayında olmayan id atlanır, sıra listenin kendi sırası, diğer filtreler aynen. Başlığı id ile tutan
   Streaming listeleri (izlemeye devam et, Listem) için. Boş liste parametre olarak gitmez ve filtresiz liste döner: istemci boşken sormaz.
-- **Yaş filtresi (Catalog):** aynı üç uç isteğe bağlı `maxAgeRating` alır (`All`…`Age18`, profilin `MaxAgeRating`'iyle aynı; geçersiz 400).
+- **Yaş filtresi (Catalog):** aynı iki uç isteğe bağlı `maxAgeRating` alır (`All`…`Age18`, profilin `MaxAgeRating`'iyle aynı; geçersiz 400).
   Filtre `AgeRatings.UpTo` listesiyle: SQL'de `IN` (kolon adı saklıyor, `<=` alfabetik karşılaştırır), Elasticsearch'te `ageRating`
   `keyword` üzerinde `terms`; sayfa ve toplam filtreli sonuca göre. Alan mapping'e Faz 8'de eklendi: eski doküman reindex'e kadar
   filtreli aramada görünmez, filtresizde görünür. Güvenlik sınırı değil (katalog herkese açık); yaş oynatmada Streaming'de zorlanır.

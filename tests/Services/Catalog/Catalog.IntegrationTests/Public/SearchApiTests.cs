@@ -148,7 +148,7 @@ public sealed class SearchApiTests(CatalogApiFixture api)
     }
 
     [Fact]
-    public async Task Suggestions_FollowWhatIsBeingTyped()
+    public async Task Search_FindsTheTitle_WhileItsLastWordIsBeingTyped()
     {
         using var admin = api.CreateClient(Everything);
         using var visitor = api.CreateAnonymousClient();
@@ -157,15 +157,27 @@ public sealed class SearchApiTests(CatalogApiFixture api)
         var movie = await MovieAsync(admin, genre, $"{marker} Treni");
         await IndexAsync();
 
-        var hits = await ReadAsync<List<SearchHit>>(await visitor.GetAsync($"/search/suggest?q={marker[..10]}", Cancellation));
-        var twoWords = await ReadAsync<List<SearchHit>>(await visitor.GetAsync($"/search/suggest?q={marker}%20tre", Cancellation));
-
-        Assert.Contains(hits, hit => hit.Id == movie);
-        Assert.Contains(twoWords, hit => hit.Id == movie);
+        Assert.Equal(movie, Assert.Single((await SearchAsync(visitor, marker[..10], genre)).Items).Id);
+        Assert.Equal(movie, Assert.Single((await SearchAsync(visitor, $"{marker} tre", genre)).Items).Id);
     }
 
     [Fact]
-    public async Task HitsAndSuggestions_CarryTheBackdropAndLogo_OnceTheTitleHasThem()
+    public async Task Search_RanksTheFinishedWord_BeforeTitlesItOnlyBegins()
+    {
+        using var admin = api.CreateClient(Everything);
+        using var visitor = api.CreateAnonymousClient();
+        var genre = await GenreAsync(admin);
+        var begins = await MovieAsync(admin, genre, "Karanlıktaki Ses");
+        var whole = await MovieAsync(admin, genre, "Kar");
+        await IndexAsync();
+
+        var found = await SearchAsync(visitor, "kar", genre);
+
+        Assert.Equal([whole, begins], found.Items.Select(hit => hit.Id).ToList());
+    }
+
+    [Fact]
+    public async Task Hits_CarryTheBackdropAndLogo_OnceTheTitleHasThem()
     {
         using var admin = api.CreateClient(Everything);
         using var visitor = api.CreateAnonymousClient();
@@ -182,15 +194,12 @@ public sealed class SearchApiTests(CatalogApiFixture api)
         await IndexAsync();
 
         var hit = Assert.Single((await SearchAsync(visitor, marker, genre)).Items);
-        var suggested = Assert.Single(await ReadAsync<List<SearchHit>>(await visitor.GetAsync($"/search/suggest?q={marker}", Cancellation)), item => item.Id == movie);
         Assert.NotNull(hit.BackdropUrl);
         Assert.NotEqual(hit.PosterUrl, hit.BackdropUrl);
-        Assert.Equal(hit.BackdropUrl, suggested.BackdropUrl);
         var details = await ReadAsync<MovieDetails>(await admin.GetAsync($"/admin/movies/{movie}", Cancellation));
         Assert.Equal(details.BackdropUrl, hit.BackdropUrl);
         Assert.NotNull(hit.LogoUrl);
         Assert.Equal(details.LogoUrl, hit.LogoUrl);
-        Assert.Equal(hit.LogoUrl, suggested.LogoUrl);
     }
 
     [Fact]
@@ -220,7 +229,7 @@ public sealed class SearchApiTests(CatalogApiFixture api)
     }
 
     [Fact]
-    public async Task SearchAndSuggestions_ForAnAge_LeaveOutOlderTitles()
+    public async Task Search_ForAnAge_LeavesOutOlderTitles_AlsoWhileTyping()
     {
         using var admin = api.CreateClient(Everything);
         using var visitor = api.CreateAnonymousClient();
@@ -237,11 +246,11 @@ public sealed class SearchApiTests(CatalogApiFixture api)
         Assert.Equal(3, (await SearchAsync(visitor, marker, genre)).TotalCount);
         Assert.Equal(3, (await SearchAsync(visitor, marker, genre, "&maxAgeRating=Age18")).TotalCount);
 
-        async Task<HashSet<Guid>> SuggestAsync(string filter)
-            => (await ReadAsync<List<SearchHit>>(await visitor.GetAsync($"/search/suggest?q={marker}{filter}", Cancellation))).Select(hit => hit.Id).ToHashSet();
+        async Task<HashSet<Guid>> TypingAsync(string filter)
+            => (await SearchAsync(visitor, marker[..10], genre, filter)).Items.Select(hit => hit.Id).ToHashSet();
 
-        Assert.Equal([forAll], await SuggestAsync("&maxAgeRating=All"));
-        Assert.Equal(new HashSet<Guid> { forAll, seven, adults }, await SuggestAsync(string.Empty));
+        Assert.Equal([forAll], await TypingAsync("&maxAgeRating=All"));
+        Assert.Equal(new HashSet<Guid> { forAll, seven, adults }, await TypingAsync(string.Empty));
     }
 
     [Fact]
@@ -294,10 +303,7 @@ public sealed class SearchApiTests(CatalogApiFixture api)
     [InlineData("/search?q=%20")]
     [InlineData("/search?q=a&lang=fr")]
     [InlineData("/search?q=a&page=1000&pageSize=100")]
-    [InlineData("/search/suggest")]
-    [InlineData("/search/suggest?q=a&lang=fr")]
     [InlineData("/search?q=a&maxAgeRating=Age99")]
-    [InlineData("/search/suggest?q=a&maxAgeRating=adult")]
     public async Task InvalidRequests_Are400(string path)
     {
         using var visitor = api.CreateAnonymousClient();
@@ -337,11 +343,9 @@ public sealed class SearchApiTests(CatalogApiFixture api)
         using var visitor = api.CreateClientWithoutSearch();
 
         var search = await visitor.GetAsync("/search?q=film", Cancellation);
-        var suggest = await visitor.GetAsync("/search/suggest?q=film", Cancellation);
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, search.StatusCode);
         Assert.Contains("Search.Unavailable", await search.Content.ReadAsStringAsync(Cancellation), StringComparison.Ordinal);
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, suggest.StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await visitor.GetAsync("/titles", Cancellation)).StatusCode);
     }
 

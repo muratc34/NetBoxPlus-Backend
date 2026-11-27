@@ -8,6 +8,7 @@ namespace Catalog.Application.Abstractions;
 /// The landscape image's name. Stored, not searched (the mapping is not dynamic), so adding it changed no mapping;
 /// documents indexed before it have none until they are indexed again (<c>Catalog.Migrator -- reindex</c>).
 /// </param>
+/// <param name="Suggest">The titles again, indexed for matching the start of a word while it is being typed.</param>
 /// <param name="LogoImage">The logo's name; stored, not searched, and added later like <paramref name="BackdropImage"/>.</param>
 public sealed record SearchDocument(
     Guid Id,
@@ -39,8 +40,6 @@ public sealed record SearchResults(long Total, IReadOnlyList<SearchDocument> Ite
 public interface ISearchIndex
 {
     Task<SearchResults> SearchAsync(SearchQuery query, CancellationToken cancellationToken);
-
-    Task<IReadOnlyList<SearchDocument>> SuggestAsync(string text, string language, int size, AgeRating? maxAgeRating, CancellationToken cancellationToken);
 }
 
 public sealed class SearchUnavailableException(string message, Exception? innerException = null) : Exception(message, innerException);
