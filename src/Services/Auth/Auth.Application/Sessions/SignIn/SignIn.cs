@@ -9,7 +9,8 @@ using Shared.Domain;
 namespace Auth.Application.Sessions.SignIn;
 
 /// <param name="Kind">An admin session also requires <see cref="Permissions.Auth.AdminSignIn"/>.</param>
-public sealed record SignInCommand(string Email, string Password, SessionKind Kind) : ICommand<TokenPair>;
+/// <param name="DeviceLabel">What the sign-in came from (<see cref="DeviceLabels"/>), for the list of devices.</param>
+public sealed record SignInCommand(string Email, string Password, SessionKind Kind, string? DeviceLabel = null) : ICommand<TokenPair>;
 
 internal sealed class SignInValidator : IValidator<SignInCommand>
 {
@@ -97,6 +98,6 @@ internal sealed class SignInHandler(
         }
 
         metrics.SignIn(command.Kind, SignInResults.Succeeded);
-        return sessions.Start(user, command.Kind, grants);
+        return sessions.Start(user, command.Kind, grants, command.DeviceLabel);
     }
 }

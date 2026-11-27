@@ -9,7 +9,8 @@ using Shared.Domain;
 namespace Auth.Application.Users.ChangePassword;
 
 /// <param name="UserId">The signed-in caller, from the access token.</param>
-public sealed record ChangePasswordCommand(Guid UserId, string CurrentPassword, string NewPassword) : ICommand<TokenPair>;
+/// <param name="DeviceLabel">The device the new session (every other one ends) is named after.</param>
+public sealed record ChangePasswordCommand(Guid UserId, string CurrentPassword, string NewPassword, string? DeviceLabel = null) : ICommand<TokenPair>;
 
 internal sealed class ChangePasswordValidator : IValidator<ChangePasswordCommand>
 {
@@ -73,6 +74,6 @@ internal sealed class ChangePasswordHandler(
         await refreshTokens.RevokeAllForUserAsync(user.Id, now, cancellationToken).ConfigureAwait(false);
 
         var grants = await sessions.GetGrantsAsync(user, cancellationToken).ConfigureAwait(false);
-        return sessions.Start(user, SessionKind.Customer, grants);
+        return sessions.Start(user, SessionKind.Customer, grants, command.DeviceLabel);
     }
 }

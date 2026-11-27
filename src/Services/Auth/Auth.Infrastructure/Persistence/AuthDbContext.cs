@@ -26,6 +26,8 @@ public sealed class AuthDbContext(DbContextOptions<AuthDbContext> options)
 
     IQueryable<Role> IAuthReadModel.Roles => Roles.AsNoTracking();
 
+    IQueryable<RefreshToken> IAuthReadModel.RefreshTokens => RefreshTokens.AsNoTracking();
+
     // SQL rather than LINQ: the address is stored through a value conversion, which LINQ cannot
     // search inside. Stored addresses are lower case, so the fragment is lowered too.
     IQueryable<User> IAuthReadModel.UsersWithEmailContaining(string fragment)

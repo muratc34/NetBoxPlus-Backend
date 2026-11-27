@@ -17,6 +17,7 @@ internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refre
 
         builder.HasIndex(token => token.FamilyId);
         builder.HasIndex(token => token.UserId);
+        builder.Property(token => token.DeviceLabel).HasMaxLength(DeviceLabels.MaxLength);
 
         builder.HasOne<User>()
             .WithMany()

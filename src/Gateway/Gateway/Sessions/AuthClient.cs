@@ -6,7 +6,16 @@ using System.Text.Json;
 namespace Gateway.Sessions;
 
 /// <summary>The auth service's token pair, as its API returns it. A copy: the gateway references no service.</summary>
-internal sealed record TokenPair(string AccessToken, DateTimeOffset AccessTokenExpiresAt, string RefreshToken, DateTimeOffset RefreshTokenExpiresAt);
+/// <param name="SessionId">The sign-in (refresh token family) the pair belongs to; the same for every renewal.</param>
+internal sealed record TokenPair(string AccessToken, DateTimeOffset AccessTokenExpiresAt, string RefreshToken, DateTimeOffset RefreshTokenExpiresAt, Guid? SessionId = null);
+
+/// <summary>An answer of the auth service passed on as it is: its status and JSON body. <see cref="IsUnavailable"/> as in <see cref="AuthResult"/>.</summary>
+internal sealed record AuthJson(int StatusCode, string? Body)
+{
+    public bool IsSuccess => StatusCode is >= 200 and < 300;
+
+    public bool IsUnavailable => StatusCode is 0 or >= 500;
+}
 
 /// <summary>
 /// The answer of the auth service: a token pair, or its problem response, passed on to the browser
@@ -31,11 +40,15 @@ internal sealed partial class AuthClient(IHttpClientFactory httpClientFactory, I
     /// <summary>The named HTTP client, with the auth service's address and a timeout.</summary>
     public const string HttpClientName = "auth";
 
-    public Task<AuthResult> SignInAsync(string? email, string? password, SessionKind kind, CancellationToken cancellationToken)
-        => SendAsync(HttpMethod.Post, kind == SessionKind.Admin ? "/sign-in/admin" : "/sign-in", new { email, password }, null, cancellationToken);
+    /// <summary>More than any real browser sends; the auth service keeps only a short name derived from it.</summary>
+    private const int MaxUserAgentLength = 512;
 
-    public Task<AuthResult> RegisterAsync(string? email, string? password, CancellationToken cancellationToken)
-        => SendAsync(HttpMethod.Post, "/register", new { email, password }, null, cancellationToken);
+    /// <param name="userAgent">The browser's, passed on: the auth service names the session's device after it.</param>
+    public Task<AuthResult> SignInAsync(string? email, string? password, SessionKind kind, string? userAgent, CancellationToken cancellationToken)
+        => SendAsync(HttpMethod.Post, kind == SessionKind.Admin ? "/sign-in/admin" : "/sign-in", new { email, password }, null, cancellationToken, userAgent);
+
+    public Task<AuthResult> RegisterAsync(string? email, string? password, string? userAgent, CancellationToken cancellationToken)
+        => SendAsync(HttpMethod.Post, "/register", new { email, password }, null, cancellationToken, userAgent);
 
     public Task<AuthResult> RefreshAsync(string refreshToken, CancellationToken cancellationToken)
         => SendAsync(HttpMethod.Post, "/refresh", new { refreshToken }, null, cancellationToken);
@@ -43,8 +56,17 @@ internal sealed partial class AuthClient(IHttpClientFactory httpClientFactory, I
     public Task<AuthResult> SignOutAsync(string refreshToken, CancellationToken cancellationToken)
         => SendAsync(HttpMethod.Post, "/sign-out", new { refreshToken }, null, cancellationToken);
 
-    public Task<AuthResult> ChangePasswordAsync(string accessToken, string? currentPassword, string? newPassword, CancellationToken cancellationToken)
-        => SendAsync(HttpMethod.Post, "/me/password", new { currentPassword, newPassword }, accessToken, cancellationToken);
+    public Task<AuthResult> ChangePasswordAsync(string accessToken, string? currentPassword, string? newPassword, string? userAgent, CancellationToken cancellationToken)
+        => SendAsync(HttpMethod.Post, "/me/password", new { currentPassword, newPassword }, accessToken, cancellationToken, userAgent);
+
+    public Task<AuthJson> GetSessionsAsync(string accessToken, CancellationToken cancellationToken)
+        => SendForJsonAsync(HttpMethod.Get, "/me/sessions", accessToken, cancellationToken);
+
+    public Task<AuthJson> EndSessionAsync(string accessToken, Guid sessionId, CancellationToken cancellationToken)
+        => SendForJsonAsync(HttpMethod.Delete, $"/me/sessions/{sessionId}", accessToken, cancellationToken);
+
+    public Task<AuthJson> EndOtherSessionsAsync(string accessToken, CancellationToken cancellationToken)
+        => SendForJsonAsync(HttpMethod.Delete, "/me/sessions", accessToken, cancellationToken);
 
     public Task<AuthResult> RequestEmailChangeAsync(string accessToken, string? password, string? newEmail, CancellationToken cancellationToken)
         => SendAsync(HttpMethod.Post, "/me/email", new { password, newEmail }, accessToken, cancellationToken);
@@ -58,12 +80,45 @@ internal sealed partial class AuthClient(IHttpClientFactory httpClientFactory, I
     public Task<AuthResult> ResetPasswordAsync(string? token, string? newPassword, CancellationToken cancellationToken)
         => SendAsync(HttpMethod.Post, "/password-reset/confirm", new { token, newPassword }, null, cancellationToken);
 
-    private async Task<AuthResult> SendAsync(HttpMethod method, string path, object body, string? accessToken, CancellationToken cancellationToken)
+    /// <summary>A call whose answer the gateway passes on: its status and body, whatever they are.</summary>
+    private async Task<AuthJson> SendForJsonAsync(HttpMethod method, string path, string accessToken, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(method, path);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        try
+        {
+            using var response = await httpClientFactory.CreateClient(HttpClientName).SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if ((int)response.StatusCode >= 500)
+            {
+                LogFailed(logger, path, (int)response.StatusCode);
+                return new AuthJson(0, null);
+            }
+
+            var body = response.Content.Headers.ContentLength == 0
+                ? null
+                : await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            return new AuthJson((int)response.StatusCode, body);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            LogUnreachable(logger, path, exception);
+            return new AuthJson(0, null);
+        }
+    }
+
+    private async Task<AuthResult> SendAsync(HttpMethod method, string path, object body, string? accessToken, CancellationToken cancellationToken, string? userAgent = null)
     {
         using var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) };
         if (accessToken is not null)
         {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        }
+
+        // As the browser sent it; a header the parser refuses is left out rather than failing the sign-in.
+        if (!string.IsNullOrWhiteSpace(userAgent))
+        {
+            request.Headers.TryAddWithoutValidation("User-Agent", userAgent.Length <= MaxUserAgentLength ? userAgent : userAgent[..MaxUserAgentLength]);
         }
 
         try

@@ -1,5 +1,6 @@
 using Auth.Application.EmailChange.RequestEmailChange;
 using Auth.Application.Sessions;
+using Auth.Application.Sessions.Devices;
 using Auth.Application.Sessions.Refresh;
 using Auth.Application.Sessions.SignIn;
 using Auth.Application.Sessions.SignOut;
@@ -24,7 +25,8 @@ public sealed record RegisterResponse(
     string AccessToken,
     DateTimeOffset AccessTokenExpiresAt,
     string RefreshToken,
-    DateTimeOffset RefreshTokenExpiresAt);
+    DateTimeOffset RefreshTokenExpiresAt,
+    Guid SessionId);
 
 public sealed record SignInRequest(string Email, string Password);
 
@@ -53,8 +55,8 @@ internal static class SessionEndpoints
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status409Conflict);
 
-        sessions.MapPost("/sign-in", ([FromBody] SignInRequest request, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
-                => SignInAsync(request, SessionKind.Customer, dispatcher, cancellationToken))
+        sessions.MapPost("/sign-in", ([FromBody] SignInRequest request, HttpContext context, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
+                => SignInAsync(request, SessionKind.Customer, context, dispatcher, cancellationToken))
             .WithName("SignIn")
             .WithSummary("Opens a customer session.")
             .Produces<TokenPair>()
@@ -63,8 +65,8 @@ internal static class SessionEndpoints
 
         // Not under /admin: the gateway exposes the admin paths, and this one returns tokens, which
         // only the gateway itself may receive (it opens the admin panel's session with them).
-        sessions.MapPost("/sign-in/admin", ([FromBody] SignInRequest request, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
-                => SignInAsync(request, SessionKind.Admin, dispatcher, cancellationToken))
+        sessions.MapPost("/sign-in/admin", ([FromBody] SignInRequest request, HttpContext context, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
+                => SignInAsync(request, SessionKind.Admin, context, dispatcher, cancellationToken))
             .WithName("AdminSignIn")
             .WithSummary("Opens an admin session; requires the auth:admin:sign-in permission.")
             .Produces<TokenPair>()
@@ -109,6 +111,28 @@ internal static class SessionEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
+        sessions.MapGet("/me/sessions", GetSessionsAsync)
+            .WithName("GetSessions")
+            .WithSummary("The account's open sessions, one per sign-in, the most recently active first; the caller's own is marked.")
+            .RequireAuthorization()
+            .Produces<IReadOnlyList<DeviceSession>>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized);
+
+        sessions.MapDelete("/me/sessions/{sessionId:guid}", EndSessionAsync)
+            .WithName("EndSession")
+            .WithSummary("Ends one of the account's sessions; it cannot be renewed any more.")
+            .RequireAuthorization()
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        sessions.MapDelete("/me/sessions", EndOtherSessionsAsync)
+            .WithName("EndOtherSessions")
+            .WithSummary("Ends every session of the account but the caller's own; returns the ones that ended.")
+            .RequireAuthorization()
+            .Produces<EndedSessions>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized);
+
         sessions.MapPost("/me/deletion", DeleteAccountAsync)
             .WithName("DeleteAccount")
             .WithSummary("Deletes the caller's account after checking the password; its sessions end and the other services delete their data. Cannot be undone.")
@@ -123,23 +147,31 @@ internal static class SessionEndpoints
 
     private static async Task<IResult> RegisterAsync(
         [FromBody] RegisterRequest request,
+        HttpContext context,
         [FromServices] IDispatcher dispatcher,
         CancellationToken cancellationToken)
     {
-        var result = await dispatcher.Send(new RegisterCommand(request.Email, request.Password), cancellationToken);
+        var result = await dispatcher.Send(new RegisterCommand(request.Email, request.Password, DeviceOf(context)), cancellationToken);
 
         // No location: the account is read through /me with the session.
         return result.ToHttpResult(account => TypedResults.Created(
             (string?)null,
-            new RegisterResponse(account.UserId, account.Tokens.AccessToken, account.Tokens.AccessTokenExpiresAt, account.Tokens.RefreshToken, account.Tokens.RefreshTokenExpiresAt)));
+            new RegisterResponse(account.UserId, account.Tokens.AccessToken, account.Tokens.AccessTokenExpiresAt, account.Tokens.RefreshToken, account.Tokens.RefreshTokenExpiresAt, account.Tokens.SessionId)));
     }
 
     private static async Task<IResult> SignInAsync(
         SignInRequest request,
         SessionKind kind,
+        HttpContext context,
         IDispatcher dispatcher,
         CancellationToken cancellationToken)
-        => (await dispatcher.Send(new SignInCommand(request.Email, request.Password, kind), cancellationToken)).ToHttpResult();
+        => (await dispatcher.Send(new SignInCommand(request.Email, request.Password, kind, DeviceOf(context)), cancellationToken)).ToHttpResult();
+
+    /// <summary>
+    /// The device a session is opened from, named from the <c>User-Agent</c>: the gateway passes on the browser's.
+    /// Only the name is kept.
+    /// </summary>
+    private static string? DeviceOf(HttpContext context) => DeviceLabels.FromUserAgent(context.Request.Headers.UserAgent);
 
     private static async Task<IResult> RefreshAsync(
         [FromBody] RefreshRequest request,
@@ -153,6 +185,19 @@ internal static class SessionEndpoints
         CancellationToken cancellationToken)
         => (await dispatcher.Send(new SignOutCommand(request.RefreshToken), cancellationToken)).ToHttpResult();
 
+    private static async Task<IResult> GetSessionsAsync(HttpContext context, [FromServices] ICurrentUser currentUser, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
+        => (await dispatcher.Query(new GetSessionsQuery(currentUser.Id!.Value, SessionOf(context)), cancellationToken)).ToHttpResult();
+
+    private static async Task<IResult> EndSessionAsync(Guid sessionId, [FromServices] ICurrentUser currentUser, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
+        => (await dispatcher.Send(new EndSessionCommand(currentUser.Id!.Value, sessionId), cancellationToken)).ToHttpResult();
+
+    private static async Task<IResult> EndOtherSessionsAsync(HttpContext context, [FromServices] ICurrentUser currentUser, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
+        => (await dispatcher.Send(new EndOtherSessionsCommand(currentUser.Id!.Value, SessionOf(context)), cancellationToken)).ToHttpResult();
+
+    /// <summary>The caller's session from the access token's <c>sid</c>; none in a token issued before sessions had ids.</summary>
+    private static Guid? SessionOf(HttpContext context)
+        => Guid.TryParse(context.User.FindFirst("sid")?.Value, out var id) ? id : null;
+
     private static async Task<IResult> GetMeAsync(
         [FromServices] ICurrentUser currentUser,
         [FromServices] IDispatcher dispatcher,
@@ -161,11 +206,12 @@ internal static class SessionEndpoints
 
     private static async Task<IResult> ChangePasswordAsync(
         [FromBody] ChangePasswordRequest request,
+        HttpContext context,
         [FromServices] ICurrentUser currentUser,
         [FromServices] IDispatcher dispatcher,
         CancellationToken cancellationToken)
         => (await dispatcher.Send(
-            new ChangePasswordCommand(currentUser.Id!.Value, request.CurrentPassword, request.NewPassword),
+            new ChangePasswordCommand(currentUser.Id!.Value, request.CurrentPassword, request.NewPassword, DeviceOf(context)),
             cancellationToken)).ToHttpResult();
 
     private static async Task<IResult> ChangeEmailAsync(

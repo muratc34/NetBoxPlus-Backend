@@ -42,6 +42,7 @@ internal sealed class JwtAccessTokenIssuer(
                 [JwtRegisteredClaimNames.Sub] = subject.UserId.ToString(),
                 [JwtRegisteredClaimNames.Email] = subject.Email,
                 [JwtRegisteredClaimNames.Jti] = Guid.CreateVersion7().ToString(),
+                [JwtRegisteredClaimNames.Sid] = subject.SessionId.ToString(),
                 ["role"] = subject.Roles.ToArray(),
                 ["permission"] = subject.Permissions.ToArray(),
             },

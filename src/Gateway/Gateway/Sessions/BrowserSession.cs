@@ -31,6 +31,12 @@ internal sealed record BrowserSession(
     /// </summary>
     public DateTimeOffset LastSeenAt { get; init; } = CreatedAt;
 
+    /// <summary>
+    /// The auth service's id of the sign-in (refresh token family): ending it on the account's list of devices
+    /// finds this session by it. <see langword="null"/> for a session started before ids were given.
+    /// </summary>
+    public Guid? SessionId { get; init; }
+
     public bool NeedsRefresh(DateTimeOffset now, TimeSpan ahead) => AccessTokenExpiresAt - now <= ahead;
 
     /// <summary>The refresh token has run out, or an admin session sat idle for too long.</summary>
