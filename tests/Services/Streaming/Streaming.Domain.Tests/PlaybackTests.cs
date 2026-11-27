@@ -83,7 +83,7 @@ public sealed class PlaybackTests
     public void AProfile_WatchesTitlesUpToItsAgeRating(AgeRating profileRating, AgeRating titleRating, bool allowed)
     {
         var profile = ProfileCopy.Create(Guid.CreateVersion7(), Guid.CreateVersion7());
-        profile.Apply(profileRating, 1);
+        profile.Apply(profileRating, false, 1);
 
         Assert.Equal(allowed, profile.MayWatch(titleRating));
     }
@@ -92,7 +92,7 @@ public sealed class PlaybackTests
     public void ARemovedProfile_WatchesNothing()
     {
         var profile = ProfileCopy.Create(Guid.CreateVersion7(), Guid.CreateVersion7());
-        profile.Apply(AgeRating.Age18, 1);
+        profile.Apply(AgeRating.Age18, false, 1);
         profile.Remove(2);
 
         Assert.False(profile.MayWatch(AgeRating.All));

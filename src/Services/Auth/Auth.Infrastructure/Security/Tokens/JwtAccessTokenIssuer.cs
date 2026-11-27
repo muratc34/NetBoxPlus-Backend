@@ -17,6 +17,9 @@ internal sealed class JwtAccessTokenIssuer(
     /// <summary>Same value as <c>AccessTokenFormat.Type</c>, which services require.</summary>
     public const string TokenType = "at+jwt";
 
+    /// <summary>A locked profile the sign-in has opened with its PIN; one claim per profile.</summary>
+    public const string UnlockedProfileClaim = "profile_unlocked";
+
     private readonly JsonWebTokenHandler _handler = new() { SetDefaultTimesOnTokenCreation = false };
     private readonly AccessTokenOptions _options = options.Value;
 
@@ -28,6 +31,20 @@ internal sealed class JwtAccessTokenIssuer(
         var now = DateTimeOffset.FromUnixTimeSeconds(timeProvider.GetUtcNow().ToUnixTimeSeconds());
         var expiresAt = now + _options.AccessTokenLifetime;
 
+        var claims = new Dictionary<string, object>
+        {
+            [JwtRegisteredClaimNames.Sub] = subject.UserId.ToString(),
+            [JwtRegisteredClaimNames.Email] = subject.Email,
+            [JwtRegisteredClaimNames.Jti] = Guid.CreateVersion7().ToString(),
+            [JwtRegisteredClaimNames.Sid] = subject.SessionId.ToString(),
+            ["role"] = subject.Roles.ToArray(),
+            ["permission"] = subject.Permissions.ToArray(),
+        };
+        if (subject.UnlockedProfiles.Count > 0)
+        {
+            claims[UnlockedProfileClaim] = subject.UnlockedProfiles.Select(id => id.ToString()).ToArray();
+        }
+
         var token = _handler.CreateToken(new SecurityTokenDescriptor
         {
             TokenType = TokenType,
@@ -37,15 +54,7 @@ internal sealed class JwtAccessTokenIssuer(
             NotBefore = now.UtcDateTime,
             Expires = expiresAt.UtcDateTime,
             SigningCredentials = keys.SigningCredentials,
-            Claims = new Dictionary<string, object>
-            {
-                [JwtRegisteredClaimNames.Sub] = subject.UserId.ToString(),
-                [JwtRegisteredClaimNames.Email] = subject.Email,
-                [JwtRegisteredClaimNames.Jti] = Guid.CreateVersion7().ToString(),
-                [JwtRegisteredClaimNames.Sid] = subject.SessionId.ToString(),
-                ["role"] = subject.Roles.ToArray(),
-                ["permission"] = subject.Permissions.ToArray(),
-            },
+            Claims = claims,
         });
 
         return new AccessToken(token, expiresAt);

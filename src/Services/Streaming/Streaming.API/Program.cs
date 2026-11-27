@@ -7,7 +7,9 @@ using Streaming.API.Preferences;
 using Streaming.API.Taste;
 using Streaming.API.Trailers;
 using Shared.Infrastructure.API.Security;
+using Streaming.API.Access;
 using Streaming.Application;
+using Streaming.Application.Abstractions;
 using Streaming.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,6 +21,7 @@ builder.Services.AddOpenApi();
 // Enums as names in JSON: the generated TypeScript client and the admin panel read them directly.
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddStreamingApplication();
+builder.Services.AddScoped<IUnlockedProfiles, TokenUnlockedProfiles>();
 
 if (!BuildTimeOpenApi.IsGeneratingDocument)
 {

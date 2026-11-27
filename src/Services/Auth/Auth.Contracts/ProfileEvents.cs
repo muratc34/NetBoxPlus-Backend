@@ -8,6 +8,7 @@ namespace Auth.Contracts;
 public sealed record ProfileCreated(Guid UserId, Guid ProfileId, string MaxAgeRating, int Revision, DateTimeOffset OccurredAt);
 
 /// <param name="MaxAgeRating"><c>All</c>, <c>Age7</c>, <c>Age13</c>, <c>Age16</c> or <c>Age18</c>.</param>
-public sealed record ProfileChanged(Guid UserId, Guid ProfileId, string MaxAgeRating, int Revision, DateTimeOffset OccurredAt);
+/// <param name="Locked">The profile asks for a PIN: only a sign-in whose token names it in <c>profile_unlocked</c> may use it.</param>
+public sealed record ProfileChanged(Guid UserId, Guid ProfileId, string MaxAgeRating, int Revision, DateTimeOffset OccurredAt, bool Locked = false);
 
 public sealed record ProfileRemoved(Guid UserId, Guid ProfileId, int Revision, DateTimeOffset OccurredAt);

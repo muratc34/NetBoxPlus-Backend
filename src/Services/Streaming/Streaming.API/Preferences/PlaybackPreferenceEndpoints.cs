@@ -22,7 +22,8 @@ internal static class PlaybackPreferenceEndpoints
             .WithSummary("The languages of sound and subtitles the profile last chose.")
             .Produces<PlaybackPreferences>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         preferences.MapPut(string.Empty, SetAsync)
             .WithName("SetPlaybackPreferences")
@@ -31,7 +32,8 @@ internal static class PlaybackPreferenceEndpoints
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict);
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         return endpoints;
     }

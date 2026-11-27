@@ -22,13 +22,13 @@ internal sealed class AnnounceProfilesHandler(IAuthReadModel readModel, IIntegra
         var now = timeProvider.GetUtcNow();
         var profiles = await readModel.Users
             .SelectMany(user => user.Profiles)
-            .Select(profile => new { profile.UserId, profile.Id, profile.MaxAgeRating, profile.Revision })
+            .Select(profile => new { profile.UserId, profile.Id, profile.MaxAgeRating, profile.Revision, Locked = profile.PinHash != null })
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         foreach (var profile in profiles)
         {
             await publisher.PublishAsync(
-                new ProfileChanged(profile.UserId, profile.Id, profile.MaxAgeRating.ToString(), profile.Revision, now),
+                new ProfileChanged(profile.UserId, profile.Id, profile.MaxAgeRating.ToString(), profile.Revision, now, profile.Locked),
                 cancellationToken).ConfigureAwait(false);
         }
 

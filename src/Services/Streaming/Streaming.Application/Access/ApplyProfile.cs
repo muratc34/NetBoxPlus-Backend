@@ -8,7 +8,7 @@ using Streaming.Domain.Ratings;
 namespace Streaming.Application.Access;
 
 /// <summary>The account service's news about a profile; no age rating means it was removed. Sent by the event handlers, not by people.</summary>
-public sealed record ApplyProfileCommand(Guid ProfileId, Guid UserId, AgeRating? MaxAgeRating, int Revision) : ICommand;
+public sealed record ApplyProfileCommand(Guid ProfileId, Guid UserId, AgeRating? MaxAgeRating, int Revision, bool Locked = false) : ICommand;
 
 internal sealed class ApplyProfileHandler(IProfileCopyRepository profiles, IWatchProgressRepository progress, IMyListRepository lists, IPlaybackPreferenceRepository preferences, ITitleRatingRepository ratings)
     : ICommandHandler<ApplyProfileCommand>
@@ -24,7 +24,7 @@ internal sealed class ApplyProfileHandler(IProfileCopyRepository profiles, IWatc
 
         if (command.MaxAgeRating is { } maxAgeRating)
         {
-            profile.Apply(maxAgeRating, command.Revision);
+            profile.Apply(maxAgeRating, command.Locked, command.Revision);
         }
         else if (profile.Remove(command.Revision))
         {

@@ -117,6 +117,8 @@ public static class PlaybackErrors
 {
     public static readonly Error ProfileNotFound = Error.NotFound("Playback.ProfileNotFound", "The profile was not found.");
 
+    public static readonly Error ProfileLocked = Error.Forbidden("Playback.ProfileLocked", "The profile is locked; enter its PIN first.");
+
     public static readonly Error SubscriptionRequired = Error.Forbidden("Playback.SubscriptionRequired", "Watching needs an active subscription.");
 
     public static readonly Error NotAvailable = Error.NotFound("Playback.NotAvailable", "This movie or episode cannot be watched.");

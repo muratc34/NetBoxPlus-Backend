@@ -235,6 +235,9 @@ namespace Auth.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("FailedPinCount")
+                        .HasColumnType("integer");
+
                     b.Property<string>("MaxAgeRating")
                         .IsRequired()
                         .HasMaxLength(8)
@@ -250,6 +253,13 @@ namespace Auth.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
+                    b.Property<string>("PinHash")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<DateTimeOffset?>("PinLockedUntil")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int>("Revision")
                         .HasColumnType("integer");
 
@@ -262,6 +272,24 @@ namespace Auth.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Profiles", (string)null);
+                });
+
+            modelBuilder.Entity("Auth.Domain.Users.ProfileUnlock", b =>
+                {
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProfileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UnlockedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("SessionId", "ProfileId");
+
+                    b.HasIndex("ProfileId");
+
+                    b.ToTable("ProfileUnlocks", (string)null);
                 });
 
             modelBuilder.Entity("Auth.Domain.Users.User", b =>
@@ -460,6 +488,15 @@ namespace Auth.Infrastructure.Persistence.Migrations
                     b.HasOne("Auth.Domain.Users.User", null)
                         .WithMany("Profiles")
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Auth.Domain.Users.ProfileUnlock", b =>
+                {
+                    b.HasOne("Auth.Domain.Users.Profile", null)
+                        .WithMany()
+                        .HasForeignKey("ProfileId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

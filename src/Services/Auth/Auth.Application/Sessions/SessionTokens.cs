@@ -31,6 +31,7 @@ internal sealed class SessionTokens(
     IAuthReadModel readModel,
     IAccessTokenIssuer accessTokens,
     IRefreshTokenRepository refreshTokens,
+    IProfileUnlockRepository profileUnlocks,
     TimeProvider timeProvider)
 {
     /// <summary>256 random bits, the same strength as the SHA-256 hash that is stored.</summary>
@@ -56,21 +57,22 @@ internal sealed class SessionTokens(
     public TokenPair Start(User user, SessionKind kind, Grants grants, string? deviceLabel)
     {
         var value = NewValue();
-        return Complete(user, RefreshToken.Issue(user.Id, kind, Hash(value), timeProvider.GetUtcNow(), deviceLabel), value, grants);
+        return Complete(user, RefreshToken.Issue(user.Id, kind, Hash(value), timeProvider.GetUtcNow(), deviceLabel), value, grants, []);
     }
 
-    /// <summary>The same session, renewed: the next token of <paramref name="current"/>'s family.</summary>
-    public TokenPair Continue(User user, RefreshToken current, Grants grants)
+    /// <summary>The same session, renewed: the next token of <paramref name="current"/>'s family, with the profiles it has opened.</summary>
+    public async Task<TokenPair> ContinueAsync(User user, RefreshToken current, Grants grants, CancellationToken cancellationToken)
     {
+        var unlocked = await profileUnlocks.ProfileIdsAsync(current.FamilyId, cancellationToken).ConfigureAwait(false);
         var value = NewValue();
-        return Complete(user, current.Rotate(Hash(value), timeProvider.GetUtcNow()), value, grants);
+        return Complete(user, current.Rotate(Hash(value), timeProvider.GetUtcNow()), value, grants, unlocked);
     }
 
-    private TokenPair Complete(User user, RefreshToken refreshToken, string value, Grants grants)
+    private TokenPair Complete(User user, RefreshToken refreshToken, string value, Grants grants, IReadOnlyCollection<Guid> unlockedProfiles)
     {
         refreshTokens.Add(refreshToken);
 
-        var accessToken = accessTokens.Issue(new AccessTokenSubject(user.Id, user.Email.Value, grants.Roles, grants.Permissions, refreshToken.FamilyId));
+        var accessToken = accessTokens.Issue(new AccessTokenSubject(user.Id, user.Email.Value, grants.Roles, grants.Permissions, refreshToken.FamilyId, unlockedProfiles));
         return new TokenPair(accessToken.Value, accessToken.ExpiresAt, value, refreshToken.ExpiresAt, refreshToken.FamilyId);
     }
 

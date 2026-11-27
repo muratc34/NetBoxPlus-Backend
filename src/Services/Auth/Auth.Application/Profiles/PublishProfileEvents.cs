@@ -18,7 +18,7 @@ internal sealed class PublishProfileChanged(IIntegrationEventPublisher publisher
 {
     public Task Handle(ProfileChangedDomainEvent domainEvent, CancellationToken cancellationToken)
         => publisher.PublishAsync(
-            new ProfileChanged(domainEvent.UserId, domainEvent.ProfileId, domainEvent.MaxAgeRating.ToString(), domainEvent.Revision, timeProvider.GetUtcNow()),
+            new ProfileChanged(domainEvent.UserId, domainEvent.ProfileId, domainEvent.MaxAgeRating.ToString(), domainEvent.Revision, timeProvider.GetUtcNow(), domainEvent.Locked),
             cancellationToken);
 }
 

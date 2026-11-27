@@ -9,7 +9,8 @@ namespace Auth.Application.Profiles.GetProfiles;
 /// <summary>The caller's profiles, oldest first.</summary>
 public sealed record GetProfilesQuery(Guid UserId) : IQuery<IReadOnlyList<ProfileResponse>>;
 
-public sealed record ProfileResponse(Guid Id, string Name, AgeRating MaxAgeRating);
+/// <param name="Locked">Whether the profile asks for its PIN.</param>
+public sealed record ProfileResponse(Guid Id, string Name, AgeRating MaxAgeRating, bool Locked);
 
 internal sealed class GetProfilesHandler(IAuthReadModel readModel) : IQueryHandler<GetProfilesQuery, IReadOnlyList<ProfileResponse>>
 {
@@ -19,7 +20,7 @@ internal sealed class GetProfilesHandler(IAuthReadModel readModel) : IQueryHandl
             .Where(user => user.Id == query.UserId)
             .SelectMany(user => user.Profiles)
             .OrderBy(profile => profile.Id)
-            .Select(profile => new ProfileResponse(profile.Id, profile.Name, profile.MaxAgeRating))
+            .Select(profile => new ProfileResponse(profile.Id, profile.Name, profile.MaxAgeRating, profile.PinHash != null))
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 

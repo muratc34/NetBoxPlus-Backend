@@ -35,6 +35,9 @@ public sealed class ProfileCopy : AggregateRoot
 
     public bool IsRemoved { get; private set; }
 
+    /// <summary>The profile asks for its PIN: only a sign-in that opened it (the token's <c>profile_unlocked</c>) may use it.</summary>
+    public bool IsLocked { get; private set; }
+
     /// <summary>The account service's revision of the state kept here; older news is ignored.</summary>
     public int Revision { get; private set; }
 
@@ -43,7 +46,7 @@ public sealed class ProfileCopy : AggregateRoot
 
     public static ProfileCopy Create(Guid profileId, Guid userId) => new(profileId, userId) { Revision = -1 };
 
-    public bool Apply(AgeRating maxAgeRating, int revision)
+    public bool Apply(AgeRating maxAgeRating, bool locked, int revision)
     {
         if (revision <= Revision)
         {
@@ -51,6 +54,7 @@ public sealed class ProfileCopy : AggregateRoot
         }
 
         MaxAgeRating = maxAgeRating;
+        IsLocked = locked;
         Revision = revision;
         return true;
     }

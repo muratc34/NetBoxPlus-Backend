@@ -7,6 +7,18 @@ using Streaming.Domain.Videos;
 
 namespace Streaming.Application.Abstractions;
 
+/// <summary>The locked profiles the caller's sign-in has opened with their PIN, from the access token.</summary>
+public interface IUnlockedProfiles
+{
+    bool Contains(Guid profileId);
+}
+
+/// <summary>Outside a request (event handlers, background work) nothing is unlocked.</summary>
+internal sealed class NoUnlockedProfiles : IUnlockedProfiles
+{
+    public bool Contains(Guid profileId) => false;
+}
+
 /// <summary>Where uploaded video files arrive.</summary>
 public interface IVideoStorage
 {

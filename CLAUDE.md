@@ -268,7 +268,9 @@ Migrator'daki seed):
   kendi oturumunu bitirmek çıkış gibi cookie'yi de temizler. Giriş, kayıt ve şifre değiştirmede tarayıcının `User-Agent`'ı Auth'a iletilir
   (en fazla 512 karakter). **Passkey** iki uygulamada da (`/session/...` ve `/admin/session/...`): `passkey/options` + `passkey` (anonim,
   `Credentials` limiti; başarıda şifreli girişle aynı oturum açılır), `passkeys` (GET, `POST /options` şifreyle `Credentials` limitinde,
-  POST, `PUT`/`DELETE /{id}`; oturum + CSRF, Auth'un `/me/passkeys`'ine, yanıt aynen). Parola alan veya e-posta gönderen uçlar `Credentials`
+  POST, `PUT`/`DELETE /{id}`; oturum + CSRF, Auth'un `/me/passkeys`'ine, yanıt aynen). **Profil kilidi** `POST /session/profiles/{id}/unlock`
+  (oturum + CSRF, `Credentials` limiti): Auth'un `/profiles/{id}/unlock`'una gider, başarıda oturumu kilidi altında **hemen** yeniler (yeni
+  erişim token'ı profili taşır); diğer yanıtlar aynen. Parola alan veya e-posta gönderen uçlar `Credentials`
   limitindedir. Ayarlar `ConnectionStrings:Valkey`, `Session`, `RateLimiting:Credentials`.
 - **Web sunucusu (SSR):** Next sunucusu `X-NetBoxPlus-Server-Key` ile tanınır (`ServerClient:Key`, en az 32 karakter;
   lokalde `GATEWAY_SERVER_KEY`), sadece `public` route'larda. İstek `X-Forwarded-For`'daki tek IP'nin kendi partition'ına
@@ -386,7 +388,7 @@ Migrator'daki seed):
   Infrastructure'da `IPasskeyCeremonies` arkasında; uygulama JSON metin ve byte görür. Passkey'ler keşfedilebilir (kullanıcı adı sorulmaz) ve
   kullanıcı doğrulaması zorunlu; attestation istenmez; user handle hesap id'sinin 16 byte'ı. `UserPasskeys` (credential id unique, public key,
   sayaç, ad ≤ 50, hesap başına en fazla 10; hesap silinince gider), `PasskeyChallenges` (gönderilen seçenekler, 5 dk, tek kullanımlık
-  `ExecuteUpdate` — denenen challenge başarısız olsa da kullanılmış kalır; süresi bir saat önce dolanları `PasskeyChallengeCleanup` saatte bir
+  `ExecuteUpdate` — denenen challenge başarısız olsa da kullanılmış kalır; süresi bir saat önce dolanları `SessionDataCleanup` saatte bir
   siler). Kayıt `POST /me/passkeys/options` (şifre yeniden; yanlışsa başarısız giriş) → tarayıcı → `POST /me/passkeys`; `GET`, `PUT`/`DELETE
   /me/passkeys/{id}`. Giriş `POST /sign-in/passkey/options` (anonim) → `POST /sign-in/passkey[/admin]`: her hata aynı 401
   `Passkey.SignInFailed` (bilinmeyen anahtar, imza, kapalı hesap, admin yetkisi yok); şifre kilidi passkey'i durdurmaz; geri giden sayacı
@@ -425,6 +427,16 @@ Migrator'daki seed):
   filtreli aramada görünmez, filtresizde görünür. Güvenlik sınırı değil (katalog herkese açık); yaş oynatmada Streaming'de zorlanır.
 - **Billing:** Stripe gerçeğin kaynağı; `Subscription` ve `Invoice` onun aynası. Tutarlar `long` kuruş (`AmountMinor`). Kullanıcı başına tek canlı abonelik DB'de filtreli unique index. Kart için sadece marka ve son 4 hane saklanır (`CardSummary`). Stripe `IPaymentGateway` arkasında; anahtar (`Billing:Stripe:SecretKey`, lokalde `deploy/.env`'deki `STRIPE_SECRET_KEY`) yoksa ödeme uçları 503. Ödeme `POST`'ları `Idempotency-Key` ister (`IdempotencyFilter`; sadece 2xx saklanır, farklı gövde 422, eş zamanlı 409). Event'ler `Billing.Contracts`: `SubscriptionActivated`/`Suspended`/`Canceled` (artan `Revision` taşır; tüketici eskisini yok sayar; `Activated.Reason` `Started`/`Resumed`/`PlanChanged`; `announce-subscriptions` yeniden yayınladığında `Replayed: true` ve `Reason` boş) ve `PaymentFailed`. Contract'a sonradan eklenen alan opsiyonel (varsayılan değerli) olur. Stripe webhook'u `POST /webhooks/stripe`: imza (`Billing:Stripe:WebhookSecret`, lokalde `STRIPE_WEBHOOK_SECRET`), inbox, nesne Stripe'tan güncel haliyle okunup aynalanır; geçici hatada inbox'a yazılmaz, Stripe tekrar dener. 422 `Error.Unprocessable`, 502 `Error.UpstreamFailure`.
 - **Profiller (Auth):** `User` aggregate'inde, hesap başına en fazla 5, ad + `MaxAgeRating` (Catalog'un yaş değerleri); kayıtta "Main". Event'ler `ProfileCreated`/`Changed`/`Removed` (`Revision`).
+- **Profil PIN'i (Auth + Streaming, Faz 10):** isteğe bağlı, 4 rakam, şifreyle aynı hasher (`Profile.PinHash`; `GET /profiles` `locked`).
+  `PUT /profiles/{id}/pin` (`{ password, pin }`, `pin: null` kaldırır; yanlış şifre başarısız giriş, bozuk PIN 400 `Profile.PinInvalid`): her
+  değişiklik `Revision`'ı artırır, `ProfileChanged.Locked` (opsiyonel alan) yayınlanır ve o profili açmış bütün girişlerin açılışı silinir.
+  `POST /profiles/{id}/unlock` (`{ pin }`, token'ın `sid`'i gerekir, yoksa 401 `Profile.SessionRequired`): yanlış PIN `ExecuteUpdate` ile
+  anında sayılır (400 `Profile.PinIncorrect`), 5'te 15 dk 409 `Profile.PinLocked`, doğru PIN sayacı sıfırlar; açılış `ProfileUnlocks`'a (aile id
+  + profil id) yazılır ve ailenin sonraki erişim token'ları `profile_unlocked` claim'ini (profil başına bir) taşır. PIN'siz profil zaten açık.
+  Profil silinince açılışlar cascade ile, biten ailelerinki `SessionDataCleanup` ile saatte bir gider. Değişiklikten önce alınmış token en fazla
+  15 dk daha geçer (rol değişikliği gibi). Streaming `ProfileCopy.IsLocked` tutar; profil kullanan her uç (`ProfileAccess`: oynatma başlatma,
+  heartbeat, izleme konumu, izlemeye devam et, Listem, değerlendirme, geçmiş, zevk, oynatma tercihleri) kilitli profilde claim ister, yoksa
+  403 `Playback.ProfileLocked`; oturum bitirme istemez. Claim'i `IUnlockedProfiles` (API'de `TokenUnlockedProfiles`) okur.
 - **E-posta doğrulama (Auth):** `UserTokens` (sadece SHA-256 hash, tek kullanımlık `ExecuteUpdate`, 24 saat); kayıtta ve `POST /email-verification` (oturum açık, 60 sn'de bir, öncekiler iptal) ile `EmailVerificationRequested` (ham token, token id) yayınlanır, Notification e-postalar. `POST /email-verification/confirm` anonim; her hata aynı 400 `EmailVerification.TokenInvalid`. Durum `User.EmailVerifiedAt`, `/me`'de `emailVerified`, tarayıcı için `GET /email-verification` (güncel adresi de taşır: access token'ın `email` claim'i bir değişiklikten sonra token yenilenene kadar eski kalır). Giriş için zorunlu değil;
   **yeni abonelik (checkout) için zorunlu**. İlk doğrulamada (link veya şifre sıfırlama) bir kez `EmailVerified` (adresle birlikte)
   yayınlanır; Billing `BillingCustomer.EmailVerifiedAt`'e yazar (müşteri yoksa adresten açar, en erken zaman kalır) ve

@@ -60,20 +60,20 @@ internal sealed class FollowProfiles(IDispatcher dispatcher)
     : IIntegrationEventHandler<ProfileCreated>, IIntegrationEventHandler<ProfileChanged>, IIntegrationEventHandler<ProfileRemoved>
 {
     public Task<Result> Handle(ProfileCreated integrationEvent, CancellationToken cancellationToken)
-        => Apply(integrationEvent.ProfileId, integrationEvent.UserId, integrationEvent.MaxAgeRating, integrationEvent.Revision, cancellationToken);
+        => Apply(integrationEvent.ProfileId, integrationEvent.UserId, integrationEvent.MaxAgeRating, integrationEvent.Revision, locked: false, cancellationToken);
 
     public Task<Result> Handle(ProfileChanged integrationEvent, CancellationToken cancellationToken)
-        => Apply(integrationEvent.ProfileId, integrationEvent.UserId, integrationEvent.MaxAgeRating, integrationEvent.Revision, cancellationToken);
+        => Apply(integrationEvent.ProfileId, integrationEvent.UserId, integrationEvent.MaxAgeRating, integrationEvent.Revision, integrationEvent.Locked, cancellationToken);
 
     public Task<Result> Handle(ProfileRemoved integrationEvent, CancellationToken cancellationToken)
         => dispatcher.Send(new ApplyProfileCommand(integrationEvent.ProfileId, integrationEvent.UserId, null, integrationEvent.Revision), cancellationToken);
 
-    private Task<Result> Apply(Guid profileId, Guid userId, string maxAgeRating, int revision, CancellationToken cancellationToken)
+    private Task<Result> Apply(Guid profileId, Guid userId, string maxAgeRating, int revision, bool locked, CancellationToken cancellationToken)
     {
         var rating = AccessEventErrors.Parse<AgeRating>("age rating", maxAgeRating);
         return rating.IsFailure
             ? Task.FromResult(Result.Failure(rating.Error))
-            : dispatcher.Send(new ApplyProfileCommand(profileId, userId, rating.Value, revision), cancellationToken);
+            : dispatcher.Send(new ApplyProfileCommand(profileId, userId, rating.Value, revision, locked), cancellationToken);
     }
 }
 

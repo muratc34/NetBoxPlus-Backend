@@ -21,4 +21,11 @@ public interface IUserRepository
     /// nothing), and concurrent attempts must each be counted.
     /// </summary>
     Task RecordFailedSignInAsync(Guid userId, DateTimeOffset now, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Counts a wrong PIN and, at <see cref="Profile.MaxFailedPins"/>, locks the profile for
+    /// <see cref="Profile.PinLockoutDuration"/> and starts the count again. At once and atomically, for the
+    /// same reasons as <see cref="RecordFailedSignInAsync"/>.
+    /// </summary>
+    Task RecordFailedPinAsync(Guid profileId, DateTimeOffset now, CancellationToken cancellationToken);
 }

@@ -18,7 +18,8 @@ public sealed class AccessTokenIssuerTests
         "jane@example.com",
         ["Editor"],
         ["auth:users:read", "auth:users:write"],
-        Guid.CreateVersion7());
+        Guid.CreateVersion7(),
+        []);
 
     [Fact]
     public async Task Token_CarriesTheSubjectRolesAndPermissions()

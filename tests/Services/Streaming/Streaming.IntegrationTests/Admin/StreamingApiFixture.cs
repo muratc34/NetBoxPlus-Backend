@@ -74,7 +74,17 @@ public sealed class StreamingApiFixture : IAsyncLifetime
         Assert.SkipUnless(IsAvailable, SkipReason);
 
         var client = _factory!.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken(userId, permissions));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken(userId, permissions, []));
+        return client;
+    }
+
+    /// <summary>A client signed in as the given user, in a sign-in that has opened these locked profiles with their PIN.</summary>
+    public HttpClient CreateClientWithUnlocked(Guid userId, params Guid[] unlockedProfiles)
+    {
+        Assert.SkipUnless(IsAvailable, SkipReason);
+
+        var client = _factory!.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken(userId, [], unlockedProfiles));
         return client;
     }
 
@@ -106,7 +116,7 @@ public sealed class StreamingApiFixture : IAsyncLifetime
         _signingKey.Dispose();
     }
 
-    private string CreateToken(Guid userId, string[] permissions) => new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
+    private string CreateToken(Guid userId, string[] permissions, Guid[] unlockedProfiles) => new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
     {
         TokenType = "at+jwt",
         Issuer = Issuer,
@@ -116,6 +126,7 @@ public sealed class StreamingApiFixture : IAsyncLifetime
         {
             [JwtRegisteredClaimNames.Sub] = userId.ToString(),
             ["permission"] = permissions,
+            ["profile_unlocked"] = unlockedProfiles.Select(id => id.ToString()).ToArray(),
         },
         SigningCredentials = new SigningCredentials(new ECDsaSecurityKey(_signingKey), SecurityAlgorithms.EcdsaSha256),
     });

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Shared.Application.Cqrs;
 using Shared.Domain;
 using Streaming.Application.Abstractions;
+using Streaming.Application.Playback;
 using Streaming.Application.Playback.GetProgress;
 using Streaming.Domain.Access;
 using Streaming.Domain.Lists;
@@ -24,15 +25,17 @@ public sealed record RemoveFromMyListCommand(Guid UserId, Guid ProfileId, Guid T
 /// A title that cannot be watched now, or not by this profile, stays on the list but is not shown:
 /// it comes back when it can be watched again.
 /// </summary>
-internal sealed class GetMyListHandler(IStreamingReadModel readModel) : IQueryHandler<GetMyListQuery, IReadOnlyList<MyListItem>>
+internal sealed class GetMyListHandler(ProfileAccess profileAccess, IStreamingReadModel readModel) : IQueryHandler<GetMyListQuery, IReadOnlyList<MyListItem>>
 {
     public async Task<Result<IReadOnlyList<MyListItem>>> Handle(GetMyListQuery query, CancellationToken cancellationToken)
     {
-        var profile = await ProfileOwnership.FindAsync(readModel, query.UserId, query.ProfileId, cancellationToken).ConfigureAwait(false);
-        if (profile is null)
+        var found = await profileAccess.FindAsync(query.UserId, query.ProfileId, cancellationToken).ConfigureAwait(false);
+        if (found.IsFailure)
         {
-            return PlaybackErrors.ProfileNotFound;
+            return found.Error;
         }
+
+        var profile = found.Value;
 
         var entries = await readModel.MyListEntries
             .Where(entry => entry.ProfileId == query.ProfileId)
@@ -51,18 +54,20 @@ internal sealed class GetMyListHandler(IStreamingReadModel readModel) : IQueryHa
 /// The same checks as playback, but no subscription is needed: a list is for choosing what to watch.
 /// A title already on the list stays where it is.
 /// </summary>
-internal sealed class AddToMyListHandler(
+internal sealed class AddToMyListHandler(ProfileAccess profileAccess, 
     IStreamingReadModel readModel,
     IMyListRepository lists,
     TimeProvider timeProvider) : ICommandHandler<AddToMyListCommand>
 {
     public async Task<Result> Handle(AddToMyListCommand command, CancellationToken cancellationToken)
     {
-        var profile = await ProfileOwnership.FindAsync(readModel, command.UserId, command.ProfileId, cancellationToken).ConfigureAwait(false);
-        if (profile is null)
+        var found = await profileAccess.FindAsync(command.UserId, command.ProfileId, cancellationToken).ConfigureAwait(false);
+        if (found.IsFailure)
         {
-            return PlaybackErrors.ProfileNotFound;
+            return found.Error;
         }
+
+        var profile = found.Value;
 
         var title = await readModel.PlayableTitles
             .Where(item => item.Id == command.TitleId && item.Items.Any())
@@ -91,13 +96,14 @@ internal sealed class AddToMyListHandler(
 }
 
 /// <summary>A title that is not on the list, or a list not made yet, changes nothing.</summary>
-internal sealed class RemoveFromMyListHandler(IStreamingReadModel readModel, IMyListRepository lists) : ICommandHandler<RemoveFromMyListCommand>
+internal sealed class RemoveFromMyListHandler(ProfileAccess profileAccess, IMyListRepository lists) : ICommandHandler<RemoveFromMyListCommand>
 {
     public async Task<Result> Handle(RemoveFromMyListCommand command, CancellationToken cancellationToken)
     {
-        if (await ProfileOwnership.FindAsync(readModel, command.UserId, command.ProfileId, cancellationToken).ConfigureAwait(false) is null)
+        var found = await profileAccess.FindAsync(command.UserId, command.ProfileId, cancellationToken).ConfigureAwait(false);
+        if (found.IsFailure)
         {
-            return PlaybackErrors.ProfileNotFound;
+            return found.Error;
         }
 
         (await lists.GetAsync(command.ProfileId, cancellationToken).ConfigureAwait(false))?.Remove(command.TitleId);

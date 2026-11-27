@@ -24,7 +24,8 @@ internal static class TasteEndpoints
             .WithSummary("How the profile rated a title; the rating is null when it has not.")
             .Produces<TitleRatingView>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         profiles.MapPut("/ratings/{titleId:guid}", RateAsync)
             .WithName("RateTitle")
@@ -41,7 +42,8 @@ internal static class TasteEndpoints
             .WithSummary("Takes back the profile's rating of a title; one it has not rated changes nothing.")
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         profiles.MapGet("/history", GetHistoryAsync)
             .WithName("GetWatchHistory")
@@ -49,21 +51,24 @@ internal static class TasteEndpoints
             .Produces<Page<HistoryItem>>()
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         profiles.MapDelete("/history/{titleId:guid}", RemoveFromHistoryAsync)
             .WithName("RemoveFromWatchHistory")
             .WithSummary("Forgets that the profile watched a title: it leaves the history, continue watching and the profile's taste.")
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         profiles.MapGet("/taste", GetTasteAsync)
             .WithName("GetTaste")
             .WithSummary("Title ids the profile is drawn to and away from, strongest first, for the catalog's recommendations.")
             .Produces<Domain.Ratings.Taste>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         return endpoints;
     }

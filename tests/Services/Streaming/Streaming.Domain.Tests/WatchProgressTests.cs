@@ -115,7 +115,7 @@ public sealed class WatchProgressTests
     private static IReadOnlyList<ContinueWatchingEntry> Pick(List<WatchProgress> progress, List<PlayableTitle> titles, AgeRating profileRating = AgeRating.Age18)
     {
         var profile = ProfileCopy.Create(Guid.CreateVersion7(), User);
-        profile.Apply(profileRating, 1);
+        profile.Apply(profileRating, false, 1);
         return ContinueWatching.Pick(progress, titles.ToDictionary(title => title.Id), profile);
     }
 

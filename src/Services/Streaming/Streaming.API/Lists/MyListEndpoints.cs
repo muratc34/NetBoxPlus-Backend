@@ -18,7 +18,8 @@ internal static class MyListEndpoints
             .WithSummary("The titles on the profile's list that it can watch now, most recently added first.")
             .Produces<IReadOnlyList<MyListItem>>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         list.MapPut("/{titleId:guid}", AddAsync)
             .WithName("AddToMyList")
@@ -34,7 +35,8 @@ internal static class MyListEndpoints
             .WithSummary("Takes a title off the profile's list; one that is not there changes nothing.")
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         return endpoints;
     }

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Shared.Application.Cqrs;
 using Shared.Domain;
 using Streaming.Application.Abstractions;
+using Streaming.Application.Playback;
 using Streaming.Application.Playback.GetProgress;
 using Streaming.Domain.Playback;
 
@@ -17,13 +18,14 @@ public sealed record PlaybackPreferences(string? AudioLanguage, string? Subtitle
 /// <summary>Keeps the profile's choice; the next sessions start with it where the video offers it.</summary>
 public sealed record SetPlaybackPreferencesCommand(Guid UserId, Guid ProfileId, string? AudioLanguage, string? SubtitleLanguage) : ICommand;
 
-internal sealed class GetPlaybackPreferencesHandler(IStreamingReadModel readModel) : IQueryHandler<GetPlaybackPreferencesQuery, PlaybackPreferences>
+internal sealed class GetPlaybackPreferencesHandler(ProfileAccess profileAccess, IStreamingReadModel readModel) : IQueryHandler<GetPlaybackPreferencesQuery, PlaybackPreferences>
 {
     public async Task<Result<PlaybackPreferences>> Handle(GetPlaybackPreferencesQuery query, CancellationToken cancellationToken)
     {
-        if (await ProfileOwnership.FindAsync(readModel, query.UserId, query.ProfileId, cancellationToken).ConfigureAwait(false) is null)
+        var found = await profileAccess.FindAsync(query.UserId, query.ProfileId, cancellationToken).ConfigureAwait(false);
+        if (found.IsFailure)
         {
-            return PlaybackErrors.ProfileNotFound;
+            return found.Error;
         }
 
         var preference = await readModel.PlaybackPreferences.FirstOrDefaultAsync(item => item.Id == query.ProfileId, cancellationToken).ConfigureAwait(false);
@@ -31,14 +33,15 @@ internal sealed class GetPlaybackPreferencesHandler(IStreamingReadModel readMode
     }
 }
 
-internal sealed class SetPlaybackPreferencesHandler(IStreamingReadModel readModel, IPlaybackPreferenceRepository preferences)
+internal sealed class SetPlaybackPreferencesHandler(ProfileAccess profileAccess, IPlaybackPreferenceRepository preferences)
     : ICommandHandler<SetPlaybackPreferencesCommand>
 {
     public async Task<Result> Handle(SetPlaybackPreferencesCommand command, CancellationToken cancellationToken)
     {
-        if (await ProfileOwnership.FindAsync(readModel, command.UserId, command.ProfileId, cancellationToken).ConfigureAwait(false) is null)
+        var found = await profileAccess.FindAsync(command.UserId, command.ProfileId, cancellationToken).ConfigureAwait(false);
+        if (found.IsFailure)
         {
-            return PlaybackErrors.ProfileNotFound;
+            return found.Error;
         }
 
         var preference = await preferences.GetAsync(command.ProfileId, cancellationToken).ConfigureAwait(false);

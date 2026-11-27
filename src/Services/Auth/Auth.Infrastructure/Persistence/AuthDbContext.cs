@@ -27,6 +27,8 @@ public sealed class AuthDbContext(DbContextOptions<AuthDbContext> options)
 
     public DbSet<UserToken> UserTokens => Set<UserToken>();
 
+    public DbSet<ProfileUnlock> ProfileUnlocks => Set<ProfileUnlock>();
+
     IQueryable<User> IAuthReadModel.Users => Users.AsNoTracking();
 
     IQueryable<Role> IAuthReadModel.Roles => Roles.AsNoTracking();

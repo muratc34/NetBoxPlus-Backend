@@ -84,6 +84,12 @@ public sealed class FakeAuthService : IAsyncDisposable
     /// <summary>Every request to <c>/me/passkeys…</c>: method, path and bearer.</summary>
     public ConcurrentQueue<(string Method, string Path, string Bearer)> PasskeyCalls { get; } = new();
 
+    /// <summary>Profiles opened through <c>POST /profiles/{id}/unlock</c>, with the bearer that asked.</summary>
+    public ConcurrentQueue<(Guid ProfileId, string Bearer)> ProfileUnlocks { get; } = new();
+
+    /// <summary>The PIN the fake accepts.</summary>
+    public const string Pin = "1234";
+
     /// <summary>The sessions ended through <c>DELETE /me/sessions[/{id}]</c>.</summary>
     public ConcurrentQueue<Guid> EndedSessions { get; } = new();
 
@@ -159,6 +165,16 @@ public sealed class FakeAuthService : IAsyncDisposable
             }
 
             return Results.Ok(new { ids = others });
+        });
+        app.MapPost("/profiles/{id:guid}/unlock", (HttpContext context, Guid id, UnlockRequest request) =>
+        {
+            if (request.Pin != Pin)
+            {
+                return Problem(400, "Profile.PinIncorrect");
+            }
+
+            service.ProfileUnlocks.Enqueue((id, context.Request.Headers.Authorization.ToString()["Bearer ".Length..]));
+            return Results.NoContent();
         });
         app.MapPost("/refresh", (RefreshRequest request) => service.RefreshAsync(request.RefreshToken));
         app.MapPost("/sign-out", (RefreshRequest request) =>
@@ -303,6 +319,8 @@ public sealed class FakeAuthService : IAsyncDisposable
     public sealed record PasskeyAnswer(Guid ChallengeId, System.Text.Json.JsonElement Credential);
 
     public sealed record RefreshRequest(string RefreshToken);
+
+    public sealed record UnlockRequest(string? Pin);
 
     public sealed record PasswordRequest(string? CurrentPassword, string? NewPassword);
 

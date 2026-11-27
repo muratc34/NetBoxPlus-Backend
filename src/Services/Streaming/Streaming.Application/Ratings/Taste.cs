@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Shared.Application.Cqrs;
 using Shared.Domain;
 using Streaming.Application.Abstractions;
+using Streaming.Application.Playback;
 using Streaming.Application.Playback.GetProgress;
 using Streaming.Domain.Playback;
 using Streaming.Domain.Ratings;
@@ -11,16 +12,17 @@ namespace Streaming.Application.Ratings;
 /// <summary>What one of the user's profiles is drawn to and away from, for the catalog to recommend from.</summary>
 public sealed record GetTasteQuery(Guid UserId, Guid ProfileId) : IQuery<Taste>;
 
-internal sealed class GetTasteHandler(IStreamingReadModel readModel) : IQueryHandler<GetTasteQuery, Taste>
+internal sealed class GetTasteHandler(ProfileAccess profileAccess, IStreamingReadModel readModel) : IQueryHandler<GetTasteQuery, Taste>
 {
     // Enough rows to fill every list even when some titles cannot be watched now.
     private const int RecentRows = 200;
 
     public async Task<Result<Taste>> Handle(GetTasteQuery query, CancellationToken cancellationToken)
     {
-        if (await ProfileOwnership.FindAsync(readModel, query.UserId, query.ProfileId, cancellationToken).ConfigureAwait(false) is null)
+        var found = await profileAccess.FindAsync(query.UserId, query.ProfileId, cancellationToken).ConfigureAwait(false);
+        if (found.IsFailure)
         {
-            return PlaybackErrors.ProfileNotFound;
+            return found.Error;
         }
 
         var ratings = await readModel.TitleRatings
