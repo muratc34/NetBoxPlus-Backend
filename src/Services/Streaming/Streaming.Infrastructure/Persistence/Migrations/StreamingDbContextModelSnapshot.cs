@@ -151,6 +151,9 @@ namespace Streaming.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("IsLocked")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsRemoved")
                         .HasColumnType("boolean");
 

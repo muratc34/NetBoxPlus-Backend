@@ -79,7 +79,7 @@ internal sealed partial class RefreshHandler(
             return await EndAsync(token, now, cancellationToken).ConfigureAwait(false);
         }
 
-        return sessions.Continue(user, token, grants);
+        return await sessions.ContinueAsync(user, token, grants, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<Result<TokenPair>> EndAsync(RefreshToken token, DateTimeOffset now, CancellationToken cancellationToken)

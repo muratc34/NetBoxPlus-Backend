@@ -59,14 +59,16 @@ internal static class PlaybackEndpoints
             .WithSummary("How far the profile has watched each movie or episode of a title.")
             .Produces<IReadOnlyList<ProgressView>>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         profiles.MapGet("/continue-watching", ContinueWatchingAsync)
             .WithName("GetContinueWatching")
             .WithSummary("What the profile was watching, most recent first: the movie or episode to go on with, and where.")
             .Produces<IReadOnlyList<ContinueWatchingItem>>()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         // No token here: players fetch these addresses as they are, and the signature in them is the permission.
         var playlists = endpoints.MapGroup("/playback/{sessionId:guid}").WithTags("Playback").AllowAnonymous();

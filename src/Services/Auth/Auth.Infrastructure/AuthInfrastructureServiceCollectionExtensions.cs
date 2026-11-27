@@ -36,6 +36,7 @@ public static class AuthInfrastructureServiceCollectionExtensions
         services.AddAuthPersistence(connectionString);
         services.AddAuthTokens();
         services.AddPasskeys();
+        services.AddHostedService<SessionDataCleanup>();
         services.AddRabbitMqMessaging();
 
         return services;
@@ -54,6 +55,7 @@ public static class AuthInfrastructureServiceCollectionExtensions
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IUserTokenRepository, UserTokenRepository>();
         services.AddScoped<IPasskeyRepository, PasskeyRepository>();
+        services.AddScoped<IProfileUnlockRepository, ProfileUnlockRepository>();
 
         services.Configure<PasswordHasherOptions>(options =>
         {
@@ -73,7 +75,6 @@ public static class AuthInfrastructureServiceCollectionExtensions
             .ValidateOnStart();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<PasskeyOptions>, PasskeyOptionsValidator>());
         services.AddSingleton<IPasskeyCeremonies, Fido2PasskeyCeremonies>();
-        services.AddHostedService<PasskeyChallengeCleanup>();
         return services;
     }
 

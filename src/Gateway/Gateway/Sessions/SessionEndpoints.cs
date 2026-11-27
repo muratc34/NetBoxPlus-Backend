@@ -41,6 +41,8 @@ public sealed record AddPasskeyRequest(Guid ChallengeId, string? Name, JsonEleme
 
 public sealed record RenamePasskeyRequest(string? Name);
 
+public sealed record UnlockProfileRequest(string? Pin);
+
 /// <param name="Options">The PublicKeyCredentialCreationOptions or …RequestOptions JSON, for the browser's parse…FromJSON.</param>
 public sealed record PasskeyCeremonyResponse(Guid ChallengeId, JsonElement Options);
 
@@ -160,6 +162,21 @@ internal static class SessionEndpoints
             .Produces(StatusCodes.Status204NoContent)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+        // Guessing is limited by the profile's own lockout too; the limit keeps one client from trying every profile.
+        customer.MapPost("/profiles/{profileId:guid}/unlock", UnlockProfileAsync)
+            .RequireRateLimiting(RateLimitingServiceCollectionExtensions.CredentialsPolicy)
+            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(RouteGroups.Public, next))
+            .WithName("UnlockProfile")
+            .WithSummary("Opens a locked profile with its PIN for this session; the session's next request may use it.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status429TooManyRequests)
             .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
@@ -438,6 +455,55 @@ internal static class SessionEndpoints
                     : (SessionManager.WithTokens(current, result.Pair), TypedResults.NoContent());
             },
             whenGone: GatewayProblem.AuthUnavailable);
+    }
+
+    /// <summary>
+    /// Opens a locked profile through the auth service, then renews the session's tokens at once, under the session's
+    /// lock: the profile is named in the next access token, and the browser's next request must carry it. An answer
+    /// other than 204 is passed on as it is.
+    /// </summary>
+    private static async Task<IResult> UnlockProfileAsync(
+        Guid profileId,
+        [FromBody] UnlockProfileRequest request,
+        HttpContext context,
+        [FromServices] AuthClient auth,
+        [FromServices] SessionManager sessions)
+    {
+        var hadCookie = SessionCookies.Read(context, SessionKind.Customer) is not null;
+        if (await sessions.LoadAsync(context, SessionKind.Customer) is not { } loaded)
+        {
+            return Ended(context, SessionKind.Customer, hadCookie);
+        }
+
+        if (!RequestGuards.IsCsrfSafe(context, loaded.Session))
+        {
+            return GatewayProblem.CsrfInvalid;
+        }
+
+        var outcome = await sessions.EnsureFreshAsync(loaded);
+        if (outcome.Status != RefreshStatus.Fresh)
+        {
+            return outcome.Status == RefreshStatus.Ended ? Ended(context, SessionKind.Customer, hadCookie: true) : GatewayProblem.AuthUnavailable;
+        }
+
+        // Not cancelled with the request: a refresh token used at the auth service must reach the session.
+        var result = await sessions.ChangeAsync<IResult>(
+            loaded,
+            async current =>
+            {
+                var unlocked = await auth.UnlockProfileAsync(current.AccessToken, profileId, request.Pin, CancellationToken.None);
+                if (!unlocked.IsSuccess)
+                {
+                    return (null, new AuthJsonResult(unlocked));
+                }
+
+                var renewed = await auth.RefreshAsync(current.RefreshToken, CancellationToken.None);
+                return renewed.Pair is null
+                    ? (null, GatewayProblem.AuthUnavailable)
+                    : (SessionManager.WithTokens(current, renewed.Pair), TypedResults.NoContent());
+            },
+            whenGone: GatewayProblem.AuthUnavailable);
+        return NoStore(context, result);
     }
 
     /// <summary>Passes the auth service's answer on: 202 whether or not the address has an account.</summary>

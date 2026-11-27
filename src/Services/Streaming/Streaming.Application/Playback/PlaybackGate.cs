@@ -12,18 +12,20 @@ internal sealed record PlaybackAccess(PlaybackGrant Grant, int MaxScreens);
 
 /// <summary>
 /// Decides from the local copies whether a profile may watch a movie or episode now: the profile is
-/// the user's, a subscription is active, the content can be watched and its age rating fits.
+/// the user's (and, if locked, opened in this sign-in), a subscription is active, the content can be watched and its age rating fits.
 /// Asked when a session starts and with every heartbeat.
 /// </summary>
-internal sealed class PlaybackGate(IStreamingReadModel readModel)
+internal sealed class PlaybackGate(IStreamingReadModel readModel, ProfileAccess profileAccess)
 {
     public async Task<Result<PlaybackAccess>> CheckAsync(Guid userId, Guid profileId, Guid contentId, CancellationToken cancellationToken)
     {
-        var profile = await readModel.Profiles.FirstOrDefaultAsync(item => item.Id == profileId && item.UserId == userId, cancellationToken).ConfigureAwait(false);
-        if (profile is null || profile.IsRemoved)
+        var found = await profileAccess.FindAsync(userId, profileId, cancellationToken).ConfigureAwait(false);
+        if (found.IsFailure)
         {
-            return PlaybackErrors.ProfileNotFound;
+            return found.Error;
         }
+
+        var profile = found.Value;
 
         var subscription = await readModel.Subscriptions
             .Where(item => item.UserId == userId && item.Status == SubscriptionStatus.Active)

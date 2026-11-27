@@ -20,6 +20,14 @@ public sealed class Profile : Entity
 {
     public const int NameMaxLength = 32;
 
+    /// <summary>The digits of a PIN.</summary>
+    public const int PinLength = 4;
+
+    /// <summary>Consecutive wrong PINs that lock the profile for <see cref="PinLockoutDuration"/>.</summary>
+    public const int MaxFailedPins = 5;
+
+    public static readonly TimeSpan PinLockoutDuration = TimeSpan.FromMinutes(15);
+
     private Profile(Guid id, Guid userId, string name, AgeRating maxAgeRating)
         : base(id)
     {
@@ -42,6 +50,25 @@ public sealed class Profile : Entity
     public string NormalizedName { get; private set; } = string.Empty;
 
     public AgeRating MaxAgeRating { get; private set; }
+
+    /// <summary>The hashed PIN that must be entered to use the profile; none when the profile is open to the whole account.</summary>
+    public string? PinHash { get; private set; }
+
+    public bool IsLocked => PinHash is not null;
+
+    /// <summary>
+    /// Wrong PINs since the last right one or the last lockout. Incremented in the database (see
+    /// <see cref="IUserRepository.RecordFailedPinAsync"/>), so that concurrent attempts each count.
+    /// </summary>
+    public int FailedPinCount { get; private set; }
+
+    /// <summary>Set when the wrong PINs reach <see cref="MaxFailedPins"/>.</summary>
+    public DateTimeOffset? PinLockedUntil { get; private set; }
+
+    public bool IsPinLockedOut(DateTimeOffset now) => PinLockedUntil > now;
+
+    /// <summary>Exactly <see cref="PinLength"/> digits 0–9.</summary>
+    public static bool IsWellFormedPin(string? pin) => pin is { Length: PinLength } && pin.All(char.IsAsciiDigit);
 
     /// <summary>Goes up with every change; events carry it, so that consumers can tell old from new.</summary>
     public int Revision { get; private set; }
@@ -79,6 +106,27 @@ public sealed class Profile : Entity
 
     internal void MarkRemoved() => Revision++;
 
+    /// <summary>Whether anything changed: a new PIN always does (a new hash), removing a missing one does not.</summary>
+    internal bool ChangePin(string? pinHash)
+    {
+        if (pinHash is null && PinHash is null)
+        {
+            return false;
+        }
+
+        PinHash = pinHash;
+        FailedPinCount = 0;
+        PinLockedUntil = null;
+        Revision++;
+        return true;
+    }
+
+    internal void RecordRightPin()
+    {
+        FailedPinCount = 0;
+        PinLockedUntil = null;
+    }
+
     private void Rename(string name)
     {
         Name = name;
@@ -100,11 +148,19 @@ public static class ProfileErrors
 
     public static readonly Error LimitReached = Error.Conflict("Profile.LimitReached", $"An account can have at most {User.MaxProfiles} profiles.");
 
+    public static readonly Error PinInvalid = Error.Validation("Profile.PinInvalid", $"The PIN must be {Profile.PinLength} digits.");
+
+    public static readonly Error PinIncorrect = Error.Validation("Profile.PinIncorrect", "The PIN is not correct.");
+
+    public static readonly Error SessionRequired = Error.Unauthorized("Profile.SessionRequired", "Sign in again to unlock the profile.");
+
+    public static readonly Error PinLocked = Error.Conflict("Profile.PinLocked", "Too many wrong PINs; try again later.");
+
     public static readonly Error LastProfile = Error.Conflict("Profile.LastProfile", "The last profile of an account cannot be removed.");
 }
 
 public sealed record ProfileCreatedDomainEvent(Guid UserId, Guid ProfileId, AgeRating MaxAgeRating, int Revision) : IDomainEvent;
 
-public sealed record ProfileChangedDomainEvent(Guid UserId, Guid ProfileId, AgeRating MaxAgeRating, int Revision) : IDomainEvent;
+public sealed record ProfileChangedDomainEvent(Guid UserId, Guid ProfileId, AgeRating MaxAgeRating, int Revision, bool Locked) : IDomainEvent;
 
 public sealed record ProfileRemovedDomainEvent(Guid UserId, Guid ProfileId, int Revision) : IDomainEvent;

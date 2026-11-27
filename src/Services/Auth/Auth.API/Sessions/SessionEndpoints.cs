@@ -195,7 +195,7 @@ internal static class SessionEndpoints
         => (await dispatcher.Send(new EndOtherSessionsCommand(currentUser.Id!.Value, SessionOf(context)), cancellationToken)).ToHttpResult();
 
     /// <summary>The caller's session from the access token's <c>sid</c>; none in a token issued before sessions had ids.</summary>
-    private static Guid? SessionOf(HttpContext context)
+    internal static Guid? SessionOf(HttpContext context)
         => Guid.TryParse(context.User.FindFirst("sid")?.Value, out var id) ? id : null;
 
     private static async Task<IResult> GetMeAsync(

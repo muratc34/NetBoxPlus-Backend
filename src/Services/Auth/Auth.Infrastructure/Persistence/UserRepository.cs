@@ -38,4 +38,22 @@ internal sealed class UserRepository(AuthDbContext context) : IUserRepository
                     .SetProperty(user => user.ModifiedAt, now),
                 cancellationToken);
     }
+
+    public Task RecordFailedPinAsync(Guid profileId, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        // The same single UPDATE as a failed sign-in.
+        DateTimeOffset? lockedUntil = now + Profile.PinLockoutDuration;
+
+        return context.Set<Profile>()
+            .Where(profile => profile.Id == profileId)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(
+                        profile => profile.PinLockedUntil,
+                        profile => profile.FailedPinCount + 1 >= Profile.MaxFailedPins ? lockedUntil : profile.PinLockedUntil)
+                    .SetProperty(
+                        profile => profile.FailedPinCount,
+                        profile => profile.FailedPinCount + 1 >= Profile.MaxFailedPins ? 0 : profile.FailedPinCount + 1),
+                cancellationToken);
+    }
 }

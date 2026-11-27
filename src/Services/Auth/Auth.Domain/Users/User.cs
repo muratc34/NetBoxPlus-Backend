@@ -283,11 +283,31 @@ public sealed class User : AggregateRoot, IAuditableEntity
 
         if (profile.Change(checkedName.Value, maxAgeRating))
         {
-            RaiseDomainEvent(new ProfileChangedDomainEvent(Id, profile.Id, profile.MaxAgeRating, profile.Revision));
+            RaiseDomainEvent(new ProfileChangedDomainEvent(Id, profile.Id, profile.MaxAgeRating, profile.Revision, profile.IsLocked));
         }
 
         return Result.Success();
     }
+
+    /// <summary>Puts a PIN on a profile, replaces it, or with <see langword="null"/> takes it off.</summary>
+    public Result ChangeProfilePin(Guid profileId, string? pinHash)
+    {
+        var profile = _profiles.Find(item => item.Id == profileId);
+        if (profile is null)
+        {
+            return ProfileErrors.NotFound;
+        }
+
+        if (profile.ChangePin(pinHash))
+        {
+            RaiseDomainEvent(new ProfileChangedDomainEvent(Id, profile.Id, profile.MaxAgeRating, profile.Revision, profile.IsLocked));
+        }
+
+        return Result.Success();
+    }
+
+    /// <summary>The right PIN was entered: the wrong ones before it no longer count.</summary>
+    public void RecordRightProfilePin(Guid profileId) => _profiles.Find(item => item.Id == profileId)?.RecordRightPin();
 
     public Result RemoveProfile(Guid profileId)
     {

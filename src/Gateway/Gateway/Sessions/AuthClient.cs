@@ -70,6 +70,9 @@ internal sealed partial class AuthClient(IHttpClientFactory httpClientFactory, I
     public Task<AuthJson> PasskeysAsync(HttpMethod method, string path, string accessToken, object? body, CancellationToken cancellationToken)
         => SendForJsonAsync(method, "/me/passkeys" + path, accessToken, cancellationToken, body);
 
+    public Task<AuthJson> UnlockProfileAsync(string accessToken, Guid profileId, string? pin, CancellationToken cancellationToken)
+        => SendForJsonAsync(HttpMethod.Post, $"/profiles/{profileId}/unlock", accessToken, cancellationToken, new { pin });
+
     public Task<AuthJson> GetSessionsAsync(string accessToken, CancellationToken cancellationToken)
         => SendForJsonAsync(HttpMethod.Get, "/me/sessions", accessToken, cancellationToken);
 

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Shared.Application.Cqrs;
 using Shared.Domain;
 using Streaming.Application.Abstractions;
+using Streaming.Application.Playback;
 using Streaming.Domain.Access;
 using Streaming.Domain.Playback;
 
@@ -19,19 +20,14 @@ public sealed record GetContinueWatchingQuery(Guid UserId, Guid ProfileId) : IQu
 /// <param name="PositionSeconds">Where to start: 0 for the next episode.</param>
 public sealed record ContinueWatchingItem(Guid TitleId, TitleKind Kind, Guid ContentId, double PositionSeconds, double DurationSeconds, DateTimeOffset UpdatedAt);
 
-internal static class ProfileOwnership
-{
-    public static Task<ProfileCopy?> FindAsync(IStreamingReadModel readModel, Guid userId, Guid profileId, CancellationToken cancellationToken)
-        => readModel.Profiles.FirstOrDefaultAsync(profile => profile.Id == profileId && profile.UserId == userId && !profile.IsRemoved, cancellationToken);
-}
-
-internal sealed class GetProgressHandler(IStreamingReadModel readModel) : IQueryHandler<GetProgressQuery, IReadOnlyList<ProgressView>>
+internal sealed class GetProgressHandler(ProfileAccess profileAccess, IStreamingReadModel readModel) : IQueryHandler<GetProgressQuery, IReadOnlyList<ProgressView>>
 {
     public async Task<Result<IReadOnlyList<ProgressView>>> Handle(GetProgressQuery query, CancellationToken cancellationToken)
     {
-        if (await ProfileOwnership.FindAsync(readModel, query.UserId, query.ProfileId, cancellationToken).ConfigureAwait(false) is null)
+        var found = await profileAccess.FindAsync(query.UserId, query.ProfileId, cancellationToken).ConfigureAwait(false);
+        if (found.IsFailure)
         {
-            return PlaybackErrors.ProfileNotFound;
+            return found.Error;
         }
 
         var views = await readModel.WatchProgress
@@ -43,18 +39,20 @@ internal sealed class GetProgressHandler(IStreamingReadModel readModel) : IQuery
     }
 }
 
-internal sealed class GetContinueWatchingHandler(IStreamingReadModel readModel) : IQueryHandler<GetContinueWatchingQuery, IReadOnlyList<ContinueWatchingItem>>
+internal sealed class GetContinueWatchingHandler(ProfileAccess profileAccess, IStreamingReadModel readModel) : IQueryHandler<GetContinueWatchingQuery, IReadOnlyList<ContinueWatchingItem>>
 {
     // Enough recent rows to fill the list even when some titles are gone or done.
     private const int RecentRows = 200;
 
     public async Task<Result<IReadOnlyList<ContinueWatchingItem>>> Handle(GetContinueWatchingQuery query, CancellationToken cancellationToken)
     {
-        var profile = await ProfileOwnership.FindAsync(readModel, query.UserId, query.ProfileId, cancellationToken).ConfigureAwait(false);
-        if (profile is null)
+        var found = await profileAccess.FindAsync(query.UserId, query.ProfileId, cancellationToken).ConfigureAwait(false);
+        if (found.IsFailure)
         {
-            return PlaybackErrors.ProfileNotFound;
+            return found.Error;
         }
+
+        var profile = found.Value;
 
         var recent = await readModel.WatchProgress
             .Where(progress => progress.ProfileId == query.ProfileId)

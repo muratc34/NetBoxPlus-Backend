@@ -12,11 +12,13 @@ public interface IAccessTokenIssuer
 /// <param name="Roles">Role names, one <c>role</c> claim each.</param>
 /// <param name="Permissions">Granted permissions, one <c>permission</c> claim each.</param>
 /// <param name="SessionId">The sign-in (refresh token family) the token was issued for, as the <c>sid</c> claim.</param>
+/// <param name="UnlockedProfiles">Locked profiles opened with their PIN in this sign-in, one <c>profile_unlocked</c> claim each.</param>
 public sealed record AccessTokenSubject(
     Guid UserId,
     string Email,
     IReadOnlyCollection<string> Roles,
     IReadOnlyCollection<string> Permissions,
-    Guid SessionId);
+    Guid SessionId,
+    IReadOnlyCollection<Guid> UnlockedProfiles);
 
 public sealed record AccessToken(string Value, DateTimeOffset ExpiresAt);

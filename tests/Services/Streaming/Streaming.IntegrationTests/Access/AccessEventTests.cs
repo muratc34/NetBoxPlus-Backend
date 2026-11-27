@@ -125,7 +125,7 @@ public sealed class AccessEventTests(StreamingApiFixture api)
             Assert.True((await SendAsync(new ApplyProfileCommand(profile, user, AgeRating.Age7, 1))).IsSuccess);
 
             var copy = ProfileCopy.Create(profile, user);
-            copy.Apply(AgeRating.Age13, 2);
+            copy.Apply(AgeRating.Age13, false, 2);
             profiles.Add(copy);
             await Assert.ThrowsAsync<DataConflictException>(() => late.ServiceProvider.GetRequiredService<IUnitOfWork>().SaveChangesAsync(Cancellation));
         }
@@ -147,8 +147,8 @@ public sealed class AccessEventTests(StreamingApiFixture api)
         await using var secondScope = api.CreateScope();
         var firstCopy = await firstScope.ServiceProvider.GetRequiredService<IProfileCopyRepository>().GetByIdAsync(profile, Cancellation);
         var secondCopy = await secondScope.ServiceProvider.GetRequiredService<IProfileCopyRepository>().GetByIdAsync(profile, Cancellation);
-        firstCopy!.Apply(AgeRating.Age16, 3);
-        secondCopy!.Apply(AgeRating.Age7, 2);
+        firstCopy!.Apply(AgeRating.Age16, false, 3);
+        secondCopy!.Apply(AgeRating.Age7, false, 2);
 
         await firstScope.ServiceProvider.GetRequiredService<IUnitOfWork>().SaveChangesAsync(Cancellation);
         await Assert.ThrowsAsync<DataConflictException>(() => secondScope.ServiceProvider.GetRequiredService<IUnitOfWork>().SaveChangesAsync(Cancellation));

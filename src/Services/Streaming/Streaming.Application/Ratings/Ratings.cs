@@ -3,6 +3,7 @@ using Shared.Application.Cqrs;
 using Shared.Application.Validation;
 using Shared.Domain;
 using Streaming.Application.Abstractions;
+using Streaming.Application.Playback;
 using Streaming.Application.Playback.GetProgress;
 using Streaming.Domain.Playback;
 using Streaming.Domain.Ratings;
@@ -26,13 +27,14 @@ public static class RatingErrors
     public static readonly Error Invalid = Error.Validation("Rating.Invalid", "The rating must be NotForMe, Like or Love.");
 }
 
-internal sealed class GetRatingHandler(IStreamingReadModel readModel) : IQueryHandler<GetRatingQuery, TitleRatingView>
+internal sealed class GetRatingHandler(ProfileAccess profileAccess, IStreamingReadModel readModel) : IQueryHandler<GetRatingQuery, TitleRatingView>
 {
     public async Task<Result<TitleRatingView>> Handle(GetRatingQuery query, CancellationToken cancellationToken)
     {
-        if (await ProfileOwnership.FindAsync(readModel, query.UserId, query.ProfileId, cancellationToken).ConfigureAwait(false) is null)
+        var found = await profileAccess.FindAsync(query.UserId, query.ProfileId, cancellationToken).ConfigureAwait(false);
+        if (found.IsFailure)
         {
-            return PlaybackErrors.ProfileNotFound;
+            return found.Error;
         }
 
         var level = await readModel.TitleRatings
@@ -57,7 +59,7 @@ internal sealed class RateTitleValidator : IValidator<RateTitleCommand>
 /// <summary>
 /// The same checks as "my list": the title can be watched now, by this profile; no subscription is needed.
 /// </summary>
-internal sealed class RateTitleHandler(
+internal sealed class RateTitleHandler(ProfileAccess profileAccess, 
     IStreamingReadModel readModel,
     ITitleRatingRepository ratings,
     StreamingMetrics metrics,
@@ -65,11 +67,13 @@ internal sealed class RateTitleHandler(
 {
     public async Task<Result> Handle(RateTitleCommand command, CancellationToken cancellationToken)
     {
-        var profile = await ProfileOwnership.FindAsync(readModel, command.UserId, command.ProfileId, cancellationToken).ConfigureAwait(false);
-        if (profile is null)
+        var found = await profileAccess.FindAsync(command.UserId, command.ProfileId, cancellationToken).ConfigureAwait(false);
+        if (found.IsFailure)
         {
-            return PlaybackErrors.ProfileNotFound;
+            return found.Error;
         }
+
+        var profile = found.Value;
 
         var title = await readModel.PlayableTitles
             .Where(item => item.Id == command.TitleId && item.Items.Any())
@@ -104,13 +108,14 @@ internal sealed class RateTitleHandler(
 }
 
 /// <summary>A title the profile has not rated changes nothing; the title need not be watchable any more.</summary>
-internal sealed class RemoveRatingHandler(IStreamingReadModel readModel, ITitleRatingRepository ratings, StreamingMetrics metrics) : ICommandHandler<RemoveRatingCommand>
+internal sealed class RemoveRatingHandler(ProfileAccess profileAccess, ITitleRatingRepository ratings, StreamingMetrics metrics) : ICommandHandler<RemoveRatingCommand>
 {
     public async Task<Result> Handle(RemoveRatingCommand command, CancellationToken cancellationToken)
     {
-        if (await ProfileOwnership.FindAsync(readModel, command.UserId, command.ProfileId, cancellationToken).ConfigureAwait(false) is null)
+        var found = await profileAccess.FindAsync(command.UserId, command.ProfileId, cancellationToken).ConfigureAwait(false);
+        if (found.IsFailure)
         {
-            return PlaybackErrors.ProfileNotFound;
+            return found.Error;
         }
 
         if (await ratings.FindAsync(command.ProfileId, command.TitleId, cancellationToken).ConfigureAwait(false) is { } rating)

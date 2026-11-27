@@ -234,6 +234,28 @@ public sealed class PlaybackApiTests(StreamingApiFixture api)
     }
 
     [Fact]
+    public async Task ALockedProfile_IsWatched_OnlyInASignInThatOpenedIt()
+    {
+        var setup = await SetUpAsync(VideoQuality.Hd, screens: 4);
+        await SendAsync(new ApplyProfileCommand(setup.ProfileId, setup.User, AgeRating.Age18, 2, Locked: true));
+        using var closed = api.CreateClientFor(setup.User);
+        using var opened = api.CreateClientWithUnlocked(setup.User, setup.ProfileId);
+        using var openedElsewhere = api.CreateClientWithUnlocked(setup.User, Guid.CreateVersion7());
+
+        Assert.Equal("Playback.ProfileLocked", await StartCodeAsync(closed, setup.ProfileId, setup.ContentId));
+        Assert.Equal("Playback.ProfileLocked", await StartCodeAsync(openedElsewhere, setup.ProfileId, setup.ContentId));
+        var started = await StartAsync(opened, setup);
+        Assert.Equal(HttpStatusCode.NoContent, (await opened.PostAsync($"/playback-sessions/{started.SessionId}/heartbeat", null, Cancellation)).StatusCode);
+
+        // The PIN changed (its sign-in has no longer opened the profile) while watching: the next heartbeat stops it.
+        Assert.Equal("Playback.ProfileLocked", await CodeAsync(await closed.PostAsync($"/playback-sessions/{started.SessionId}/heartbeat", null, Cancellation)));
+        Assert.Equal(HttpStatusCode.NoContent, (await closed.DeleteAsync($"/playback-sessions/{started.SessionId}", Cancellation)).StatusCode);
+
+        await SendAsync(new ApplyProfileCommand(setup.ProfileId, setup.User, AgeRating.Age18, 3, Locked: false));
+        Assert.Null(await StartCodeAsync(closed, setup.ProfileId, setup.ContentId));
+    }
+
+    [Fact]
     public async Task Starts_AreCounted_AndActiveSessionsGauged()
     {
         var setup = await SetUpAsync(VideoQuality.Hd, screens: 1);

@@ -55,14 +55,27 @@ public sealed class AccessCopyTests
         => Assert.Throws<ArgumentOutOfRangeException>(() => SubscriptionCopy.Create(Guid.CreateVersion7(), Guid.CreateVersion7()).Stop(SubscriptionStatus.Active, 1));
 
     [Fact]
+    public void TheLock_FollowsTheNewestNews_LikeTheAgeRating()
+    {
+        var profile = ProfileCopy.Create(Guid.CreateVersion7(), Guid.CreateVersion7());
+
+        profile.Apply(AgeRating.Age18, true, 2);
+        Assert.False(profile.Apply(AgeRating.Age18, false, 1));
+        Assert.True(profile.IsLocked);
+
+        profile.Apply(AgeRating.Age18, false, 3);
+        Assert.False(profile.IsLocked);
+    }
+
+    [Fact]
     public void AProfileRemovedForGood_TakesNoLaterNews()
     {
         var profile = ProfileCopy.Create(Guid.CreateVersion7(), Guid.CreateVersion7());
-        profile.Apply(AgeRating.Age13, 1);
+        profile.Apply(AgeRating.Age13, false, 1);
 
         profile.RemoveForGood();
 
-        Assert.False(profile.Apply(AgeRating.Age18, 1_000_000));
+        Assert.False(profile.Apply(AgeRating.Age18, false, 1_000_000));
         Assert.False(profile.Remove(1_000_000));
         Assert.Equal((true, AgeRating.Age13), (profile.IsRemoved, profile.MaxAgeRating));
     }
@@ -71,10 +84,10 @@ public sealed class AccessCopyTests
     public void ARemovedProfile_StaysRemoved_WhenOlderNewsArrives()
     {
         var profile = ProfileCopy.Create(Guid.CreateVersion7(), Guid.CreateVersion7());
-        profile.Apply(AgeRating.Age13, 1);
+        profile.Apply(AgeRating.Age13, false, 1);
 
         Assert.True(profile.Remove(3));
-        Assert.False(profile.Apply(AgeRating.Age18, 2));
+        Assert.False(profile.Apply(AgeRating.Age18, false, 2));
 
         Assert.Equal((true, AgeRating.Age13, 3), (profile.IsRemoved, profile.MaxAgeRating, profile.Revision));
     }
@@ -84,10 +97,10 @@ public sealed class AccessCopyTests
     {
         var profile = ProfileCopy.Create(Guid.CreateVersion7(), Guid.CreateVersion7());
 
-        profile.Apply(AgeRating.Age7, 2);
-        Assert.False(profile.Apply(AgeRating.All, 1));
-        Assert.False(profile.Apply(AgeRating.All, 2));
-        profile.Apply(AgeRating.Age16, 3);
+        profile.Apply(AgeRating.Age7, false, 2);
+        Assert.False(profile.Apply(AgeRating.All, false, 1));
+        Assert.False(profile.Apply(AgeRating.All, false, 2));
+        profile.Apply(AgeRating.Age16, false, 3);
 
         Assert.Equal(AgeRating.Age16, profile.MaxAgeRating);
     }

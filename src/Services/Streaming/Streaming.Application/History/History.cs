@@ -4,6 +4,7 @@ using Shared.Application.Paging;
 using Shared.Application.Validation;
 using Shared.Domain;
 using Streaming.Application.Abstractions;
+using Streaming.Application.Playback;
 using Streaming.Application.Playback.GetProgress;
 using Streaming.Domain.Access;
 using Streaming.Domain.Playback;
@@ -37,15 +38,17 @@ internal sealed class GetHistoryValidator : IValidator<GetHistoryQuery>
 /// Like "my list", only what can be watched now and by this profile is shown; the rest stays and comes back
 /// when it can be watched again.
 /// </summary>
-internal sealed class GetHistoryHandler(IStreamingReadModel readModel) : IQueryHandler<GetHistoryQuery, Page<HistoryItem>>
+internal sealed class GetHistoryHandler(ProfileAccess profileAccess, IStreamingReadModel readModel) : IQueryHandler<GetHistoryQuery, Page<HistoryItem>>
 {
     public async Task<Result<Page<HistoryItem>>> Handle(GetHistoryQuery query, CancellationToken cancellationToken)
     {
-        var profile = await ProfileOwnership.FindAsync(readModel, query.UserId, query.ProfileId, cancellationToken).ConfigureAwait(false);
-        if (profile is null)
+        var found = await profileAccess.FindAsync(query.UserId, query.ProfileId, cancellationToken).ConfigureAwait(false);
+        if (found.IsFailure)
         {
-            return PlaybackErrors.ProfileNotFound;
+            return found.Error;
         }
+
+        var profile = found.Value;
 
         // The age is stored by name, so the allowed ones are listed: comparing names would go by the alphabet.
         var allowed = Enum.GetValues<AgeRating>().Where(profile.MayWatch).ToList();
@@ -73,13 +76,14 @@ internal sealed class GetHistoryHandler(IStreamingReadModel readModel) : IQueryH
 }
 
 /// <summary>A title the profile never watched changes nothing.</summary>
-internal sealed class RemoveFromHistoryHandler(IStreamingReadModel readModel, IWatchProgressRepository progress) : ICommandHandler<RemoveFromHistoryCommand>
+internal sealed class RemoveFromHistoryHandler(ProfileAccess profileAccess, IWatchProgressRepository progress) : ICommandHandler<RemoveFromHistoryCommand>
 {
     public async Task<Result> Handle(RemoveFromHistoryCommand command, CancellationToken cancellationToken)
     {
-        if (await ProfileOwnership.FindAsync(readModel, command.UserId, command.ProfileId, cancellationToken).ConfigureAwait(false) is null)
+        var found = await profileAccess.FindAsync(command.UserId, command.ProfileId, cancellationToken).ConfigureAwait(false);
+        if (found.IsFailure)
         {
-            return PlaybackErrors.ProfileNotFound;
+            return found.Error;
         }
 
         await progress.RemoveForTitleAsync(command.ProfileId, command.TitleId, cancellationToken).ConfigureAwait(false);
