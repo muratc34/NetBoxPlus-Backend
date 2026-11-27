@@ -3,6 +3,7 @@ using Catalog.Application.Browse.GetPublishedGenres;
 using Catalog.Application.Browse.GetPublishedMovie;
 using Catalog.Application.Browse.GetPublishedSeries;
 using Catalog.Application.Browse.GetTitles;
+using Catalog.Application.Browse.Recommend;
 using Catalog.Application.Browse.Search;
 using Catalog.Application.Content;
 using Catalog.Domain.Content;
@@ -32,6 +33,20 @@ internal static class BrowseEndpoints
         browse.MapGet("/search", SearchAsync)
             .WithName("SearchTitles")
             .WithSummary("Searches published movies and series, best match first; the last word may be unfinished.")
+            .Produces<Page<SearchHit>>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+        browse.MapGet("/titles/{id:guid}/similar", GetSimilarAsync)
+            .WithName("GetSimilarTitles")
+            .WithSummary("Published titles like this one, by genres, people, synopsis and title, the closest first; empty for a title that is not published.")
+            .Produces<Page<SearchHit>>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+        browse.MapGet("/titles/recommended", GetRecommendedAsync)
+            .WithName("GetRecommendedTitles")
+            .WithSummary("Published titles like the liked ones (at most 20) and unlike the unliked ones (at most 20); none of the given or excluded (at most 50) titles is returned.")
             .Produces<Page<SearchHit>>()
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
@@ -91,6 +106,28 @@ internal static class BrowseEndpoints
         [FromQuery] int pageSize = PageLimits.DefaultPageSize,
         [FromQuery] AgeRating? maxAgeRating = null)
         => (await dispatcher.Query(new SearchTitlesQuery(q, lang ?? Languages.Default, kind, genreId, page, pageSize, maxAgeRating), cancellationToken)).ToHttpResult();
+
+    private static async Task<IResult> GetSimilarAsync(
+        Guid id,
+        [FromServices] IDispatcher dispatcher,
+        CancellationToken cancellationToken,
+        [FromQuery] string? lang = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = PageLimits.DefaultPageSize,
+        [FromQuery] AgeRating? maxAgeRating = null)
+        => (await dispatcher.Query(new GetSimilarTitlesQuery(id, lang ?? Languages.Default, page, pageSize, maxAgeRating), cancellationToken)).ToHttpResult();
+
+    private static async Task<IResult> GetRecommendedAsync(
+        [FromServices] IDispatcher dispatcher,
+        CancellationToken cancellationToken,
+        [FromQuery] Guid[]? like = null,
+        [FromQuery] Guid[]? unlike = null,
+        [FromQuery] Guid[]? exclude = null,
+        [FromQuery] string? lang = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = PageLimits.DefaultPageSize,
+        [FromQuery] AgeRating? maxAgeRating = null)
+        => (await dispatcher.Query(new GetRecommendedTitlesQuery(like ?? [], unlike ?? [], exclude ?? [], lang ?? Languages.Default, page, pageSize, maxAgeRating), cancellationToken)).ToHttpResult();
 
     private static async Task<IResult> GetMovieAsync(Guid id, [FromServices] IDispatcher dispatcher, CancellationToken cancellationToken, [FromQuery] string? lang = null)
         => (await dispatcher.Query(new GetPublishedMovieQuery(id, lang ?? Languages.Default), cancellationToken)).ToHttpResult();

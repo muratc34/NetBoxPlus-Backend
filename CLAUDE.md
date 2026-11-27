@@ -362,7 +362,7 @@ Migrator'daki seed):
   bir metrik sınıfında. Etiketlerde id, e-posta, ad yok; sadece sınırlı değerler (sonuç, tür, hata kodu).
   Veritabanından okunan gauge'lar arka planda (30 sn) ölçülür, callback sadece son değeri okur.
   Mevcutlar: outbox, messaging (işlenen/tekrar/DLQ, süre, DLQ derinliği), Auth giriş, Streaming transcode,
-  oynatma, fragman ve değerlendirme, Notification e-posta, gateway rate limit reddi. Health check servisinin logu Error seviyesinde: `Degraded` her probe'da tekrar
+  oynatma, fragman ve değerlendirme, Catalog öneri, Notification e-posta, gateway rate limit reddi. Health check servisinin logu Error seviyesinde: `Degraded` her probe'da tekrar
   loglanmaz (olayı izleyicisi bir kez loglar), `Unhealthy` loglanır. Container'lar metriği 15 sn'de bir gönderir.
 - **Auth endpoint'leri:** `/register`, `/sign-in`, `/sign-in/admin`, `/refresh`, `/sign-out`, `/me`,
   `/me/password`, `/me/email`, `/me/deletion`, `/email-verification` (GET durum, POST yeniden gönder), `/email-verification/confirm`,
@@ -378,6 +378,13 @@ Migrator'daki seed):
 - **Arama (Catalog):** Elasticsearch `ConnectionStrings:Search`, alias `catalog-titles`. Değişiklik `SearchIndexQueue`'ya aynı transaction'da yazılır, worker index'e taşır; arama `ISearchIndex` arkasında, Elasticsearch yoksa 503 `Search.Unavailable`, katalog okumaları etkilenmez. `HttpClient` değil transport ile düz JSON.
   Sonuçlar yazarken gelir: `/search` tam kelimeyi (`best_fields`, kök bulma) ve başlığın yazılmakta olan son kelimesini (`suggest.<dil>`,
   `search_as_you_type`, `bool_prefix`) birlikte eşler; tam kelime önde. Ayrı öneri ucu yok (`/search/suggest` Faz 8 sonunda kaldırıldı).
+- **Benzer ve önerilen (Catalog, Faz 9):** anonim `GET /titles/{id}/similar` ve `GET /titles/recommended?like=&unlike=&exclude=` (tekrarlanan
+  id; `like` 1–20 zorunlu, `unlike` ≤ 20, `exclude` ≤ 50; 400 `Recommendations.LikeRequired`/`TooManyIds`); ikisi de `lang`, `maxAgeRating`,
+  sayfa alır ve `/search` gibi `Page<SearchHit>` döner. Tek sorgu (`ISearchIndex.RecommendAsync`): Elasticsearch `more_like_this` (iki dilde
+  başlık + özet, `genreIds`, `people`; küçük katalog için `min_term_freq`/`min_doc_freq` 1), `unlike` ortak terimleri düşürür, verilen
+  id'lerin hiçbiri dönmez, popülerlik aramadaki gibi hafif öne çeker. Yayında olmayan başlığın benzeri boş; Elasticsearch yoksa 503
+  `Search.Unavailable`. Profili bilmez: id'leri web Streaming'in `taste`'inden geçirir. Metrik `netboxplus.catalog.recommendations`
+  (`kind`: `similar`/`recommended`, `result`: `found`/`empty`/`unavailable`), meter `NetBoxPlus.Catalog`.
   Mapping `dynamic: false`: sadece aranan alanlar mapping'de, gösterilenler (görsel adları) dokümanda saklanır. Dokümana sonradan
   eklenen alan opsiyoneldir (eski doküman hatasız okunur, değeri boş) ve var olan dokümanlara bir kez `Catalog.Migrator -- reindex`
   ile girer (compose'da `docker compose ... --profile app run --rm --no-deps catalog-migrator reindex`).

@@ -14,6 +14,7 @@ public static class CatalogApplicationServiceCollectionExtensions
         services.AddScoped<ContentEditor>();
         services.AddScoped<ContentReader>();
         services.AddScoped<ImageAttacher>();
+        services.AddSingleton<CatalogMetrics>();
         return services;
     }
 }

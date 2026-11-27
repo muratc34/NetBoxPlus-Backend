@@ -36,10 +36,16 @@ public sealed record SearchQuery(string Text, string Language, ContentKind? Kind
 
 public sealed record SearchResults(long Total, IReadOnlyList<SearchDocument> Items);
 
+/// <summary>Titles like the <paramref name="Like"/> ones and unlike the <paramref name="Unlike"/> ones; none of the given titles is returned.</summary>
+/// <param name="Exclude">Further titles to leave out, such as those already watched.</param>
+public sealed record RecommendQuery(IReadOnlyList<Guid> Like, IReadOnlyList<Guid> Unlike, IReadOnlyList<Guid> Exclude, int Offset, int Size, AgeRating? MaxAgeRating = null);
+
 /// <summary>Reads from the search index. Fails with <see cref="SearchUnavailableException"/> when it cannot answer.</summary>
 public interface ISearchIndex
 {
     Task<SearchResults> SearchAsync(SearchQuery query, CancellationToken cancellationToken);
+
+    Task<SearchResults> RecommendAsync(RecommendQuery query, CancellationToken cancellationToken);
 }
 
 public sealed class SearchUnavailableException(string message, Exception? innerException = null) : Exception(message, innerException);

@@ -233,6 +233,57 @@ internal sealed class ElasticSearchIndex(ElasticsearchClient client) : ISearchIn
         return new SearchResults(total, documents);
     }
 
+    public async Task<SearchResults> RecommendAsync(RecommendQuery query, CancellationToken cancellationToken)
+    {
+        // The given titles are compared in every language and by what they share: genres, people, words of the
+        // synopsis and the title (a sequel shares its name). A small catalog has few documents per term, so a term
+        // counts from its first occurrence. Terms the unliked titles share with the liked ones are dropped.
+        var moreLikeThis = new
+        {
+            fields = Languages.All.SelectMany(language => new[] { $"title.{language}", $"synopsis.{language}" }).Concat(["genreIds", "people"]).ToArray(),
+            like = query.Like.Select(id => new { _index = Alias, _id = id.ToString() }).ToArray(),
+            unlike = query.Unlike.Select(id => new { _index = Alias, _id = id.ToString() }).ToArray(),
+            min_term_freq = 1,
+            min_doc_freq = 1,
+            max_query_terms = 50,
+            minimum_should_match = "1",
+        };
+
+        var filters = new List<object>();
+        if (AgeFilter(query.MaxAgeRating) is { } ages)
+        {
+            filters.Add(ages);
+        }
+
+        var request = new
+        {
+            from = query.Offset,
+            size = query.Size,
+            track_total_hits = true,
+            query = new
+            {
+                // Popular titles come a little earlier, as in search.
+                function_score = new
+                {
+                    query = new
+                    {
+                        @bool = new
+                        {
+                            must = new object[] { new { more_like_this = moreLikeThis } },
+                            must_not = new object[] { new { ids = new { values = query.Like.Concat(query.Unlike).Concat(query.Exclude).Select(id => id.ToString()).Distinct().ToArray() } } },
+                            filter = filters,
+                        },
+                    },
+                    field_value_factor = new { field = "popularity", modifier = "log1p", factor = 1, missing = 0 },
+                    boost_mode = "sum",
+                },
+            },
+        };
+
+        var (documents, total) = await RunSearchAsync(request, cancellationToken).ConfigureAwait(false);
+        return new SearchResults(total, documents);
+    }
+
     // A document indexed before the field was mapped has no indexed age and matches no age filter, until
     // the index is rebuilt (Catalog.Migrator reindex); searches without the filter still find it.
     private static object? AgeFilter(AgeRating? maximum)
