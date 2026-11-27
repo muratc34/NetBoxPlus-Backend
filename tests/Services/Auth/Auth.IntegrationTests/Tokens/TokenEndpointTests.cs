@@ -21,7 +21,8 @@ public sealed class TokenEndpointTests
         Guid.CreateVersion7(),
         "jane@example.com",
         ["Editor"],
-        [ResourceServer.Permission]);
+        [ResourceServer.Permission],
+        Guid.CreateVersion7());
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 

@@ -20,7 +20,8 @@ public sealed class RefreshToken : Entity
         byte[] tokenHash,
         DateTimeOffset createdAt,
         DateTimeOffset expiresAt,
-        DateTimeOffset familyExpiresAt)
+        DateTimeOffset familyExpiresAt,
+        string? deviceLabel)
         : base(id)
     {
         UserId = userId;
@@ -30,6 +31,7 @@ public sealed class RefreshToken : Entity
         CreatedAt = createdAt;
         ExpiresAt = expiresAt;
         FamilyExpiresAt = familyExpiresAt;
+        DeviceLabel = deviceLabel;
     }
 
     /// <summary>Used by EF Core when materializing.</summary>
@@ -57,8 +59,15 @@ public sealed class RefreshToken : Entity
 
     public DateTimeOffset? RevokedAt { get; private set; }
 
+    /// <summary>
+    /// What the sign-in came from, such as "Chrome · Windows" (<see cref="DeviceLabels"/>), for the account's list of
+    /// devices; every token of the family carries it. Nothing more of the client is kept. <see langword="null"/> when
+    /// unknown, and for families started before it was recorded.
+    /// </summary>
+    public string? DeviceLabel { get; private set; }
+
     /// <summary>The first token of a new family, issued at sign-in.</summary>
-    public static RefreshToken Issue(Guid userId, SessionKind kind, byte[] tokenHash, DateTimeOffset now)
+    public static RefreshToken Issue(Guid userId, SessionKind kind, byte[] tokenHash, DateTimeOffset now, string? deviceLabel = null)
     {
         Ensure.NotEmpty(userId);
         CheckHash(tokenHash);
@@ -74,7 +83,8 @@ public sealed class RefreshToken : Entity
             tokenHash,
             now,
             Min(now + lifetime.Token, familyExpiresAt),
-            familyExpiresAt);
+            familyExpiresAt,
+            DeviceLabels.Clean(deviceLabel));
     }
 
     /// <summary>
@@ -94,7 +104,8 @@ public sealed class RefreshToken : Entity
             tokenHash,
             now,
             Min(now + RefreshTokenLifetime.For(Kind).Token, FamilyExpiresAt),
-            FamilyExpiresAt);
+            FamilyExpiresAt,
+            DeviceLabel);
     }
 
     /// <summary>Not used, not revoked and not expired.</summary>

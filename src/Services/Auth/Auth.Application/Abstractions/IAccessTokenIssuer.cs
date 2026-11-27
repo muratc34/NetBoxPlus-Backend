@@ -11,10 +11,12 @@ public interface IAccessTokenIssuer
 
 /// <param name="Roles">Role names, one <c>role</c> claim each.</param>
 /// <param name="Permissions">Granted permissions, one <c>permission</c> claim each.</param>
+/// <param name="SessionId">The sign-in (refresh token family) the token was issued for, as the <c>sid</c> claim.</param>
 public sealed record AccessTokenSubject(
     Guid UserId,
     string Email,
     IReadOnlyCollection<string> Roles,
-    IReadOnlyCollection<string> Permissions);
+    IReadOnlyCollection<string> Permissions,
+    Guid SessionId);
 
 public sealed record AccessToken(string Value, DateTimeOffset ExpiresAt);

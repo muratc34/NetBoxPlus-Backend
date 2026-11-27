@@ -9,11 +9,13 @@ using Microsoft.EntityFrameworkCore;
 namespace Auth.Application.Sessions;
 
 /// <summary>What a session hands the client: a short-lived access token and the refresh token that renews it.</summary>
+/// <param name="SessionId">The sign-in the pair belongs to (the refresh token family): the same for every renewal.</param>
 public sealed record TokenPair(
     string AccessToken,
     DateTimeOffset AccessTokenExpiresAt,
     string RefreshToken,
-    DateTimeOffset RefreshTokenExpiresAt);
+    DateTimeOffset RefreshTokenExpiresAt,
+    Guid SessionId);
 
 /// <summary>The role names and the union of their permissions, as they are now.</summary>
 internal sealed record Grants(IReadOnlyList<string> Roles, IReadOnlyList<string> Permissions)
@@ -50,11 +52,11 @@ internal sealed class SessionTokens(
             [.. roles.SelectMany(role => role.Permissions).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)]);
     }
 
-    /// <summary>A new session: the first token of a new family.</summary>
-    public TokenPair Start(User user, SessionKind kind, Grants grants)
+    /// <summary>A new session: the first token of a new family, named after the device it came from.</summary>
+    public TokenPair Start(User user, SessionKind kind, Grants grants, string? deviceLabel)
     {
         var value = NewValue();
-        return Complete(user, RefreshToken.Issue(user.Id, kind, Hash(value), timeProvider.GetUtcNow()), value, grants);
+        return Complete(user, RefreshToken.Issue(user.Id, kind, Hash(value), timeProvider.GetUtcNow(), deviceLabel), value, grants);
     }
 
     /// <summary>The same session, renewed: the next token of <paramref name="current"/>'s family.</summary>
@@ -68,8 +70,8 @@ internal sealed class SessionTokens(
     {
         refreshTokens.Add(refreshToken);
 
-        var accessToken = accessTokens.Issue(new AccessTokenSubject(user.Id, user.Email.Value, grants.Roles, grants.Permissions));
-        return new TokenPair(accessToken.Value, accessToken.ExpiresAt, value, refreshToken.ExpiresAt);
+        var accessToken = accessTokens.Issue(new AccessTokenSubject(user.Id, user.Email.Value, grants.Roles, grants.Permissions, refreshToken.FamilyId));
+        return new TokenPair(accessToken.Value, accessToken.ExpiresAt, value, refreshToken.ExpiresAt, refreshToken.FamilyId);
     }
 
     private static string NewValue() => Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(ValueLength));

@@ -92,7 +92,10 @@ internal sealed partial class SessionManager(
             pair.RefreshToken,
             pair.RefreshTokenExpiresAt,
             SessionSecrets.New(),
-            timeProvider.GetUtcNow());
+            timeProvider.GetUtcNow())
+        {
+            SessionId = pair.SessionId,
+        };
 
         await store.SaveAsync(id, session).ConfigureAwait(false);
         cookies.Write(context, kind, id);
@@ -123,6 +126,9 @@ internal sealed partial class SessionManager(
         await store.DeleteAsync(loaded.Id).ConfigureAwait(false);
         SessionCookies.Clear(context, loaded.Session.Kind);
     }
+
+    /// <summary>Forgets the browser session of a sign-in the auth service ended (another device), if there is one.</summary>
+    public Task ForgetSignInAsync(Guid sessionOfAuth) => store.DeleteSignInAsync(sessionOfAuth);
 
     /// <summary>Records the request on an admin session, which ends after an idle period.</summary>
     public Task TouchAsync(LoadedSession loaded)
@@ -184,13 +190,17 @@ internal sealed partial class SessionManager(
         }
     }
 
-    /// <summary>The session with a new token pair; everything else stays.</summary>
+    /// <summary>
+    /// The session with a new token pair; everything else stays. A password change gives the session a new sign-in id,
+    /// a refresh the same one.
+    /// </summary>
     public static BrowserSession WithTokens(BrowserSession session, TokenPair pair) => session with
     {
         AccessToken = pair.AccessToken,
         AccessTokenExpiresAt = pair.AccessTokenExpiresAt,
         RefreshToken = pair.RefreshToken,
         RefreshTokenExpiresAt = pair.RefreshTokenExpiresAt,
+        SessionId = pair.SessionId ?? session.SessionId,
     };
 
     private async Task<RefreshOutcome> AwaitAndForgetAsync(string id, Lazy<Task<RefreshOutcome>> refresh)

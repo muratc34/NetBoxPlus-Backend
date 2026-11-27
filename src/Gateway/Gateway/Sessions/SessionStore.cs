@@ -72,6 +72,12 @@ internal sealed class SessionStore(
         var transaction = valkey.Database.CreateTransaction();
         _ = transaction.HashSetAsync(key, [new(DataField, data), new(SeenField, session.LastSeenAt.ToUnixTimeMilliseconds())]);
         _ = transaction.KeyExpireAsync(key, TimeToLive(session));
+        if (session.SessionId is { } sessionOfAuth)
+        {
+            // Which stored session a sign-in is, for ending it from the list of devices; it expires with it.
+            _ = transaction.StringSetAsync(SignInKey(sessionOfAuth), key.ToString(), TimeToLive(session));
+        }
+
         await transaction.ExecuteAsync().ConfigureAwait(false);
     }
 
@@ -83,6 +89,22 @@ internal sealed class SessionStore(
             [session.LastSeenAt.ToUnixTimeMilliseconds(), (long)TimeToLive(session).TotalMilliseconds]);
 
     public Task DeleteAsync(string sessionId) => valkey.Database.KeyDeleteAsync(SessionKey(sessionId));
+
+    /// <summary>
+    /// Deletes the browser session of a sign-in the auth service ended, so that the browser is signed out at its next
+    /// request instead of when its access token runs out. Nothing happens when no session is known for it.
+    /// </summary>
+    public async Task DeleteSignInAsync(Guid sessionOfAuth)
+    {
+        var index = SignInKey(sessionOfAuth);
+        var session = await valkey.Database.StringGetAsync(index).ConfigureAwait(false);
+        if (session.IsNullOrEmpty)
+        {
+            return;
+        }
+
+        await valkey.Database.KeyDeleteAsync([(RedisKey)session.ToString(), index]).ConfigureAwait(false);
+    }
 
     /// <summary>
     /// Takes the session's lock for anything that replaces its tokens, so that two gateway instances
@@ -109,6 +131,8 @@ internal sealed class SessionStore(
     private static RedisKey SessionKey(string sessionId) => "gateway:session:" + Hash(sessionId);
 
     private static RedisKey LockKey(string sessionId) => "gateway:session-lock:" + Hash(sessionId);
+
+    private static RedisKey SignInKey(Guid sessionOfAuth) => "gateway:sign-in:" + sessionOfAuth.ToString("N");
 
     private static string Hash(string sessionId) => Base64Url.EncodeToString(SHA256.HashData(Encoding.ASCII.GetBytes(sessionId)));
 }

@@ -5,7 +5,7 @@ mikroservisler, servis başına Clean Architecture, ortak kod `src/BuildingBlock
 Her geliştirmeden sonra bu dosya ve ilgili doküman güncellenir.
 
 - Kararlar ve gerekçeleri: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- Aktif faz ve iş dökümü: [docs/PHASE-9.md](docs/PHASE-9.md) (bitenler: [docs/PHASE-0.md](docs/PHASE-0.md), [docs/PHASE-1.md](docs/PHASE-1.md), [docs/PHASE-2.md](docs/PHASE-2.md), [docs/PHASE-3.md](docs/PHASE-3.md), [docs/PHASE-4.md](docs/PHASE-4.md), [docs/PHASE-5.md](docs/PHASE-5.md), [docs/PHASE-6.md](docs/PHASE-6.md), [docs/PHASE-7.md](docs/PHASE-7.md), [docs/PHASE-8.md](docs/PHASE-8.md))
+- Aktif faz ve iş dökümü: [docs/PHASE-10.md](docs/PHASE-10.md) (bitenler: [docs/PHASE-0.md](docs/PHASE-0.md), [docs/PHASE-1.md](docs/PHASE-1.md), [docs/PHASE-2.md](docs/PHASE-2.md), [docs/PHASE-3.md](docs/PHASE-3.md), [docs/PHASE-4.md](docs/PHASE-4.md), [docs/PHASE-5.md](docs/PHASE-5.md), [docs/PHASE-6.md](docs/PHASE-6.md), [docs/PHASE-7.md](docs/PHASE-7.md), [docs/PHASE-8.md](docs/PHASE-8.md), [docs/PHASE-9.md](docs/PHASE-9.md))
 
 Bu dokümanlar **sadece lokalde** durur, repoya commit edilmez (`.gitignore`'da `/docs/*.md`).
 GitHub'da yokturlar; commit'lenen hiçbir dosya (README dahil) onlara link vermez.
@@ -262,7 +262,11 @@ Migrator'daki seed):
   denenmez. Şifre sıfırlama da burada (`/session/password-reset`, `/confirm`): oturum ve cookie
   istemez, Auth'un yanıtını aynen geçirir. E-posta değiştirme isteği `/session/email` (oturum + CSRF, Auth'un `/me/email`'ine,
   yanıt aynen; oturum değişmez). Hesap silme `/session/deletion` (oturum + CSRF, Auth'un `/me/deletion`'ına; başarıda
-  oturum Valkey'den silinir ve cookie temizlenir, Auth'a ayrıca sign-out gitmez). Parola alan veya e-posta gönderen uçlar `Credentials`
+  oturum Valkey'den silinir ve cookie temizlenir, Auth'a ayrıca sign-out gitmez). **Cihazlar** `/session/devices` (GET liste, `DELETE /{id}`
+  bir oturum, `DELETE` diğerlerinin hepsi; oturum + CSRF, Auth'un `/me/sessions`'ına, yanıt aynen): Auth bitirdikten sonra gateway o girişin
+  Valkey oturumunu **hemen** siler (`gateway:sign-in:{id}` → oturum anahtarı, oturumla aynı ömür), tarayıcı bir sonraki isteğinde girişe döner;
+  kendi oturumunu bitirmek çıkış gibi cookie'yi de temizler. Giriş, kayıt ve şifre değiştirmede tarayıcının `User-Agent`'ı Auth'a iletilir
+  (en fazla 512 karakter). Parola alan veya e-posta gönderen uçlar `Credentials`
   limitindedir. Ayarlar `ConnectionStrings:Valkey`, `Session`, `RateLimiting:Credentials`.
 - **Web sunucusu (SSR):** Next sunucusu `X-NetBoxPlus-Server-Key` ile tanınır (`ServerClient:Key`, en az 32 karakter;
   lokalde `GATEWAY_SERVER_KEY`), sadece `public` route'larda. İstek `X-Forwarded-For`'daki tek IP'nin kendi partition'ına
@@ -370,6 +374,12 @@ Migrator'daki seed):
   ilk müşteri oturumunu tek transaction'da açar (201, id + token çifti); gateway'in kaydı ayrıca `/sign-in` yapmaz (ikinci PBKDF2 yok). Giriş hatası her durumda `User.InvalidCredentials` (hesabın varlığı ve kilidi
   belli olmaz); bilinmeyen e-postada da bir hash doğrulanır. Tekrar kullanılan refresh token ailenin
   tamamını iptal eder.
+- **Oturumlar / cihazlar (Auth, Faz 10):** bir oturum = bir giriş = bir refresh token ailesi; token yanıtında `sessionId` (aile id),
+  erişim token'ında `sid` claim'i. Ailenin her token'ı `DeviceLabel` taşır (girişteki `User-Agent`'tan `DeviceLabels`: "Chrome · Windows";
+  ham UA ve IP saklanmaz, eski ailelerde boş). `GET /me/sessions` canlı aileler (kullanılmamış, iptal edilmemiş, süresi geçmemiş token'ı
+  olan), son etkinlik = son token'ın zamanı (refresh'te yenilenir, ayrı kolon yok), çağıranınki `current`. `DELETE /me/sessions/{id}`
+  (başkasının ya da bitmiş 404 `Session.NotFound`) ve `DELETE /me/sessions` (çağıranınki hariç; biten id'leri döner, `sid`'siz token'da
+  hepsi biter) iptali anında yapar (`RevokeFamilyAsync`).
 - **Admin (Auth):** `/admin/users` (`DELETE /admin/users/{id}` ayrı permission `auth:users:delete`), `/admin/roles`, `/admin/permissions`. Bir rolü oluşturan,
   değiştiren, silen, atayan veya kaldıran o rolün permission'larının hepsine sahip olmalı;
   `Administrator` sistem rolüdür (tüm permission'lar, API'den değişmez, seed katalogla eşitler).

@@ -9,7 +9,8 @@ using Shared.Domain;
 
 namespace Auth.Application.Users.Register;
 
-public sealed record RegisterCommand(string Email, string Password) : ICommand<RegisteredAccount>;
+/// <param name="DeviceLabel">What the sign-up came from, for the first session in the list of devices.</param>
+public sealed record RegisterCommand(string Email, string Password, string? DeviceLabel = null) : ICommand<RegisteredAccount>;
 
 /// <summary>The new account and its first customer session.</summary>
 public sealed record RegisteredAccount(Guid UserId, TokenPair Tokens);
@@ -56,6 +57,6 @@ internal sealed class RegisterHandler(IUserRepository users, IPasswordHasher has
         tokenIssuer.IssueEmailVerification(user.Id);
 
         var grants = await sessions.GetGrantsAsync(user, cancellationToken).ConfigureAwait(false);
-        return new RegisteredAccount(user.Id, sessions.Start(user, SessionKind.Customer, grants));
+        return new RegisteredAccount(user.Id, sessions.Start(user, SessionKind.Customer, grants, command.DeviceLabel));
     }
 }

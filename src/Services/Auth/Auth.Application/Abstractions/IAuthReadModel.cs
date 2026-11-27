@@ -1,3 +1,4 @@
+using Auth.Domain.RefreshTokens;
 using Auth.Domain.Roles;
 using Auth.Domain.Users;
 
@@ -9,6 +10,8 @@ public interface IAuthReadModel
     IQueryable<User> Users { get; }
 
     IQueryable<Role> Roles { get; }
+
+    IQueryable<RefreshToken> RefreshTokens { get; }
 
     /// <summary>
     /// Users whose e-mail address contains <paramref name="fragment"/>, ignoring case; the

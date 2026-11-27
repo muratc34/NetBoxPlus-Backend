@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Gateway.RateLimiting;
 using Gateway.Routing;
 using Microsoft.AspNetCore.Mvc;
@@ -21,6 +22,15 @@ public sealed record PasswordResetConfirmRequest(string? Token, string? NewPassw
 /// The signed-in user as the session's access token describes them, and the CSRF token for
 /// changing requests. Tokens themselves never leave the gateway.
 /// </summary>
+/// <summary>One of the account's sessions (sign-ins), as the auth service lists them.</summary>
+/// <param name="Kind">Customer or Admin.</param>
+/// <param name="DeviceLabel">Such as "Chrome · Windows"; null when it is not known.</param>
+/// <param name="Current">The session of the browser asking.</param>
+public sealed record DeviceSessionResponse(Guid Id, string Kind, string? DeviceLabel, DateTimeOffset SignedInAt, DateTimeOffset LastActiveAt, bool Current);
+
+/// <summary>The sessions that ended.</summary>
+public sealed record EndedSessionsResponse(IReadOnlyList<Guid> Ids);
+
 public sealed record SessionResponse(Guid UserId, string Email, IReadOnlyList<string> Roles, IReadOnlyList<string> Permissions, string CsrfToken);
 
 /// <summary>
@@ -84,6 +94,32 @@ internal static class SessionEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status429TooManyRequests)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+        customer.MapGet("/devices", GetDevicesAsync)
+            .WithName("GetDevices")
+            .WithSummary("The account's open sessions, one per sign-in, the most recently active first; this browser's is marked.")
+            .Produces<IReadOnlyList<DeviceSessionResponse>>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+        customer.MapDelete("/devices/{sessionId:guid}", EndDeviceAsync)
+            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(RouteGroups.Public, next))
+            .WithName("EndDevice")
+            .WithSummary("Signs one of the account's sessions out at once; this browser's own works like signing out.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+        customer.MapDelete("/devices", EndOtherDevicesAsync)
+            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(RouteGroups.Public, next))
+            .WithName("EndOtherDevices")
+            .WithSummary("Signs every other session of the account out at once; this one stays.")
+            .Produces<EndedSessionsResponse>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
         // No session and no cookie: the browser of someone who forgot the password. Rate-limited like
@@ -162,7 +198,7 @@ internal static class SessionEndpoints
         SessionManager sessions,
         CancellationToken cancellationToken)
     {
-        var result = await auth.SignInAsync(request.Email, request.Password, kind, cancellationToken);
+        var result = await auth.SignInAsync(request.Email, request.Password, kind, context.Request.Headers.UserAgent, cancellationToken);
         if (result.Pair is null)
         {
             return new AuthProblemResult(result);
@@ -183,7 +219,7 @@ internal static class SessionEndpoints
         [FromServices] SessionManager sessions,
         CancellationToken cancellationToken)
     {
-        var registered = await auth.RegisterAsync(request.Email, request.Password, cancellationToken);
+        var registered = await auth.RegisterAsync(request.Email, request.Password, context.Request.Headers.UserAgent, cancellationToken);
         if (registered.Pair is null)
         {
             return new AuthProblemResult(registered);
@@ -268,7 +304,7 @@ internal static class SessionEndpoints
             loaded,
             async current =>
             {
-                var result = await auth.ChangePasswordAsync(current.AccessToken, request.CurrentPassword, request.NewPassword, CancellationToken.None);
+                var result = await auth.ChangePasswordAsync(current.AccessToken, request.CurrentPassword, request.NewPassword, context.Request.Headers.UserAgent, CancellationToken.None);
                 return result.Pair is null
                     ? (null, new AuthProblemResult(result))
                     : (SessionManager.WithTokens(current, result.Pair), TypedResults.NoContent());
@@ -358,6 +394,83 @@ internal static class SessionEndpoints
         [FromServices] AuthClient auth,
         CancellationToken cancellationToken)
         => new AuthProblemResult(await auth.ResetPasswordAsync(request.Token, request.NewPassword, cancellationToken));
+
+    /// <summary>The account's sessions, as the auth service lists them.</summary>
+    private static Task<IResult> GetDevicesAsync(HttpContext context, [FromServices] AuthClient auth, [FromServices] SessionManager sessions)
+        => WithFreshSessionAsync(context, sessions, async (_, fresh) => new AuthJsonResult(await auth.GetSessionsAsync(fresh.AccessToken, context.RequestAborted)));
+
+    /// <summary>
+    /// Ends one session in the auth service, then forgets the browser session using it: that browser is signed out at
+    /// its next request. Ending this browser's own clears its cookie too. Not cancelled with the request: once the
+    /// auth service has ended it, the browser session must go.
+    /// </summary>
+    private static Task<IResult> EndDeviceAsync(Guid sessionId, HttpContext context, [FromServices] AuthClient auth, [FromServices] SessionManager sessions)
+        => WithFreshSessionAsync(context, sessions, async (loaded, fresh) =>
+        {
+            var result = await auth.EndSessionAsync(fresh.AccessToken, sessionId, CancellationToken.None);
+            if (result.IsSuccess)
+            {
+                await sessions.ForgetSignInAsync(sessionId);
+                if (fresh.SessionId == sessionId)
+                {
+                    await sessions.ForgetAsync(context, loaded);
+                }
+            }
+
+            return new AuthJsonResult(result);
+        });
+
+    /// <summary>Ends every other session in the auth service, then forgets the browser sessions using them.</summary>
+    private static Task<IResult> EndOtherDevicesAsync(HttpContext context, [FromServices] AuthClient auth, [FromServices] SessionManager sessions)
+        => WithFreshSessionAsync(context, sessions, async (loaded, fresh) =>
+        {
+            var result = await auth.EndOtherSessionsAsync(fresh.AccessToken, CancellationToken.None);
+            if (result.IsSuccess && result.Body is { } body
+                && JsonSerializer.Deserialize<EndedSessionsResponse>(body, JsonSerializerOptions.Web) is { } ended)
+            {
+                foreach (var id in ended.Ids)
+                {
+                    await sessions.ForgetSignInAsync(id);
+                }
+
+                // Without an id of its own (a session from before ids), this one ended with the others.
+                if (fresh.SessionId is not { } own || ended.Ids.Contains(own))
+                {
+                    await sessions.ForgetAsync(context, loaded);
+                }
+            }
+
+            return new AuthJsonResult(result);
+        });
+
+    /// <summary>
+    /// The common start of a request on the customer's own account: a session, the CSRF token for a change, and an
+    /// access token that is not about to run out.
+    /// </summary>
+    private static async Task<IResult> WithFreshSessionAsync(
+        HttpContext context,
+        SessionManager sessions,
+        Func<LoadedSession, BrowserSession, Task<IResult>> action)
+    {
+        var hadCookie = SessionCookies.Read(context, SessionKind.Customer) is not null;
+        if (await sessions.LoadAsync(context, SessionKind.Customer) is not { } loaded)
+        {
+            return Ended(context, SessionKind.Customer, hadCookie);
+        }
+
+        if (!RequestGuards.IsCsrfSafe(context, loaded.Session))
+        {
+            return GatewayProblem.CsrfInvalid;
+        }
+
+        var outcome = await sessions.EnsureFreshAsync(loaded);
+        if (outcome.Status != RefreshStatus.Fresh)
+        {
+            return outcome.Status == RefreshStatus.Ended ? Ended(context, SessionKind.Customer, hadCookie: true) : GatewayProblem.AuthUnavailable;
+        }
+
+        return NoStore(context, await action(loaded, outcome.Session!));
+    }
 
     private static IResult Ended(HttpContext context, SessionKind kind, bool hadCookie)
     {

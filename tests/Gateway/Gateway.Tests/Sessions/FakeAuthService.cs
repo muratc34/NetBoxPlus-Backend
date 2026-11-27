@@ -72,6 +72,15 @@ public sealed class FakeAuthService : IAsyncDisposable
     /// <summary>Addresses for which a password reset was asked.</summary>
     public ConcurrentQueue<string?> PasswordResetRequests { get; } = new();
 
+    /// <summary>The User-Agent each sign-in and registration came with.</summary>
+    public ConcurrentQueue<string?> UserAgents { get; } = new();
+
+    /// <summary>The session id of every sign-in and registration, in order.</summary>
+    public ConcurrentQueue<Guid> Sessions { get; } = new();
+
+    /// <summary>The sessions ended through <c>DELETE /me/sessions[/{id}]</c>.</summary>
+    public ConcurrentQueue<Guid> EndedSessions { get; } = new();
+
     /// <summary>The token the fake accepts for a password reset.</summary>
     public const string ResetToken = "valid-reset-token";
 
@@ -83,9 +92,53 @@ public sealed class FakeAuthService : IAsyncDisposable
         var app = builder.Build();
         var service = new FakeAuthService(app, time);
 
-        app.MapPost("/register", (Credentials request) => service.Register(request));
-        app.MapPost("/sign-in", (Credentials request) => service.SignIn(request, admin: false));
+        app.MapPost("/register", (HttpContext context, Credentials request) =>
+        {
+            service.UserAgents.Enqueue(context.Request.Headers.UserAgent.ToString());
+            return service.Register(request);
+        });
+        app.MapPost("/sign-in", (HttpContext context, Credentials request) =>
+        {
+            service.UserAgents.Enqueue(context.Request.Headers.UserAgent.ToString());
+            return service.SignIn(request, admin: false);
+        });
         app.MapPost("/sign-in/admin", (Credentials request) => service.SignIn(request, admin: true));
+
+        // Every session it issued belongs to whoever asks: enough to see the gateway pass the answers on.
+        app.MapGet("/me/sessions", (HttpContext context) =>
+        {
+            var current = SessionOf(context);
+            return Results.Ok(service.Sessions.Except(service.EndedSessions).Select(id => new
+            {
+                id,
+                kind = "Customer",
+                deviceLabel = "Chrome · Windows",
+                signedInAt = service.Time.GetUtcNow(),
+                lastActiveAt = service.Time.GetUtcNow(),
+                current = id == current,
+            }));
+        });
+        app.MapDelete("/me/sessions/{id:guid}", (Guid id) =>
+        {
+            if (!service.Sessions.Contains(id) || service.EndedSessions.Contains(id))
+            {
+                return Problem(404, "Session.NotFound");
+            }
+
+            service.EndedSessions.Enqueue(id);
+            return Results.NoContent();
+        });
+        app.MapDelete("/me/sessions", (HttpContext context) =>
+        {
+            var current = SessionOf(context);
+            var others = service.Sessions.Except(service.EndedSessions).Where(id => id != current).ToList();
+            foreach (var id in others)
+            {
+                service.EndedSessions.Enqueue(id);
+            }
+
+            return Results.Ok(new { ids = others });
+        });
         app.MapPost("/refresh", (RefreshRequest request) => service.RefreshAsync(request.RefreshToken));
         app.MapPost("/sign-out", (RefreshRequest request) =>
         {
@@ -97,7 +150,7 @@ public sealed class FakeAuthService : IAsyncDisposable
             var bearer = context.Request.Headers.Authorization.ToString()["Bearer ".Length..];
             service.PasswordChanges.Enqueue(bearer);
             return request.CurrentPassword == Password
-                ? Results.Ok(service.Issue(new Account(new JsonWebToken(bearer).Subject, "customer@example.com", false), service.RefreshedAccessTokenLifetime))
+                ? Results.Ok(service.Issue(new Account(new JsonWebToken(bearer).Subject, "customer@example.com", false, service.NewSession()), service.RefreshedAccessTokenLifetime))
                 : Problem(400, "User.PasswordIncorrect");
         });
 
@@ -134,11 +187,14 @@ public sealed class FakeAuthService : IAsyncDisposable
 
     public async ValueTask DisposeAsync() => await _app.DisposeAsync();
 
+    private static Guid? SessionOf(HttpContext context)
+        => Guid.TryParse(new JsonWebToken(context.Request.Headers.Authorization.ToString()["Bearer ".Length..]).GetClaim("sid").Value, out var id) ? id : null;
+
     private IResult SignIn(Credentials request, bool admin)
     {
         Interlocked.Increment(ref _signInCalls);
         return request.Password == Password && request.Email is not null
-            ? Results.Ok(Issue(new Account(Guid.CreateVersion7().ToString(), request.Email, admin), SignInAccessTokenLifetime))
+            ? Results.Ok(Issue(new Account(Guid.CreateVersion7().ToString(), request.Email, admin, NewSession()), SignInAccessTokenLifetime))
             : Problem(401, "User.InvalidCredentials");
     }
 
@@ -156,8 +212,8 @@ public sealed class FakeAuthService : IAsyncDisposable
             return Results.Created((string?)null, new { id });
         }
 
-        var pair = (TokenFields)Issue(new Account(id.ToString(), request.Email!, false), SignInAccessTokenLifetime);
-        return Results.Created((string?)null, new { id, pair.AccessToken, pair.AccessTokenExpiresAt, pair.RefreshToken, pair.RefreshTokenExpiresAt });
+        var pair = (TokenFields)Issue(new Account(id.ToString(), request.Email!, false, NewSession()), SignInAccessTokenLifetime);
+        return Results.Created((string?)null, new { id, pair.AccessToken, pair.AccessTokenExpiresAt, pair.RefreshToken, pair.RefreshTokenExpiresAt, pair.SessionId });
     }
 
     private async Task<IResult> RefreshAsync(string refreshToken)
@@ -180,7 +236,7 @@ public sealed class FakeAuthService : IAsyncDisposable
     private object Issue(Account account, TimeSpan accessTokenLifetime)
     {
         var now = Time.GetUtcNow();
-        var claims = new List<Claim> { new("sub", account.UserId), new("email", account.Email), new("jti", Guid.NewGuid().ToString()) };
+        var claims = new List<Claim> { new("sub", account.UserId), new("email", account.Email), new("jti", Guid.NewGuid().ToString()), new("sid", account.SessionId.ToString()) };
         claims.Add(new Claim("role", account.Admin ? "Administrator" : "Customer"));
         claims.Add(new Claim("permission", account.Admin ? "auth:users:read" : "catalog:movies:watch"));
 
@@ -196,15 +252,22 @@ public sealed class FakeAuthService : IAsyncDisposable
         var refreshToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
         _refreshTokens[refreshToken] = account;
 
-        return new TokenFields(accessToken, now + accessTokenLifetime, refreshToken, now + TimeSpan.FromDays(7));
+        return new TokenFields(accessToken, now + accessTokenLifetime, refreshToken, now + TimeSpan.FromDays(7), account.SessionId);
     }
 
     private static IResult Problem(int status, string code)
         => Results.Problem(statusCode: status, extensions: new Dictionary<string, object?> { ["code"] = code });
 
-    private sealed record Account(string UserId, string Email, bool Admin);
+    private Guid NewSession()
+    {
+        var id = Guid.CreateVersion7();
+        Sessions.Enqueue(id);
+        return id;
+    }
 
-    private sealed record TokenFields(string AccessToken, DateTimeOffset AccessTokenExpiresAt, string RefreshToken, DateTimeOffset RefreshTokenExpiresAt);
+    private sealed record Account(string UserId, string Email, bool Admin, Guid SessionId);
+
+    private sealed record TokenFields(string AccessToken, DateTimeOffset AccessTokenExpiresAt, string RefreshToken, DateTimeOffset RefreshTokenExpiresAt, Guid SessionId);
 
     public sealed record Credentials(string? Email, string? Password);
 

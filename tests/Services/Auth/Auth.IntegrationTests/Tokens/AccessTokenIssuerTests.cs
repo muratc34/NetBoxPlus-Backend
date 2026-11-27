@@ -17,7 +17,8 @@ public sealed class AccessTokenIssuerTests
         Guid.CreateVersion7(),
         "jane@example.com",
         ["Editor"],
-        ["auth:users:read", "auth:users:write"]);
+        ["auth:users:read", "auth:users:write"],
+        Guid.CreateVersion7());
 
     [Fact]
     public async Task Token_CarriesTheSubjectRolesAndPermissions()
@@ -38,6 +39,7 @@ public sealed class AccessTokenIssuerTests
         Assert.Equal(Jane.UserId.ToString(), token.Subject);
         Assert.Equal(Jane.Email, token.GetClaim("email").Value);
         Assert.True(Guid.TryParse(token.Id, out _));
+        Assert.Equal(Jane.SessionId.ToString(), token.GetClaim("sid").Value);
         Assert.Equal(["Editor"], token.Claims.Where(claim => claim.Type == "role").Select(claim => claim.Value));
         Assert.Equal(Jane.Permissions, token.Claims.Where(claim => claim.Type == "permission").Select(claim => claim.Value));
     }

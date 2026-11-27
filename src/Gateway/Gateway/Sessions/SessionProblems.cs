@@ -77,6 +77,26 @@ internal sealed record GatewayProblem(int StatusCode, string Code, string Detail
 }
 
 /// <summary>The auth service's own answer, passed through: its problem response, or an empty status.</summary>
+/// <summary>An answer of the auth service passed on as it is: JSON on success, its problem otherwise.</summary>
+internal sealed record AuthJsonResult(AuthJson Result) : IResult
+{
+    public async Task ExecuteAsync(HttpContext httpContext)
+    {
+        if (Result.IsUnavailable)
+        {
+            await GatewayProblem.AuthUnavailable.ExecuteAsync(httpContext).ConfigureAwait(false);
+            return;
+        }
+
+        httpContext.Response.StatusCode = Result.StatusCode;
+        if (Result.Body is { Length: > 0 } body)
+        {
+            httpContext.Response.ContentType = Result.IsSuccess ? "application/json" : "application/problem+json";
+            await httpContext.Response.WriteAsync(body).ConfigureAwait(false);
+        }
+    }
+}
+
 internal sealed record AuthProblemResult(AuthResult Result) : IResult
 {
     public async Task ExecuteAsync(HttpContext httpContext)
