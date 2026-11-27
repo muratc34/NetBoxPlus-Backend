@@ -171,7 +171,7 @@ internal static class SessionEndpoints
     /// The device a session is opened from, named from the <c>User-Agent</c>: the gateway passes on the browser's.
     /// Only the name is kept.
     /// </summary>
-    private static string? DeviceOf(HttpContext context) => DeviceLabels.FromUserAgent(context.Request.Headers.UserAgent);
+    internal static string? DeviceOf(HttpContext context) => DeviceLabels.FromUserAgent(context.Request.Headers.UserAgent);
 
     private static async Task<IResult> RefreshAsync(
         [FromBody] RefreshRequest request,

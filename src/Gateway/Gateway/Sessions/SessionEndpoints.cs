@@ -31,6 +31,23 @@ public sealed record DeviceSessionResponse(Guid Id, string Kind, string? DeviceL
 /// <summary>The sessions that ended.</summary>
 public sealed record EndedSessionsResponse(IReadOnlyList<Guid> Ids);
 
+/// <param name="Credential">The browser's PublicKeyCredential, as its toJSON() gives it.</param>
+public sealed record PasskeySignInRequest(Guid ChallengeId, JsonElement Credential);
+
+public sealed record PasskeyPasswordRequest(string? Password);
+
+/// <param name="Credential">The browser's PublicKeyCredential, as its toJSON() gives it.</param>
+public sealed record AddPasskeyRequest(Guid ChallengeId, string? Name, JsonElement Credential);
+
+public sealed record RenamePasskeyRequest(string? Name);
+
+/// <param name="Options">The PublicKeyCredentialCreationOptions or …RequestOptions JSON, for the browser's parse…FromJSON.</param>
+public sealed record PasskeyCeremonyResponse(Guid ChallengeId, JsonElement Options);
+
+public sealed record PasskeyResponse(Guid Id, string Name, DateTimeOffset CreatedAt, DateTimeOffset? LastUsedAt);
+
+public sealed record CreatedPasskeyResponse(Guid Id);
+
 public sealed record SessionResponse(Guid UserId, string Email, IReadOnlyList<string> Roles, IReadOnlyList<string> Permissions, string CsrfToken);
 
 /// <summary>
@@ -188,6 +205,117 @@ internal static class SessionEndpoints
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status429TooManyRequests);
+
+        MapPasskeys(group, kind, routeGroup, namePrefix);
+    }
+
+    /// <summary>Signing in with a passkey, and the account's passkeys; the same for both applications.</summary>
+    private static void MapPasskeys(RouteGroupBuilder group, SessionKind kind, string routeGroup, string namePrefix)
+    {
+        // Anyone may ask; it is limited like a sign-in, since each answer keeps a challenge for five minutes.
+        group.MapPost("/passkey/options", async ([FromServices] AuthClient auth, HttpContext context)
+                => NoStore(context, new AuthJsonResult(await auth.StartPasskeySignInAsync(context.RequestAborted))))
+            .RequireRateLimiting(RateLimitingServiceCollectionExtensions.CredentialsPolicy)
+            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(routeGroup, next))
+            .WithName(namePrefix + "StartPasskeySignIn")
+            .WithSummary("Options for signing in with a passkey (navigator.credentials.get); they work once, for five minutes.")
+            .Produces<PasskeyCeremonyResponse>()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+        group.MapPost("/passkey", async (
+                [FromBody] PasskeySignInRequest request,
+                HttpContext context,
+                [FromServices] AuthClient auth,
+                [FromServices] SessionManager sessions) =>
+            {
+                var result = await auth.PasskeySignInAsync(request, kind, context.Request.Headers.UserAgent, context.RequestAborted);
+                if (result.Pair is null)
+                {
+                    return (IResult)new AuthProblemResult(result);
+                }
+
+                var started = await sessions.StartAsync(context, kind, result.Pair);
+                return NoStore(context, TypedResults.Ok(Describe(started.Session)));
+            })
+            .RequireRateLimiting(RateLimitingServiceCollectionExtensions.CredentialsPolicy)
+            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(routeGroup, next))
+            .WithName(namePrefix + "PasskeySignIn")
+            .WithSummary("Signs in with the passkey that answered the options and opens a session; the browser gets the session cookie.")
+            .Produces<SessionResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+        group.MapGet("/passkeys", (HttpContext context, [FromServices] AuthClient auth, [FromServices] SessionManager sessions)
+                => WithFreshSessionAsync(context, sessions, kind, async (_, fresh) =>
+                    new AuthJsonResult(await auth.PasskeysAsync(HttpMethod.Get, string.Empty, fresh.AccessToken, null, context.RequestAborted))))
+            .RequireRateLimiting(routeGroup)
+            .WithName(namePrefix + "GetPasskeys")
+            .WithSummary("The account's passkeys, oldest first.")
+            .Produces<IReadOnlyList<PasskeyResponse>>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+        // Takes the password: limited like the password change.
+        group.MapPost("/passkeys/options", ([FromBody] PasskeyPasswordRequest request, HttpContext context, [FromServices] AuthClient auth, [FromServices] SessionManager sessions)
+                => WithFreshSessionAsync(context, sessions, kind, async (_, fresh) =>
+                    new AuthJsonResult(await auth.PasskeysAsync(HttpMethod.Post, "/options", fresh.AccessToken, request, context.RequestAborted))))
+            .RequireRateLimiting(RateLimitingServiceCollectionExtensions.CredentialsPolicy)
+            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(routeGroup, next))
+            .WithName(namePrefix + "StartPasskeyRegistration")
+            .WithSummary("Checks the password again and returns the options for creating a passkey (navigator.credentials.create).")
+            .Produces<PasskeyCeremonyResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+        group.MapPost("/passkeys", ([FromBody] AddPasskeyRequest request, HttpContext context, [FromServices] AuthClient auth, [FromServices] SessionManager sessions)
+                => WithFreshSessionAsync(context, sessions, kind, async (_, fresh) =>
+                    new AuthJsonResult(await auth.PasskeysAsync(HttpMethod.Post, string.Empty, fresh.AccessToken, request, CancellationToken.None))))
+            .RequireRateLimiting(routeGroup)
+            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(routeGroup, next))
+            .WithName(namePrefix + "AddPasskey")
+            .WithSummary("Adds the passkey the browser created for the options.")
+            .Produces<CreatedPasskeyResponse>(StatusCodes.Status201Created)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+        group.MapPut("/passkeys/{passkeyId:guid}", (Guid passkeyId, [FromBody] RenamePasskeyRequest request, HttpContext context, [FromServices] AuthClient auth, [FromServices] SessionManager sessions)
+                => WithFreshSessionAsync(context, sessions, kind, async (_, fresh) =>
+                    new AuthJsonResult(await auth.PasskeysAsync(HttpMethod.Put, $"/{passkeyId}", fresh.AccessToken, request, context.RequestAborted))))
+            .RequireRateLimiting(routeGroup)
+            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(routeGroup, next))
+            .WithName(namePrefix + "RenamePasskey")
+            .WithSummary("Renames one of the account's passkeys.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+
+        group.MapDelete("/passkeys/{passkeyId:guid}", (Guid passkeyId, HttpContext context, [FromServices] AuthClient auth, [FromServices] SessionManager sessions)
+                => WithFreshSessionAsync(context, sessions, kind, async (_, fresh) =>
+                    new AuthJsonResult(await auth.PasskeysAsync(HttpMethod.Delete, $"/{passkeyId}", fresh.AccessToken, null, CancellationToken.None))))
+            .RequireRateLimiting(routeGroup)
+            .AddEndpointFilterFactory((_, next) => RequestGuards.RequireAllowedOrigin(routeGroup, next))
+            .WithName(namePrefix + "RemovePasskey")
+            .WithSummary("Removes one of the account's passkeys.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
     }
 
     private static async Task<IResult> SignInAsync(
@@ -447,15 +575,22 @@ internal static class SessionEndpoints
     /// The common start of a request on the customer's own account: a session, the CSRF token for a change, and an
     /// access token that is not about to run out.
     /// </summary>
-    private static async Task<IResult> WithFreshSessionAsync(
+    private static Task<IResult> WithFreshSessionAsync(
         HttpContext context,
         SessionManager sessions,
         Func<LoadedSession, BrowserSession, Task<IResult>> action)
+        => WithFreshSessionAsync(context, sessions, SessionKind.Customer, action);
+
+    private static async Task<IResult> WithFreshSessionAsync(
+        HttpContext context,
+        SessionManager sessions,
+        SessionKind kind,
+        Func<LoadedSession, BrowserSession, Task<IResult>> action)
     {
-        var hadCookie = SessionCookies.Read(context, SessionKind.Customer) is not null;
-        if (await sessions.LoadAsync(context, SessionKind.Customer) is not { } loaded)
+        var hadCookie = SessionCookies.Read(context, kind) is not null;
+        if (await sessions.LoadAsync(context, kind) is not { } loaded)
         {
-            return Ended(context, SessionKind.Customer, hadCookie);
+            return Ended(context, kind, hadCookie);
         }
 
         if (!RequestGuards.IsCsrfSafe(context, loaded.Session))
@@ -466,7 +601,7 @@ internal static class SessionEndpoints
         var outcome = await sessions.EnsureFreshAsync(loaded);
         if (outcome.Status != RefreshStatus.Fresh)
         {
-            return outcome.Status == RefreshStatus.Ended ? Ended(context, SessionKind.Customer, hadCookie: true) : GatewayProblem.AuthUnavailable;
+            return outcome.Status == RefreshStatus.Ended ? Ended(context, kind, hadCookie: true) : GatewayProblem.AuthUnavailable;
         }
 
         return NoStore(context, await action(loaded, outcome.Session!));
