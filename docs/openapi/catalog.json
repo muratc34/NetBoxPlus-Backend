@@ -2840,7 +2840,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "pattern": "^(poster|backdrop)$",
+              "pattern": "^(poster|backdrop|logo)$",
               "type": "string"
             }
           }
@@ -2932,7 +2932,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "pattern": "^(poster|backdrop)$",
+              "pattern": "^(poster|backdrop|logo)$",
               "type": "string"
             }
           },
@@ -3019,7 +3019,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "pattern": "^(poster|backdrop)$",
+              "pattern": "^(poster|backdrop|logo)$",
               "type": "string"
             }
           }
@@ -3111,7 +3111,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "pattern": "^(poster|backdrop)$",
+              "pattern": "^(poster|backdrop|logo)$",
               "type": "string"
             }
           },
@@ -3740,6 +3740,7 @@
           "version",
           "posterUrl",
           "backdropUrl",
+          "logoUrl",
           "genres",
           "credits",
           "createdAt",
@@ -3813,6 +3814,13 @@
             "format": "uri"
           },
           "backdropUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
+          },
+          "logoUrl": {
             "type": [
               "null",
               "string"
@@ -4408,6 +4416,7 @@
           "runtimeMinutes",
           "posterUrl",
           "backdropUrl",
+          "logoUrl",
           "genres",
           "credits",
           "audioLanguages",
@@ -4461,6 +4470,13 @@
             "format": "uri"
           },
           "backdropUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
+          },
+          "logoUrl": {
             "type": [
               "null",
               "string"
@@ -4539,6 +4555,7 @@
           "ageRating",
           "posterUrl",
           "backdropUrl",
+          "logoUrl",
           "genres",
           "credits",
           "seasons",
@@ -4591,6 +4608,13 @@
             ],
             "format": "uri"
           },
+          "logoUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
+          },
           "genres": {
             "type": "array",
             "items": {
@@ -4633,6 +4657,7 @@
           "ageRating",
           "posterUrl",
           "backdropUrl",
+          "logoUrl",
           "genres"
         ],
         "type": "object",
@@ -4669,6 +4694,13 @@
             "format": "uri"
           },
           "backdropUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
+          },
+          "logoUrl": {
             "type": [
               "null",
               "string"
@@ -4773,6 +4805,7 @@
           "version",
           "posterUrl",
           "backdropUrl",
+          "logoUrl",
           "genres",
           "credits",
           "seasons",
@@ -4837,6 +4870,13 @@
             "format": "uri"
           },
           "backdropUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
+          },
+          "logoUrl": {
             "type": [
               "null",
               "string"
@@ -5037,6 +5077,7 @@
           "ageRating",
           "posterUrl",
           "backdropUrl",
+          "logoUrl",
           "genres"
         ],
         "type": "object",
@@ -5073,6 +5114,13 @@
             "format": "uri"
           },
           "backdropUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
+          },
+          "logoUrl": {
             "type": [
               "null",
               "string"

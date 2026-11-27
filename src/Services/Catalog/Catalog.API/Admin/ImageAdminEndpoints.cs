@@ -20,7 +20,7 @@ namespace Catalog.API.Admin;
 internal static class ImageAdminEndpoints
 {
     /// <summary>Lower case in the address; anything else is not a route.</summary>
-    private const string SlotRoute = "{slot:regex(^(poster|backdrop)$)}";
+    private const string SlotRoute = "{slot:regex(^(poster|backdrop|logo)$)}";
 
     public static IEndpointRouteBuilder MapImageAdminEndpoints(this IEndpointRouteBuilder endpoints)
     {
@@ -67,7 +67,12 @@ internal static class ImageAdminEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
-    private static ContentImageSlot Parse(string slot) => slot == "poster" ? ContentImageSlot.Poster : ContentImageSlot.Backdrop;
+    private static ContentImageSlot Parse(string slot) => slot switch
+    {
+        "poster" => ContentImageSlot.Poster,
+        "backdrop" => ContentImageSlot.Backdrop,
+        _ => ContentImageSlot.Logo,
+    };
 
     private static async Task<IResult> RequestUploadAsync([FromServices] IDispatcher dispatcher, CancellationToken cancellationToken)
         => (await dispatcher.Send(new RequestImageUploadCommand(), cancellationToken)).ToHttpResult();

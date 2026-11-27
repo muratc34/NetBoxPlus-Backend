@@ -51,6 +51,9 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
 
     public string? BackdropImage { get; private set; }
 
+    /// <summary>Name of the stored logo (transparent PNG or WebP); shown instead of the title's name where there is one.</summary>
+    public string? LogoImage { get; private set; }
+
     public IReadOnlyCollection<ContentTranslation> Translations => _translations.AsReadOnly();
 
     public IReadOnlyCollection<ContentGenre> Genres => _genres.AsReadOnly();
@@ -184,7 +187,12 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
     }
 
     /// <summary>The name of the image in that slot.</summary>
-    public string? ImageOf(ContentImageSlot slot) => slot == ContentImageSlot.Poster ? PosterImage : BackdropImage;
+    public string? ImageOf(ContentImageSlot slot) => slot switch
+    {
+        ContentImageSlot.Poster => PosterImage,
+        ContentImageSlot.Backdrop => BackdropImage,
+        _ => LogoImage,
+    };
 
     public void SetImage(ContentImageSlot slot, string imageName)
     {
@@ -272,13 +280,17 @@ public abstract class ContentItem : AggregateRoot, IAuditableEntity, ISoftDeleta
 
     private void Store(ContentImageSlot slot, string? imageName)
     {
-        if (slot == ContentImageSlot.Poster)
+        switch (slot)
         {
-            PosterImage = imageName;
-        }
-        else
-        {
-            BackdropImage = imageName;
+            case ContentImageSlot.Poster:
+                PosterImage = imageName;
+                break;
+            case ContentImageSlot.Backdrop:
+                BackdropImage = imageName;
+                break;
+            default:
+                LogoImage = imageName;
+                break;
         }
 
         MarkChanged();

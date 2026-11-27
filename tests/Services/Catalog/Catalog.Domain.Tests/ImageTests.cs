@@ -11,8 +11,10 @@ public sealed class ImageTests
     [InlineData(ImageUse.Backdrop, 3840, 2160)]
     [InlineData(ImageUse.Photo, 200, 200)]
     [InlineData(ImageUse.Photo, 200, 900)]
+    [InlineData(ImageUse.Logo, 200, 50)]
+    [InlineData(ImageUse.Logo, 1200, 1200)]
     public void Check_AcceptsImagesOfTheRightSizeAndShape(ImageUse use, int width, int height)
-        => Assert.True(ImageRules.Check(use, width, height).IsSuccess);
+        => Assert.True(ImageRules.Check(use, width, height, "image/png").IsSuccess);
 
     [Theory]
     [InlineData(ImageUse.Poster, 299, 450, "Image.TooSmall")]
@@ -23,8 +25,24 @@ public sealed class ImageTests
     [InlineData(ImageUse.Backdrop, 1500, 1500, "Image.WrongAspectRatio")]
     [InlineData(ImageUse.Poster, ImageRules.MaxPixels + 1, 12000, "Image.TooLarge")]
     [InlineData(ImageUse.Photo, 400, ImageRules.MaxPixels + 1, "Image.TooLarge")]
+    [InlineData(ImageUse.Logo, 199, 50, "Image.TooSmall")]
+    [InlineData(ImageUse.Logo, 200, 49, "Image.TooSmall")]
     public void Check_RefusesTheRest(ImageUse use, int width, int height, string code)
-        => Assert.Equal(code, ImageRules.Check(use, width, height).Error.Code);
+        => Assert.Equal(code, ImageRules.Check(use, width, height, "image/png").Error.Code);
+
+    [Theory]
+    [InlineData("image/png", true)]
+    [InlineData("image/webp", true)]
+    [InlineData("image/jpeg", false)]
+    public void ALogo_KeepsTransparency_OtherImagesNeedNot(string contentType, bool logoAllowed)
+    {
+        Assert.Equal(logoAllowed, ImageRules.Check(ImageUse.Logo, 600, 200, contentType).IsSuccess);
+        Assert.True(ImageRules.Check(ImageUse.Backdrop, 1280, 720, contentType).IsSuccess);
+        if (!logoAllowed)
+        {
+            Assert.Equal(ImageErrors.LogoNotTransparent, ImageRules.Check(ImageUse.Logo, 600, 200, contentType).Error);
+        }
+    }
 
     [Fact]
     public void Upload_IsUsableUntilItExpires()

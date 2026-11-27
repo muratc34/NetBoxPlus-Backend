@@ -381,6 +381,9 @@ Migrator'daki seed):
   ile girer (compose'da `docker compose ... --profile app run --rm --no-deps catalog-migrator reindex`).
 - **Listelerde görseller (Catalog):** `GET /titles`, `/search` ve `/search/suggest` hem `posterUrl` (2:3) hem `backdropUrl` (16:9) döner;
   görsel yoksa `null`. Arama dokümanındaki `backdropImage` Faz 8'de eklendi.
+- **Logo (Catalog):** film ve dizinin isteğe bağlı üçüncü görseli (`/images/logo`): başlığın kendine özgü yazısı, görsellerin üstüne çizilir.
+  Sadece PNG ya da WebP (şeffaflık; JPEG 400 `Image.LogoNotTransparent`), en az 200×50, oran serbest; yayındayken de kaldırılabilir. Liste,
+  arama, detay ve admin yanıtlarında `logoUrl`; arama dokümanına `logoImage` olarak eklendi (eski dokümanlara `reindex` ile girer).
 - **Id ile başlıklar (Catalog):** `GET /titles?ids=a&ids=b` (tekrarlanan parametre, en fazla 100; fazlası 400 `Titles.TooManyIds`) sadece o
   başlıkları döner; bilinmeyen ve yayında olmayan id atlanır, sıra listenin kendi sırası, diğer filtreler aynen. Başlığı id ile tutan
   Streaming listeleri (izlemeye devam et, Listem) için. Boş liste parametre olarak gitmez ve filtresiz liste döner: istemci boşken sormaz.

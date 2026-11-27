@@ -31,7 +31,12 @@ internal sealed class AttachMovieImageHandler(IMovieRepository repository, Image
             return version;
         }
 
-        var use = command.Slot == ContentImageSlot.Poster ? ImageUse.Poster : ImageUse.Backdrop;
+        var use = command.Slot switch
+        {
+            ContentImageSlot.Poster => ImageUse.Poster,
+            ContentImageSlot.Backdrop => ImageUse.Backdrop,
+            _ => ImageUse.Logo,
+        };
         var image = await attacher.ConsumeAsync(command.UploadId, use, cancellationToken).ConfigureAwait(false);
         if (image.IsFailure)
         {

@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Catalog.API.Admin;
 using Catalog.Application.Browse.GetPublishedMovie;
+using Catalog.Application.Browse.GetTitles;
 using Catalog.Application.Images.RequestImageUpload;
 using Catalog.Application.Movies.GetMovie;
 using Catalog.Application.People.GetPeople;
@@ -14,6 +15,7 @@ using Catalog.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NetBoxPlus.Testing;
+using Shared.Application.Paging;
 
 namespace Catalog.IntegrationTests.Admin;
 
@@ -220,6 +222,29 @@ public sealed class ImageApiTests(CatalogApiFixture api)
 
         Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/admin/movies/{movie}/images/backdrop?version={attached.Version}", Cancellation)).StatusCode);
         Assert.Null((await GetAsync(client, movie)).BackdropUrl);
+    }
+
+    [Fact]
+    public async Task Logo_MustKeepTransparency_ReachesCustomers_AndCanBeRemovedWhilePublished()
+    {
+        using var client = api.CreateClient(Everything);
+        using var visitor = api.CreateAnonymousClient();
+        var movie = await PublishedMovieAsync(client);
+
+        Assert.Equal("Image.LogoNotTransparent", await AttachCodeAsync(client, movie, "logo", TestImages.Jpeg(600, 200)));
+        Assert.Equal("Image.TooSmall", await AttachCodeAsync(client, movie, "logo", TestImages.Png(150, 60)));
+
+        Assert.Equal(HttpStatusCode.NoContent, (await AttachAsync(client, movie, "logo", await TestImages.UploadAsync(client, TestImages.Png(600, 200), Json, Cancellation))).StatusCode);
+        var attached = await GetAsync(client, movie);
+        Assert.NotNull(attached.LogoUrl);
+        Assert.Equal(attached.LogoUrl, (await ReadAsync<PublishedMovie>(await visitor.GetAsync($"/movies/{movie}", Cancellation))).LogoUrl);
+        var listed = await ReadAsync<Page<TitleSummary>>(await visitor.GetAsync($"/titles?ids={movie}", Cancellation));
+        Assert.Equal(attached.LogoUrl, Assert.Single(listed.Items).LogoUrl);
+
+        // Optional, unlike the poster: a published title can go without one.
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/admin/movies/{movie}/images/logo?version={attached.Version}", Cancellation)).StatusCode);
+        Assert.Null((await GetAsync(client, movie)).LogoUrl);
+        Assert.Null((await ReadAsync<PublishedMovie>(await visitor.GetAsync($"/movies/{movie}", Cancellation))).LogoUrl);
     }
 
     [Fact]
