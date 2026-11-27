@@ -45,7 +45,7 @@ internal sealed class ImageAttacher(
             return ImageErrors.UnsupportedType;
         }
 
-        var allowed = ImageRules.Check(use, image.Width, image.Height);
+        var allowed = ImageRules.Check(use, image.Width, image.Height, image.ContentType);
         if (allowed.IsFailure)
         {
             return allowed.Error;

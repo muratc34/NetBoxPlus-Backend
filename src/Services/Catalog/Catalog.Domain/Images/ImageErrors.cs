@@ -20,5 +20,7 @@ public static class ImageErrors
 
     public static readonly Error TooSmall = Error.Validation("Image.TooSmall", "The image has too few pixels for this use.");
 
+    public static readonly Error LogoNotTransparent = Error.Validation("Image.LogoNotTransparent", "A logo must be a PNG or WebP image, which keep transparency.");
+
     public static readonly Error WrongAspectRatio = Error.Validation("Image.WrongAspectRatio", "The image has the wrong shape for this use.");
 }

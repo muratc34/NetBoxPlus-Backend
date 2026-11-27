@@ -8,6 +8,7 @@ namespace Catalog.Application.Abstractions;
 /// The landscape image's name. Stored, not searched (the mapping is not dynamic), so adding it changed no mapping;
 /// documents indexed before it have none until they are indexed again (<c>Catalog.Migrator -- reindex</c>).
 /// </param>
+/// <param name="LogoImage">The logo's name; stored, not searched, and added later like <paramref name="BackdropImage"/>.</param>
 public sealed record SearchDocument(
     Guid Id,
     ContentKind Kind,
@@ -24,7 +25,8 @@ public sealed record SearchDocument(
     IReadOnlyList<SearchDocumentGenre> GenreList,
     IReadOnlyList<string> People,
     int Popularity = 0,
-    string? BackdropImage = null);
+    string? BackdropImage = null,
+    string? LogoImage = null);
 
 public sealed record SearchDocumentGenre(Guid Id, IReadOnlyDictionary<string, string> Names);
 

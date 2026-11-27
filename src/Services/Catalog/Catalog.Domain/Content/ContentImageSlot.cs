@@ -5,4 +5,7 @@ public enum ContentImageSlot
 {
     Poster,
     Backdrop,
+
+    /// <summary>The title's name as designed for it, drawn over its images; optional.</summary>
+    Logo,
 }

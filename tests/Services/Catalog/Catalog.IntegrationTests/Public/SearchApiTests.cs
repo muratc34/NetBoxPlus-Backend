@@ -165,7 +165,7 @@ public sealed class SearchApiTests(CatalogApiFixture api)
     }
 
     [Fact]
-    public async Task HitsAndSuggestions_CarryTheBackdrop_OnceTheTitleHasOne()
+    public async Task HitsAndSuggestions_CarryTheBackdropAndLogo_OnceTheTitleHasThem()
     {
         using var admin = api.CreateClient(Everything);
         using var visitor = api.CreateAnonymousClient();
@@ -173,9 +173,12 @@ public sealed class SearchApiTests(CatalogApiFixture api)
         var marker = $"qb{Guid.NewGuid():N}"[..14];
         var movie = await MovieAsync(admin, genre, $"{marker} Manzara");
         await IndexAsync();
-        Assert.Null(Assert.Single((await SearchAsync(visitor, marker, genre)).Items).BackdropUrl);
+        var before = Assert.Single((await SearchAsync(visitor, marker, genre)).Items);
+        Assert.Null(before.BackdropUrl);
+        Assert.Null(before.LogoUrl);
 
         await AttachBackdropAsync(admin, movie);
+        await AttachImageAsync(admin, movie, "logo", TestImages.Png(600, 200));
         await IndexAsync();
 
         var hit = Assert.Single((await SearchAsync(visitor, marker, genre)).Items);
@@ -183,7 +186,11 @@ public sealed class SearchApiTests(CatalogApiFixture api)
         Assert.NotNull(hit.BackdropUrl);
         Assert.NotEqual(hit.PosterUrl, hit.BackdropUrl);
         Assert.Equal(hit.BackdropUrl, suggested.BackdropUrl);
-        Assert.Equal((await ReadAsync<MovieDetails>(await admin.GetAsync($"/admin/movies/{movie}", Cancellation))).BackdropUrl, hit.BackdropUrl);
+        var details = await ReadAsync<MovieDetails>(await admin.GetAsync($"/admin/movies/{movie}", Cancellation));
+        Assert.Equal(details.BackdropUrl, hit.BackdropUrl);
+        Assert.NotNull(hit.LogoUrl);
+        Assert.Equal(details.LogoUrl, hit.LogoUrl);
+        Assert.Equal(hit.LogoUrl, suggested.LogoUrl);
     }
 
     [Fact]
@@ -440,11 +447,13 @@ public sealed class SearchApiTests(CatalogApiFixture api)
         return movie;
     }
 
-    private async Task AttachBackdropAsync(HttpClient admin, Guid movie)
+    private Task AttachBackdropAsync(HttpClient admin, Guid movie) => AttachImageAsync(admin, movie, "backdrop", TestImages.Backdrop());
+
+    private async Task AttachImageAsync(HttpClient admin, Guid movie, string slot, byte[] image)
     {
-        var upload = await TestImages.UploadAsync(admin, TestImages.Backdrop(), Json, Cancellation);
+        var upload = await TestImages.UploadAsync(admin, image, Json, Cancellation);
         var version = (await ReadAsync<MovieDetails>(await admin.GetAsync($"/admin/movies/{movie}", Cancellation))).Version;
-        Assert.True((await admin.PutAsJsonAsync($"/admin/movies/{movie}/images/backdrop", new AttachImageRequest(upload, version), Json, Cancellation)).IsSuccessStatusCode);
+        Assert.True((await admin.PutAsJsonAsync($"/admin/movies/{movie}/images/{slot}", new AttachImageRequest(upload, version), Json, Cancellation)).IsSuccessStatusCode);
     }
 
     private static async Task<Guid> PostAsync(HttpClient admin, string path, object body)

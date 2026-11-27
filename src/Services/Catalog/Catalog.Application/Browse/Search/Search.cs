@@ -27,6 +27,7 @@ public sealed record SearchTitlesQuery(string? Text, string Language, TitleKind?
 
 /// <param name="PosterUrl">The portrait image (2:3), when the title has one.</param>
 /// <param name="BackdropUrl">The landscape image (16:9), when the title has one; null for a document indexed before it was added, until the title is indexed again.</param>
+/// <param name="LogoUrl">The title's logo (transparent), when it has one; null for a document indexed before it was added, until the title is indexed again.</param>
 public sealed record SearchHit(
     Guid Id,
     TitleKind Kind,
@@ -36,6 +37,7 @@ public sealed record SearchHit(
     AgeRating AgeRating,
     Uri? PosterUrl,
     Uri? BackdropUrl,
+    Uri? LogoUrl,
     IReadOnlyList<GenreReference> Genres);
 
 internal sealed class SearchTitlesValidator : IValidator<SearchTitlesQuery>
@@ -101,6 +103,7 @@ internal static class SearchHits
             document.AgeRating,
             document.PosterImage is { } poster ? storage.PublicAddress(poster) : null,
             document.BackdropImage is { } backdrop ? storage.PublicAddress(backdrop) : null,
+            document.LogoImage is { } logo ? storage.PublicAddress(logo) : null,
             [.. document.GenreList.Select(genre => new GenreReference(genre.Id, genre.Names.GetValueOrDefault(language) ?? genre.Names[Languages.Default]))]);
     }
 }
