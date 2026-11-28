@@ -43,7 +43,7 @@
   </ItemGroup>
 
   <ItemGroup Label="Payments">
-    <PackageVersion Include="Stripe.net" Version="53.1.0" />
+    <PackageVersion Include="Stripe.net" Version="53.2.0" />
   </ItemGroup>
 
   <ItemGroup Label="E-mail">
