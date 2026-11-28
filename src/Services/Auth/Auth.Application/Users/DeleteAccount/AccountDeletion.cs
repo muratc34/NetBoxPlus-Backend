@@ -1,5 +1,4 @@
 using Auth.Contracts;
-using Auth.Domain.Passkeys;
 using Auth.Domain.RefreshTokens;
 using Auth.Domain.Users;
 using Auth.Domain.UserTokens;
@@ -8,14 +7,14 @@ using Shared.Application.Events;
 namespace Auth.Application.Users.DeleteAccount;
 
 /// <summary>What deleting an account does, whoever asks for it.</summary>
-internal sealed class AccountDeletion(IRefreshTokenRepository refreshTokens, IUserTokenRepository tokens, IPasskeyRepository passkeys, TimeProvider timeProvider)
+internal sealed class AccountDeletion(IRefreshTokenRepository refreshTokens, IUserTokenRepository tokens, TimeProvider timeProvider)
 {
     private static readonly UserTokenPurpose[] Purposes = Enum.GetValues<UserTokenPurpose>();
 
     /// <summary>
     /// Anonymizes the account and ends its sessions at once (access tokens already issued expire on
     /// their own; the services refuse a deleted user from their copies). Its e-mailed links stop working
-    /// with the save, and its passkeys are deleted.
+    /// with the save.
     /// </summary>
     public async Task DeleteAsync(User user, CancellationToken cancellationToken)
     {
@@ -31,7 +30,6 @@ internal sealed class AccountDeletion(IRefreshTokenRepository refreshTokens, IUs
         }
 
         await refreshTokens.RevokeAllForUserAsync(user.Id, now, cancellationToken).ConfigureAwait(false);
-        await passkeys.RemoveForUserAsync(user.Id, cancellationToken).ConfigureAwait(false);
     }
 }
 

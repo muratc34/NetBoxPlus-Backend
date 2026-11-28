@@ -44,7 +44,6 @@ app.MapProfileEndpoints();
 app.MapEmailVerificationEndpoints();
 app.MapPasswordResetEndpoints();
 app.MapEmailChangeEndpoints();
-app.MapPasskeyEndpoints();
 app.MapDefaultEndpoints();
 
 app.Run();

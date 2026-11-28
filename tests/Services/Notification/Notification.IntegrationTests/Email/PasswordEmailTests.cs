@@ -95,7 +95,11 @@ public sealed class PasswordEmailTests(NotificationDatabaseFixture database, Mai
 
         await SendDueAsync(services);
 
-        Assert.NotNull(await mailpit.FindAsync(address, ChangedSubject, Cancellation));
+        var received = await mailpit.FindAsync(address, ChangedSubject, Cancellation);
+        Assert.NotNull(received);
+
+        // An e-mail about the account itself cannot be turned off: it offers no one-click unsubscribe.
+        Assert.False((await mailpit.HeadersAsync(received, Cancellation)).ContainsKey("List-Unsubscribe"));
     }
 
     [Theory]

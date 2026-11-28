@@ -25,10 +25,6 @@ public enum EmailKind
 
     /// <summary>A sign-in from a device not seen lately; the only kind the user can turn off.</summary>
     NewSignIn,
-
-    PasskeyAdded,
-
-    PasskeyRemoved,
 }
 
 public enum EmailStatus

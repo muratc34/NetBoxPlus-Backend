@@ -268,9 +268,7 @@ Migrator'daki seed):
   bir oturum, `DELETE` diğerlerinin hepsi; oturum + CSRF, Auth'un `/me/sessions`'ına, yanıt aynen): Auth bitirdikten sonra gateway o girişin
   Valkey oturumunu **hemen** siler (`gateway:sign-in:{id}` → oturum anahtarı, oturumla aynı ömür), tarayıcı bir sonraki isteğinde girişe döner;
   kendi oturumunu bitirmek çıkış gibi cookie'yi de temizler. Giriş, kayıt ve şifre değiştirmede tarayıcının `User-Agent`'ı Auth'a iletilir
-  (en fazla 512 karakter). **Passkey** iki uygulamada da (`/session/...` ve `/admin/session/...`): `passkey/options` + `passkey` (anonim,
-  `Credentials` limiti; başarıda şifreli girişle aynı oturum açılır), `passkeys` (GET, `POST /options` şifreyle `Credentials` limitinde,
-  POST, `PUT`/`DELETE /{id}`; oturum + CSRF, Auth'un `/me/passkeys`'ine, yanıt aynen). **Profil kilidi** `POST /session/profiles/{id}/unlock`
+  (en fazla 512 karakter). **Profil kilidi** `POST /session/profiles/{id}/unlock`
   (oturum + CSRF, `Credentials` limiti): Auth'un `/profiles/{id}/unlock`'una gider, başarıda oturumu kilidi altında **hemen** yeniler (yeni
   erişim token'ı profili taşır); diğer yanıtlar aynen. Parola alan veya e-posta gönderen uçlar `Credentials`
   limitindedir. Ayarlar `ConnectionStrings:Valkey`, `Session`, `RateLimiting:Credentials`.
@@ -375,7 +373,7 @@ Migrator'daki seed):
   oynatma, fragman ve değerlendirme, Catalog öneri, Notification e-posta, gateway rate limit reddi. Health check servisinin logu Error seviyesinde: `Degraded` her probe'da tekrar
   loglanmaz (olayı izleyicisi bir kez loglar), `Unhealthy` loglanır. Container'lar metriği 15 sn'de bir gönderir.
 - **Auth endpoint'leri:** `/register`, `/sign-in`, `/sign-in/admin`, `/refresh`, `/sign-out`, `/me`,
-  `/me/password`, `/me/email`, `/me/deletion`, `/me/sessions`, `/me/passkeys`, `/sign-in/passkey`, `/email-verification` (GET durum, POST yeniden gönder), `/email-verification/confirm`,
+  `/me/password`, `/me/email`, `/me/deletion`, `/me/sessions`, `/email-verification` (GET durum, POST yeniden gönder), `/email-verification/confirm`,
   `/email-change/confirm`, `/password-reset`, `/password-reset/confirm` — token dönenler gateway'den proxy'lenmez, onları sadece gateway çağırır. `/register` hesabı ve
   ilk müşteri oturumunu tek transaction'da açar (201, id + token çifti); gateway'in kaydı ayrıca `/sign-in` yapmaz (ikinci PBKDF2 yok). Giriş hatası her durumda `User.InvalidCredentials` (hesabın varlığı ve kilidi
   belli olmaz); bilinmeyen e-postada da bir hash doğrulanır. Tekrar kullanılan refresh token ailenin
@@ -385,19 +383,8 @@ Migrator'daki seed):
   ham UA ve IP saklanmaz, eski ailelerde boş). `GET /me/sessions` canlı aileler (kullanılmamış, iptal edilmemiş, süresi geçmemiş token'ı
   olan), son etkinlik = son token'ın zamanı (refresh'te yenilenir, ayrı kolon yok), çağıranınki `current`. `DELETE /me/sessions/{id}`
   (başkasının ya da bitmiş 404 `Session.NotFound`) ve `DELETE /me/sessions` (çağıranınki hariç; biten id'leri döner, `sid`'siz token'da
-  hepsi biter) iptali anında yapar (`RevokeFamilyAsync`). Şifreli ya da passkey'li her giriş ve kayıt `SignedIn` yayınlar (`SessionTokens.SignIn`:
+  hepsi biter) iptali anında yapar (`RevokeFamilyAsync`). Her giriş ve kayıt `SignedIn` yayınlar (`SessionTokens.SignIn`:
   oturum id, cihaz etiketi, `Customer`/`Admin`, kayıtta `Registration: true`); refresh ve şifre değiştirme (`Start`) yayınlamaz.
-- **Passkey (Auth, Faz 10):** isteğe bağlı, herkese (müşteri ve admin); şifre çalışmaya devam eder. Fido2NetLib (`Fido2` 4.x, MIT) sadece
-  Infrastructure'da `IPasskeyCeremonies` arkasında; uygulama JSON metin ve byte görür. Passkey'ler keşfedilebilir (kullanıcı adı sorulmaz) ve
-  kullanıcı doğrulaması zorunlu; attestation istenmez; user handle hesap id'sinin 16 byte'ı. `UserPasskeys` (credential id unique, public key,
-  sayaç, ad ≤ 50, hesap başına en fazla 10; hesap silinince gider), `PasskeyChallenges` (gönderilen seçenekler, 5 dk, tek kullanımlık
-  `ExecuteUpdate` — denenen challenge başarısız olsa da kullanılmış kalır; süresi bir saat önce dolanları `SessionDataCleanup` saatte bir
-  siler). Kayıt `POST /me/passkeys/options` (şifre yeniden; yanlışsa başarısız giriş) → tarayıcı → `POST /me/passkeys`; `GET`, `PUT`/`DELETE
-  /me/passkeys/{id}`. Giriş `POST /sign-in/passkey/options` (anonim) → `POST /sign-in/passkey[/admin]`: her hata aynı 401
-  `Passkey.SignInFailed` (bilinmeyen anahtar, imza, kapalı hesap, admin yetkisi yok); şifre kilidi passkey'i durdurmaz; geri giden sayacı
-  Fido2NetLib reddeder. `PasskeyAdded`/`PasskeyRemoved` (`Auth.Contracts`) yayınlanır (Notification bildirim e-postası gönderir). Ayar
-  `Auth:Passkeys` (`RelyingPartyId`, `RelyingPartyName`, `Origins`; lokalde `localhost`, 5173 ve 5174; yoksa servis başlamaz). Testlerde
-  `TestAuthenticator` gerçek P-256 imzası ve "none" attestation üretir.
 - **Admin (Auth):** `/admin/users` (`DELETE /admin/users/{id}` ayrı permission `auth:users:delete`), `/admin/roles`, `/admin/permissions`. Bir rolü oluşturan,
   değiştiren, silen, atayan veya kaldıran o rolün permission'larının hepsine sahip olmalı;
   `Administrator` sistem rolüdür (tüm permission'lar, API'den değişmez, seed katalogla eşitler).
@@ -482,7 +469,7 @@ Migrator'daki seed):
   içerikle silinir; SMTP ve Brevo ikisi de gönderir); gövdedeki link web'in `unsubscribe?token=` onay sayfasına gider (GET bir şey değiştirmez).
   `POST /unsubscribe?token=` anonim; token `UnsubscribeLinks`'te sadece SHA-256 hash, 90 gün, tekrar tekrar çalışır; geçersiz ya da süresi
   geçmiş 400 `Unsubscribe.TokenInvalid`. 30 günden eski cihazlar ve süresi geçmiş linkler saatlik temizlikte, hesap silinince hepsi gider.
-  `PasskeyAdded`/`PasskeyRemoved` bildirim e-postası (passkey başına bir) işlem e-postasıdır: kapatılamaz, header taşımaz. Ayar
+  Diğer e-postalar işlem e-postasıdır: kapatılamaz, header taşımaz. Ayar
   `Notification:ApiBaseUrl` (servisin gateway'deki adresi; lokalde `http://localhost:5100/notification/`, `WebBaseUrl` gibi zorunlu).
 - **Eş zamanlı yazma:** kaydetmede yarışı kaybeden command (concurrency, unique, FK) 409 `Data.Conflict` alır. Düzenlenen
   aggregate'ler `Version` taşır; istemci yüklediği değeri geri gönderir (ör. Catalog `ContentItem`; orada `Version` kayıt başına

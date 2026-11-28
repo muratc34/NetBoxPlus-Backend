@@ -1,5 +1,4 @@
 using Auth.Application.Abstractions;
-using Auth.Domain.Passkeys;
 using Auth.Domain.RefreshTokens;
 using Auth.Domain.Roles;
 using Auth.Domain.Users;
@@ -21,10 +20,6 @@ public sealed class AuthDbContext(DbContextOptions<AuthDbContext> options)
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
-    public DbSet<UserPasskey> Passkeys => Set<UserPasskey>();
-
-    public DbSet<PasskeyChallenge> PasskeyChallenges => Set<PasskeyChallenge>();
-
     public DbSet<UserToken> UserTokens => Set<UserToken>();
 
     public DbSet<ProfileUnlock> ProfileUnlocks => Set<ProfileUnlock>();
@@ -34,8 +29,6 @@ public sealed class AuthDbContext(DbContextOptions<AuthDbContext> options)
     IQueryable<Role> IAuthReadModel.Roles => Roles.AsNoTracking();
 
     IQueryable<RefreshToken> IAuthReadModel.RefreshTokens => RefreshTokens.AsNoTracking();
-
-    IQueryable<UserPasskey> IAuthReadModel.Passkeys => Passkeys.AsNoTracking();
 
     // SQL rather than LINQ: the address is stored through a value conversion, which LINQ cannot
     // search inside. Stored addresses are lower case, so the fragment is lowered too.

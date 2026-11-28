@@ -1,7 +1,7 @@
 namespace Auth.Contracts;
 
 /// <summary>
-/// Someone signed in to the account, with the password or a passkey: a new session (refresh token family) began.
+/// Someone signed in to the account: a new session (refresh token family) began.
 /// Renewing a session or changing the password is not a sign-in.
 /// </summary>
 /// <param name="SessionId">The new sign-in, the same id the devices list shows.</param>
