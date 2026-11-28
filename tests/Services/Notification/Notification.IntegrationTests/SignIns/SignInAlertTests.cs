@@ -13,7 +13,7 @@ using Shared.Domain;
 
 namespace Notification.IntegrationTests.SignIns;
 
-/// <summary>Sign-ins from new devices, the preference that turns their alerts off, and the passkey notices.</summary>
+/// <summary>Sign-ins from new devices, and the preference that turns their alerts off.</summary>
 [Collection(nameof(NotificationDatabaseCollection))]
 public sealed class SignInAlertTests(NotificationDatabaseFixture database, MailpitFixture mailpit) : IClassFixture<MailpitFixture>
 {
@@ -147,35 +147,8 @@ public sealed class SignInAlertTests(NotificationDatabaseFixture database, Mailp
         Assert.Empty(await EmailsAsync(services, user, EmailKind.NewSignIn));
     }
 
-    [Fact]
-    public async Task APasskeyChange_SendsANoticeEach_ThatCannotBeTurnedOff()
-    {
-        Assert.SkipUnless(mailpit.IsAvailable, mailpit.SkipReason);
-        await using var services = await CreateServicesAsync();
-        var (user, address) = await RegisterAsync(services);
-        await SendAsync(services, new SetNotificationPreferencesCommand(user, false));
-        var passkey = Guid.CreateVersion7();
-
-        var added = new PasskeyAdded(user, passkey, "iPhone", Start, Start);
-        Assert.True((await DeliverAsync(services, added)).Result!.IsSuccess);
-        Assert.True((await DeliverAsync(services, added)).Result!.IsSuccess);
-        Assert.True((await DeliverAsync(services, new PasskeyRemoved(user, passkey, "iPhone", Start.AddHours(1), Start.AddHours(1)))).Result!.IsSuccess);
-
-        var notice = Assert.Single(await EmailsAsync(services, user, EmailKind.PasskeyAdded));
-        Assert.Contains("\"iPhone\" adlı bir passkey eklendi", notice.TextBody, StringComparison.Ordinal);
-        Assert.Null(notice.UnsubscribeUrl);
-        Assert.Contains("\"iPhone\" adlı passkey silindi", Assert.Single(await EmailsAsync(services, user, EmailKind.PasskeyRemoved)).TextBody, StringComparison.Ordinal);
-
-        await SendDueAsync(services);
-
-        var received = await mailpit.FindAsync(address, "Hesabına bir passkey eklendi", Cancellation);
-        Assert.False((await mailpit.HeadersAsync(received!, Cancellation)).ContainsKey("List-Unsubscribe"));
-    }
-
     [Theory]
     [InlineData(typeof(SignedIn), "Notification.Application.SignIns.RecordSignInOnSignedIn")]
-    [InlineData(typeof(PasskeyAdded), "Notification.Application.Emails.QueuePasskeyNotice.QueuePasskeyNoticeOnPasskeyChanged")]
-    [InlineData(typeof(PasskeyRemoved), "Notification.Application.Emails.QueuePasskeyNotice.QueuePasskeyNoticeOnPasskeyChanged")]
     public void TheHandlers_KeepTheirInboxKeys(Type message, string inboxKey)
     {
         var handlerType = typeof(IIntegrationEventHandler<>).MakeGenericType(message);

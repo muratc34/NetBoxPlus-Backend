@@ -59,17 +59,6 @@ internal sealed partial class AuthClient(IHttpClientFactory httpClientFactory, I
     public Task<AuthResult> ChangePasswordAsync(string accessToken, string? currentPassword, string? newPassword, string? userAgent, CancellationToken cancellationToken)
         => SendAsync(HttpMethod.Post, "/me/password", new { currentPassword, newPassword }, accessToken, cancellationToken, userAgent);
 
-    public Task<AuthJson> StartPasskeySignInAsync(CancellationToken cancellationToken)
-        => SendForJsonAsync(HttpMethod.Post, "/sign-in/passkey/options", null, cancellationToken, new { });
-
-    /// <param name="answer">The browser's challenge id and credential, passed on as they came.</param>
-    public Task<AuthResult> PasskeySignInAsync(object answer, SessionKind kind, string? userAgent, CancellationToken cancellationToken)
-        => SendAsync(HttpMethod.Post, kind == SessionKind.Admin ? "/sign-in/passkey/admin" : "/sign-in/passkey", answer, null, cancellationToken, userAgent);
-
-    /// <summary>The account's passkeys: listing, the options for adding one, adding, renaming and removing; answers passed on.</summary>
-    public Task<AuthJson> PasskeysAsync(HttpMethod method, string path, string accessToken, object? body, CancellationToken cancellationToken)
-        => SendForJsonAsync(method, "/me/passkeys" + path, accessToken, cancellationToken, body);
-
     public Task<AuthJson> UnlockProfileAsync(string accessToken, Guid profileId, string? pin, CancellationToken cancellationToken)
         => SendForJsonAsync(HttpMethod.Post, $"/profiles/{profileId}/unlock", accessToken, cancellationToken, new { pin });
 

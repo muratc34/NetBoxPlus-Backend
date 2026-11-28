@@ -212,33 +212,6 @@ internal static class EmailTemplates
             ("Yeni giriş uyarılarını kapat", turnOff));
     }
 
-    public static EmailContent PasskeyAdded(string name, DateTimeOffset addedAt, Uri security)
-    {
-        ArgumentNullException.ThrowIfNull(security);
-        var when = addedAt.ToUniversalTime().ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
-        return Render(
-            "Hesabına bir passkey eklendi",
-            [
-                $"NetBoxPlus hesabına {when} (UTC) tarihinde \"{name}\" adlı bir passkey eklendi. Artık bu passkey ile şifresiz giriş yapılabilir.",
-                "Bunu sen yaptıysan bir şey yapmana gerek yok.",
-                "Sen yapmadıysan passkey'i hemen sil ve şifreni değiştir.",
-            ],
-            ("Güvenlik ayarlarımı aç", security));
-    }
-
-    public static EmailContent PasskeyRemoved(string name, DateTimeOffset removedAt, Uri security)
-    {
-        ArgumentNullException.ThrowIfNull(security);
-        var when = removedAt.ToUniversalTime().ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
-        return Render(
-            "Hesabından bir passkey silindi",
-            [
-                $"NetBoxPlus hesabından {when} (UTC) tarihinde \"{name}\" adlı passkey silindi; bu passkey ile artık giriş yapılamaz.",
-                "Bunu sen yapmadıysan güvenlik ayarlarını kontrol et ve şifreni değiştir.",
-            ],
-            ("Güvenlik ayarlarımı aç", security));
-    }
-
     private static EmailContent Render(string subject, IReadOnlyList<string> paragraphs, (string Label, Uri Address)? action = null, (string Label, Uri Address)? turnOff = null)
     {
         var html = new StringBuilder();

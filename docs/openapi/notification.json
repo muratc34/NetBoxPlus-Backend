@@ -426,9 +426,7 @@
           "EmailChangeVerification",
           "EmailChanged",
           "AccountDeleted",
-          "NewSignIn",
-          "PasskeyAdded",
-          "PasskeyRemoved"
+          "NewSignIn"
         ]
       },
       "EmailStatus": {
